@@ -7,12 +7,13 @@ import { useAuth } from '@/lib/auth-context';
 import { listsApi, schoolsApi } from '@/services/api';
 import { School, Grade } from '@/lib/types';
 import { ImageValidationResult } from '@/lib/utils';
-import { ArrowRight, List, CheckCircle } from 'lucide-react';
+import { CheckCircle, List, Upload } from 'lucide-react';
+import Link from 'next/link';
 
 export default function UploadPage() {
   const { user } = useAuth();
   const router = useRouter();
-  
+
   const [schools, setSchools] = useState<School[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [selectedSchool, setSelectedSchool] = useState('');
@@ -24,32 +25,21 @@ export default function UploadPage() {
   const [uploadedListId, setUploadedListId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadSchools();
-  }, []);
+  useEffect(() => { loadSchools(); }, []);
 
   useEffect(() => {
-    if (selectedSchool) {
-      loadGrades(selectedSchool);
-    }
+    if (selectedSchool) { loadGrades(selectedSchool); }
+    else { setGrades([]); setSelectedGrade(''); }
   }, [selectedSchool]);
 
   const loadSchools = async () => {
-    try {
-      const data = await schoolsApi.getAll();
-      setSchools(data);
-    } catch (err) {
-      console.error('Error loading schools:', err);
-    }
+    try { const data = await schoolsApi.getAll(); setSchools(data); }
+    catch (err) { console.error('Error loading schools:', err); }
   };
 
   const loadGrades = async (schoolId: string) => {
-    try {
-      const data = await schoolsApi.getGrades(schoolId);
-      setGrades(data);
-    } catch (err) {
-      console.error('Error loading grades:', err);
-    }
+    try { const data = await schoolsApi.getGrades(schoolId); setGrades(data); }
+    catch (err) { console.error('Error loading grades:', err); }
   };
 
   const handleImageSelected = (file: File, validation: ImageValidationResult) => {
@@ -64,12 +54,7 @@ export default function UploadPage() {
 
   const handleUpload = async () => {
     if (!imageFile || !selectedSchool || !selectedGrade) {
-      setError('Por favor completa todos los campos');
-      return;
-    }
-
-    if (!user) {
-      setError('Debes iniciar sesión para subir una lista');
+      setError('Completa todos los campos y sube una imagen');
       return;
     }
 
@@ -79,7 +64,7 @@ export default function UploadPage() {
     try {
       const formData = new FormData();
       formData.append('file', imageFile);
-      formData.append('userId', user.id);
+      formData.append('userId', user?.id || '');
       formData.append('schoolId', selectedSchool);
       formData.append('gradeId', selectedGrade);
       formData.append('year', year.toString());
@@ -96,13 +81,14 @@ export default function UploadPage() {
 
   if (!user) {
     return (
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4">
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 bg-sky-100">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Inicia sesión para continuar</h2>
-          <p className="text-gray-600 mb-6">Necesitas estar registrado para subir tu lista de útiles.</p>
-          <a href="/login" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700">
-            Iniciar Sesión
-          </a>
+          <Upload className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Inicia sesion para subir tu lista</h2>
+          <p className="text-neutral-400 text-sm mb-6">Necesitas estar registrado para subir listas.</p>
+          <Link href="/login" className="bg-blue-500 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
+            Iniciar Sesion
+          </Link>
         </div>
       </div>
     );
@@ -110,33 +96,22 @@ export default function UploadPage() {
 
   if (uploadComplete && uploadedListId) {
     return (
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4">
-        <div className="max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="h-10 w-10 text-green-600" />
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 bg-sky-100">
+        <div className="max-w-md w-full text-center animate-scale-in">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+            <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">¡Lista subida exitosamente!</h2>
-          <p className="text-gray-600 mb-6">
-            Tu lista ha sido recibida y está siendo procesada. El proceso puede tomar entre 1 y 2 horas.
-            Te notificaremos cuando esté lista.
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Lista subida</h2>
+          <p className="text-neutral-400 text-sm mb-6">
+            Tu lista esta siendo procesada. Te notificaremos cuando este lista.
           </p>
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={() => router.push(`/my-lists`)}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center gap-2"
-            >
-              <List className="h-5 w-5" />
-              Ver mis listas
+          <div className="flex flex-col gap-3">
+            <button onClick={() => router.push('/my-lists')}
+              className="w-full bg-blue-500 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
+              <List className="h-4 w-4" /> Ver mis listas
             </button>
-            <button
-              onClick={() => {
-                setUploadComplete(false);
-                setImageFile(null);
-                setSelectedSchool('');
-                setSelectedGrade('');
-              }}
-              className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200"
-            >
+            <button onClick={() => { setUploadComplete(false); setImageFile(null); setSelectedSchool(''); setSelectedGrade(''); }}
+              className="w-full bg-white text-slate-700 py-3 rounded-xl font-medium text-sm shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] hover:shadow-md transition-shadow">
               Subir otra lista
             </button>
           </div>
@@ -146,109 +121,55 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-12 px-4">
-      <div className="text-center mb-12">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Subir Lista de Útiles</h1>
-        <p className="text-gray-600">
-          Sube una foto de la lista de tu hijo y nosotros procesaremos los productos automáticamente.
-        </p>
-      </div>
+    <div className="min-h-screen bg-sky-100">
+      <div className="max-w-3xl mx-auto py-6 px-4">
+        <h1 className="text-slate-900 text-2xl font-bold tracking-tight mb-1">Subir Foto de Lista</h1>
+        <p className="text-neutral-400 text-sm mb-6">Sube una foto y procesaremos los productos automaticamente.</p>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-        <div className="space-y-8">
-          {/* Step 1: Image Upload */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm">1</span>
-              Sube la imagen de tu lista
-            </h2>
-            <ImageUploader
-              onImageSelected={handleImageSelected}
-              onValidationError={handleValidationError}
-            />
-          </div>
-
-          {/* Step 2: School Selection */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm">2</span>
-              Selecciona el colegio
-            </h2>
-            <select
-              value={selectedSchool}
-              onChange={(e) => {
-                setSelectedSchool(e.target.value);
-                setSelectedGrade('');
-              }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Selecciona un colegio</option>
-              {schools.map((school) => (
-                <option key={school.id} value={school.id}>
-                  {school.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Step 3: Grade Selection */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm">3</span>
-              Selecciona el grado
-            </h2>
-            <select
-              value={selectedGrade}
-              onChange={(e) => setSelectedGrade(e.target.value)}
-              disabled={!selectedSchool}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-            >
-              <option value="">Selecciona un grado</option>
-              {grades.map((grade) => (
-                <option key={grade.id} value={grade.id}>
-                  {grade.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Year */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm">4</span>
-              Año lectivo
-            </h2>
-            <select
-              value={year}
-              onChange={(e) => setYear(parseInt(e.target.value))}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {[2024, 2025, 2026, 2027].map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
+        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 space-y-5 animate-slide-up">
+          {/* Selects en tabla */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">Colegio</label>
+              <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                <option value="">Seleccionar</option>
+                {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
             </div>
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">Grado</label>
+              <select value={selectedGrade} onChange={(e) => setSelectedGrade(e.target.value)} disabled={!selectedSchool}
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:text-neutral-400">
+                <option value="">Seleccionar</option>
+                {grades.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">Ano</label>
+              <select value={year} onChange={(e) => setYear(parseInt(e.target.value))}
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Image uploader */}
+          <ImageUploader onImageSelected={handleImageSelected} onValidationError={handleValidationError} />
+
+          {/* Error */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">{error}</div>
           )}
 
-          {/* Submit Button */}
-          <button
-            onClick={handleUpload}
+          {/* Submit */}
+          <button onClick={handleUpload}
             disabled={!imageFile || !selectedSchool || !selectedGrade || uploading}
-            className="w-full bg-blue-600 text-white py-4 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
+            className="w-full bg-blue-500 text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
             {uploading ? (
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <>
-                Subir Lista
-                <ArrowRight className="h-5 w-5" />
-              </>
+              <><Upload className="h-4 w-4" /> Subir Lista</>
             )}
           </button>
         </div>

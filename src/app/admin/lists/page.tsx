@@ -83,7 +83,7 @@ export default function AdminListsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {lists.map((list) => (
-                <tr key={list.id} className="hover:bg-gray-50">
+                <tr key={list.id} className="hover:bg-blue-50/30 transition-colors duration-150">
                   <td className="px-6 py-4 text-gray-900">{list.schoolName}</td>
                   <td className="px-6 py-4 text-gray-600">{list.gradeName}</td>
                   <td className="px-6 py-4 text-gray-600">{list.year}</td>

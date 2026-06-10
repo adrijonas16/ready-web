@@ -105,6 +105,17 @@ export const listsApi = {
   updateItem: (listId: string, itemId: string, data: any) =>
     api.put<boolean>(`/lists/${listId}/items/${itemId}`, data),
   reprocess: (id: string) => api.post<boolean>(`/lists/${id}/reprocess`),
+  updatePlan: (id: string, data: { plan: string; estudianteNombre?: string; estudianteGrado?: string }) =>
+    api.put<boolean>(`/lists/${id}/plan`, data),
+  addObservacion: (id: string, observacion: string) =>
+    api.post<boolean>(`/lists/${id}/observaciones`, { observacion }),
+  createFromText: (data: {
+    userId: string;
+    schoolId: string;
+    gradeId: string;
+    year: number;
+    items: { nombreOriginal: string; cantidad: number; notas?: string }[];
+  }) => api.post<any>('/lists/from-text', data),
 };
 
 // Products API
@@ -120,6 +131,12 @@ export const productsApi = {
   delete: (id: string) => api.delete<boolean>(`/products/${id}`),
 };
 
+// Brands API
+export const brandsApi = {
+  getAll: () => api.get<any[]>('/brands'),
+  create: (name: string, logoUrl?: string) => api.post<any>('/brands', { name, logoUrl }),
+};
+
 // Orders API
 export const ordersApi = {
   create: (order: any) => api.post<any>('/orders', order),
@@ -127,4 +144,6 @@ export const ordersApi = {
   getByUserId: (userId: string) => api.get<any[]>(`/orders/user/${userId}`),
   updateStatus: (id: string, status: string, notes?: string) =>
     api.put<boolean>(`/orders/${id}/status`, { status, notes }),
+  getAll: () => api.get<any[]>('/orders'),
+  getStats: () => api.get<any>('/orders/stats'),
 };

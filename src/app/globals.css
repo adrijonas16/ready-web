@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #e0f2fe;
+  --foreground: #0f172a;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
@@ -12,13 +15,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -26,9 +22,129 @@ body {
 }
 
 input, textarea, select {
-  color: #171717;
+  color: #0f172a;
 }
 
 input::placeholder, textarea::placeholder {
-  color: #9ca3af;
+  color: #a1a1aa;
+}
+
+/* ── Custom Animations ── */
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes cart-bounce {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.2); }
+}
+
+@keyframes check-pop {
+  0%   { transform: scale(0.8); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s var(--ease-spring) both;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s var(--ease-spring) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease both;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.25s var(--ease-spring) both;
+}
+
+.animate-cart-bounce {
+  animation: cart-bounce 0.35s var(--ease-spring);
+}
+
+.animate-check-pop {
+  animation: check-pop 0.35s var(--ease-spring) both;
+}
+
+/* Stagger children — 50ms intervals */
+.stagger-children > * {
+  animation: slide-up 0.3s var(--ease-spring) both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+.stagger-children > *:nth-child(9) { animation-delay: 400ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 450ms; }
+.stagger-children > *:nth-child(11) { animation-delay: 500ms; }
+.stagger-children > *:nth-child(12) { animation-delay: 550ms; }
+
+/* Skeleton loading shimmer */
+.skeleton {
+  background: linear-gradient(90deg, #e0e7ff 25%, #c7d2fe 50%, #e0e7ff 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 16px;
+}
+
+/* Smooth focus ring for inputs */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+/* Active press effect — pointer devices only */
+@media (hover: hover) and (pointer: fine) {
+  button:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+/* Smooth image loading */
+img {
+  transition: opacity 0.2s ease;
+}
+
+/* Scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

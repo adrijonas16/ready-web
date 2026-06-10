@@ -1,145 +1,114 @@
 import Link from 'next/link';
-import { Upload, ShoppingBag, Package, CheckCircle } from 'lucide-react';
+import { Upload, ShoppingBag, Package, CheckCircle, Search, Truck, ClipboardList, ArrowRight } from 'lucide-react';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500 text-white py-20 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full blur-3xl" />
-          <div className="absolute bottom-10 right-10 w-48 h-48 bg-yellow-300 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-300 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-sky-100">
+      {/* Location Banner */}
+      <div className="px-4 pt-4 max-w-7xl mx-auto">
+        <div className="bg-blue-500/10 rounded-2xl px-4 py-2.5 flex items-center gap-2.5">
+          <svg className="h-4 w-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <p className="text-xs text-blue-700"><span className="font-bold">Arequipa, Peru</span> — Proximamente en mas ciudades</p>
         </div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center">
-            <div className="flex justify-center gap-3 mb-6">
-              <span className="text-6xl">🎒</span>
-              <span className="text-6xl">✏️</span>
-              <span className="text-6xl">📚</span>
-            </div>
-            <h1 className="text-5xl md:text-7xl font-bold mb-6">
-              <span className="bg-gradient-to-r from-yellow-300 via-pink-300 to-purple-300 bg-clip-text text-transparent">
-                Ready
-              </span>
+      </div>
+
+      {/* Hero Banner */}
+      <section className="px-4 pt-6 pb-4 max-w-7xl mx-auto">
+        <div className="bg-gradient-to-br from-stone-900 to-neutral-700 rounded-[20px] shadow-[0px_7px_15px_0px_rgba(0,0,0,0.14)] overflow-hidden relative p-6 md:p-10 min-h-[200px]">
+          <div className="relative z-10 max-w-md">
+            <p className="text-white text-xs font-bold tracking-wider uppercase mb-1">READY 2026</p>
+            <h1 className="text-amber-300 text-3xl md:text-4xl font-bold leading-tight tracking-wide mb-2">
+              Utiles Escolares
             </h1>
-            <p className="text-xl md:text-2xl text-white/90 mb-8 max-w-2xl mx-auto">
-              Tu lista de útiles escolares favorita. Compra todo lo que necesitas para el año escolar de forma inteligente.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <p className="text-white text-base font-semibold mb-1">Todo lo que necesitas</p>
+            <p className="text-white/60 text-sm mb-6">para el ano escolar en un solo lugar</p>
+            <div className="flex gap-3">
               <Link
                 href="/lists"
-                className="inline-flex items-center gap-2 bg-white text-blue-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-50 transition-colors shadow-lg shadow-purple-500/30"
+                className="bg-amber-300 text-white px-5 py-2 rounded-lg font-semibold text-sm transition-shadow duration-200 hover:shadow-lg"
               >
-                <Package className="h-5 w-5" />
                 Ver Listas
               </Link>
               <Link
-                href="/catalog"
-                className="inline-flex items-center gap-2 bg-white/20 backdrop-blur text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/30 transition-colors"
+                href="/send-list"
+                className="bg-white/15 backdrop-blur-sm text-white px-5 py-2 rounded-lg font-semibold text-sm border border-white/20 transition-colors duration-150 hover:bg-white/25"
               >
-                <ShoppingBag className="h-5 w-5" />
-                Ver Catálogo
+                Enviar Lista
               </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* How it Works */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            ¿Cómo funciona?
-          </h2>
-          <div className="grid md:grid-cols-4 gap-8">
-            <div className="text-center p-6 rounded-2xl hover:bg-blue-50 transition-colors">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
-                <span className="text-4xl">📸</span>
+      {/* Trending / How it works */}
+      <section className="px-4 py-6 max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-slate-900 text-xl font-bold tracking-tight">Como funciona</h2>
+          <Link href="/catalog" className="text-zinc-500 text-xs flex items-center gap-1 bg-white rounded-sm px-2 py-1 hover:text-blue-500 transition-colors duration-150">
+            Ver catalogo
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
+          {[
+            { icon: Upload, title: 'Sube tu lista', desc: 'Foto o texto de la lista', color: 'bg-blue-500' },
+            { icon: Search, title: 'Procesamos', desc: 'Encontramos los productos', color: 'bg-blue-500' },
+            { icon: ShoppingBag, title: 'Agrega al carrito', desc: 'Revisa y personaliza', color: 'bg-blue-500' },
+            { icon: Truck, title: 'Recibe en casa', desc: 'Envio a domicilio', color: 'bg-blue-500' },
+          ].map((step, i) => (
+            <div key={i} className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.12)] p-5 text-center group transition-transform duration-200 hover:-translate-y-1">
+              <div className={`w-12 h-12 ${step.color} rounded-2xl flex items-center justify-center mx-auto mb-3 transition-transform duration-200 group-hover:scale-105`}>
+                <step.icon className="h-5 w-5 text-white" />
               </div>
-              <h3 className="font-bold text-lg mb-2">Sube tu lista</h3>
-              <p className="text-gray-600">Toma una foto de la lista de útiles de tu hijo</p>
+              <h3 className="font-bold text-sm text-slate-900 mb-1">{step.title}</h3>
+              <p className="text-xs text-neutral-400">{step.desc}</p>
             </div>
-            <div className="text-center p-6 rounded-2xl hover:bg-purple-50 transition-colors">
-              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/30">
-                <span className="text-4xl">🔍</span>
-              </div>
-              <h3 className="font-bold text-lg mb-2">Procesamos</h3>
-              <p className="text-gray-600">Encontramos los mejores productos para ti</p>
-            </div>
-            <div className="text-center p-6 rounded-2xl hover:bg-pink-50 transition-colors">
-              <div className="w-20 h-20 bg-gradient-to-br from-pink-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-pink-500/30">
-                <span className="text-4xl">🛒</span>
-              </div>
-              <h3 className="font-bold text-lg mb-2">Agrega al carrito</h3>
-              <p className="text-gray-600">Edita y personaliza tu pedido</p>
-            </div>
-            <div className="text-center p-6 rounded-2xl hover:bg-green-50 transition-colors">
-              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/30">
-                <span className="text-4xl">🚚</span>
-              </div>
-              <h3 className="font-bold text-lg mb-2">Recibe en casa</h3>
-              <p className="text-gray-600">Te enviamos todo listo para el año escolar</p>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
       {/* Features */}
-      <section className="py-16 bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-green-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-green-500/30">
-                <CheckCircle className="h-8 w-8 text-white" />
+      <section className="px-4 py-6 max-w-7xl mx-auto">
+        <h2 className="text-slate-900 text-xl font-bold tracking-tight mb-5">Por que Ready</h2>
+        <div className="grid md:grid-cols-3 gap-4 stagger-children">
+          {[
+            { icon: CheckCircle, title: 'Listas Oficiales', desc: 'Acceso directo a las listas de colegios asociados. Sin revision, compra inmediata.', bgColor: 'bg-green-100' },
+            { icon: Package, title: 'Gran Catalogo', desc: 'Miles de productos de las mejores marcas en un solo lugar.', bgColor: 'bg-violet-100' },
+            { icon: Truck, title: 'Envio a Domicilio', desc: 'Rastreo en tiempo real hasta que llega a tu puerta.', bgColor: 'bg-orange-100' },
+          ].map((feat, i) => (
+            <div key={i} className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.12)] p-6 group transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)]">
+              <div className={`w-14 h-14 ${feat.bgColor} rounded-2xl flex items-center justify-center mb-4 transition-transform duration-200 group-hover:scale-105`}>
+                <feat.icon className="h-6 w-6 text-slate-700" />
               </div>
-              <h3 className="font-bold text-xl mb-3 text-gray-900">Listas Oficiales</h3>
-              <p className="text-gray-600">
-                Acceso directo a las listas oficiales de colegios asociados. Sin revisión, compra inmediata.
-              </p>
+              <h3 className="font-bold text-base text-slate-900 mb-2">{feat.title}</h3>
+              <p className="text-sm text-neutral-400 leading-relaxed">{feat.desc}</p>
             </div>
-            <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-purple-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-purple-500/30">
-                <Package className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="font-bold text-xl mb-3 text-gray-900">Gran Catálogo</h3>
-              <p className="text-gray-600">
-                Miles de productos de las mejores marcas. Encuentra todo lo que necesitas en un solo lugar.
-              </p>
-            </div>
-            <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-16 h-16 bg-gradient-to-br from-orange-400 to-orange-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-orange-500/30">
-                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-xl mb-3 text-gray-900">Seguimiento</h3>
-              <p className="text-gray-600">
-                Rastreo en tiempo real de tu pedido desde que se prepara hasta que llega a tu puerta.
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
       {/* CTA */}
-      <section className="py-16 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">¿Listo para empezar?</h2>
-          <p className="text-xl text-white/80 mb-8">Explora nuestro catálogo o busca tu lista de útiles escolares</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+      <section className="px-4 py-6 pb-10 max-w-7xl mx-auto">
+        <div className="bg-blue-500 rounded-[20px] p-8 text-white text-center shadow-lg shadow-blue-500/20">
+          <h2 className="text-2xl font-bold mb-2">Listo para empezar?</h2>
+          <p className="text-white/70 mb-6 text-sm">Envia tu lista de utiles o explora nuestro catalogo</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              href="/lists"
-              className="bg-white text-blue-600 px-8 py-4 rounded-xl font-bold hover:bg-blue-50 transition-colors"
+              href="/send-list"
+              className="bg-white text-blue-500 px-6 py-3 rounded-xl font-bold text-sm transition-shadow duration-200 hover:shadow-xl inline-flex items-center justify-center gap-2"
             >
-              Explorar Listas
+              <ClipboardList className="h-4 w-4" />
+              Enviar mi Lista
             </Link>
             <Link
               href="/catalog"
-              className="bg-white/20 backdrop-blur px-8 py-4 rounded-xl font-bold hover:bg-white/30 transition-colors"
+              className="bg-white/15 backdrop-blur-sm px-6 py-3 rounded-xl font-bold text-sm border border-white/20 transition-colors duration-150 hover:bg-white/25 inline-flex items-center justify-center gap-2"
             >
-              Ver Catálogo
+              <ShoppingBag className="h-4 w-4" />
+              Ver Catalogo
             </Link>
           </div>
         </div>

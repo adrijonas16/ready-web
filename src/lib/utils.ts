@@ -23,9 +23,9 @@ export async function validateImage(file: File): Promise<ImageValidationResult> 
       width = img.width;
       height = img.height;
 
-      // Check minimum resolution
-      if (width < 1024 || height < 1024) {
-        errors.push('La imagen debe tener al menos 1024x1024 píxeles');
+      // Check minimum resolution — only reject very tiny images
+      if (width < 200 || height < 200) {
+        errors.push('La imagen es muy pequena. Intenta con una foto de mejor calidad.');
       }
 
       // Calculate brightness and blur
@@ -61,14 +61,14 @@ export async function validateImage(file: File): Promise<ImageValidationResult> 
         brightness = totalBrightness / pixelCount;
         blurScore = variance / pixelCount;
 
-        // Check brightness
-        if (brightness < 50) {
-          errors.push('La imagen está muy oscura. Asegúrate de que haya buena iluminación.');
+        // Only warn for extremely dark images
+        if (brightness < 20) {
+          errors.push('La imagen esta muy oscura. Intenta con mejor iluminacion.');
         }
 
-        // Check blur (Laplacian variance approach)
-        if (blurScore < 100) {
-          errors.push('La imagen parece estar desenfocada. Intenta tomar una foto más nítida.');
+        // Only warn for extremely blurry images
+        if (blurScore < 15) {
+          errors.push('La imagen parece muy borrosa. Intenta una foto mas nitida.');
         }
       }
 

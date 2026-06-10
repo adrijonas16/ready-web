@@ -76,8 +76,8 @@ export default function ImageUploader({ onImageSelected, onValidationError }: Im
         onDragLeave={handleDragLeave}
         onClick={() => !preview && fileInputRef.current?.click()}
         className={`
-          relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
-          ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'}
+          relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-300
+          ${isDragging ? 'border-blue-500 bg-blue-50/60 scale-[1.01]' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/30'}
           ${preview ? 'cursor-default' : ''}
         `}
       >
@@ -145,28 +145,8 @@ export default function ImageUploader({ onImageSelected, onValidationError }: Im
               <ul className={`mt-2 text-sm ${validation.isValid ? 'text-green-700' : 'text-red-700'}`}>
                 <li className="flex items-center gap-2">
                   <ImageIcon className="h-4 w-4" />
-                  Resolución: {validation.width} x {validation.height} px
-                  {validation.width >= 1024 && validation.height >= 1024 ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <span className="text-red-600 text-xs">Mínimo 1024x1024</span>
-                  )}
-                </li>
-                <li className="flex items-center gap-2">
-                  Brillo: {validation.brightness.toFixed(0)}%
-                  {validation.brightness >= 50 ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <span className="text-red-600 text-xs">Muy oscuro</span>
-                  )}
-                </li>
-                <li className="flex items-center gap-2">
-                  Nitidez: {validation.blurScore.toFixed(0)}
-                  {validation.blurScore >= 100 ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <span className="text-red-600 text-xs">Desenfocado</span>
-                  )}
+                  {validation.width} x {validation.height} px
+                  <CheckCircle className="h-4 w-4 text-green-600" />
                 </li>
               </ul>
               {!validation.isValid && (

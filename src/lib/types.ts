@@ -52,6 +52,10 @@ export interface SupplyList {
   esOficial: boolean;
   observaciones?: string;
   submittedBy?: string;
+  userObservaciones?: string;
+  plan?: string;
+  estudianteNombre?: string;
+  estudianteGrado?: string;
   fechaSubida?: string;
   fechaInicioRevision?: string;
   fechaValidacion?: string;
@@ -65,10 +69,19 @@ export interface SupplyItem {
   nombreDetectado?: string;
   cantidad: number;
   notas?: string;
+  userNotas?: string;
+  userCustomQuantity?: number;
   matchedProductId?: string;
   matchedProduct?: Product;
   matchedQuantity?: number;
   priceAtMatch?: number;
+  forro?: boolean;
+  forroColor?: string;
+  etiqueta?: string;
+  etiquetaDibujo?: boolean;
+  caratula?: boolean;
+  caratulaCurso?: string;
+  datosEstudiante?: string;
 }
 
 export interface ListDetail {
@@ -87,6 +100,8 @@ export interface Product {
   imageUrl?: string;
   stock: number;
   attributes?: string;
+  rating?: number;
+  tier?: string;
 }
 
 export interface CartItem {

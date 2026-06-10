@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ready - Útiles Escolares",
-  description: "Plataforma para compra de útiles escolares con generación automática de listas",
+  title: "Ready - Utiles Escolares",
+  description: "Plataforma para compra de utiles escolares con generacion automatica de listas",
 };
 
 export default function RootLayout({
@@ -26,15 +26,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="min-h-screen bg-gray-50 flex flex-col">
+    <html lang="es" className={`${geistSans.variable} ${geistMono.variable}`} style={{ colorScheme: 'light' }}>
+      <body className="min-h-screen bg-sky-100 flex flex-col antialiased">
         <AuthProvider>
           <CartProvider>
             <Header />
             <main className="flex-1">{children}</main>
-            <footer className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white py-8">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <p className="text-white/90">© 2026 Ready. Todos los derechos reservados.</p>
+            <footer className="bg-white/60 backdrop-blur-sm py-6">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-blue-500 rounded-xl flex items-center justify-center">
+                      <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </div>
+                    <span className="font-bold text-slate-900">Ready</span>
+                  </div>
+                  <p className="text-slate-400 text-sm">&copy; 2026 Ready. Todos los derechos reservados.</p>
+                </div>
               </div>
             </footer>
           </CartProvider>

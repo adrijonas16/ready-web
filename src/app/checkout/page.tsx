@@ -7,11 +7,89 @@ import { useAuth } from '@/lib/auth-context';
 import { ordersApi } from '@/services/api';
 import { formatPrice } from '@/lib/utils';
 import Link from 'next/link';
-import { CheckCircle, Package, ShoppingCart, ArrowRight, Loader2, MapPin, Phone } from 'lucide-react';
+import { CheckCircle, Package, ShoppingCart, ArrowRight, Loader2, MapPin, Phone, MessageSquare, CreditCard, Lock } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false });
+
+// ── Payment Method Selector ──
+function PaymentMethodSelector({ selected, onSelect }: { selected: string; onSelect: (m: string) => void }) {
+  const methods = [
+    { id: 'yape', label: 'Yape', icon: 'Y', bg: 'bg-purple-600', border: 'border-purple-200', activeBg: 'bg-purple-50' },
+    { id: 'plin', label: 'Plin', icon: 'P', bg: 'bg-green-500', border: 'border-green-200', activeBg: 'bg-green-50' },
+    { id: 'card', label: 'Tarjeta', icon: '💳', bg: 'bg-slate-700', border: 'border-slate-200', activeBg: 'bg-slate-50' },
+    { id: 'paypal', label: 'PayPal', icon: 'PP', bg: 'bg-sky-600', border: 'border-sky-200', activeBg: 'bg-sky-50' },
+  ];
+
+  return (
+    <div className="grid grid-cols-4 gap-2 mb-4">
+      {methods.map(m => (
+        <button key={m.id} onClick={() => onSelect(m.id)}
+          className={`p-3 rounded-xl border-2 text-center transition-all duration-150 ${
+            selected === m.id ? `${m.border} ${m.activeBg} scale-[1.02]` : 'border-transparent bg-slate-50 hover:bg-slate-100'
+          }`}>
+          <div className={`w-8 h-8 ${m.bg} rounded-lg flex items-center justify-center text-white text-[10px] font-bold mx-auto mb-1`}>
+            {m.icon}
+          </div>
+          <p className={`text-[10px] font-medium ${selected === m.id ? 'text-slate-900' : 'text-neutral-400'}`}>{m.label}</p>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Interactive Credit Card ──
+function CreditCardVisual({ number, name, expiry, flipped }: { number: string; name: string; expiry: string; flipped: boolean }) {
+  const formatNumber = (n: string) => {
+    const clean = n.replace(/\D/g, '').padEnd(16, '*');
+    return `${clean.slice(0, 4)} ${clean.slice(4, 8)} ${clean.slice(8, 12)} ${clean.slice(12, 16)}`;
+  };
+
+  return (
+    <div className="perspective-[1000px] w-full max-w-sm mx-auto mb-6">
+      <div className={`relative w-full h-48 transition-transform duration-500 transform-style-preserve-3d ${flipped ? '[transform:rotateY(180deg)]' : ''}`}
+        style={{ transformStyle: 'preserve-3d' }}>
+        {/* Front */}
+        <div className="absolute inset-0 rounded-[20px] bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 p-6 text-white shadow-[0px_10px_30px_-5px_rgba(0,0,0,0.3)] backface-hidden"
+          style={{ backfaceVisibility: 'hidden' }}>
+          <div className="flex items-center justify-between mb-8">
+            <div className="w-12 h-8 bg-gradient-to-br from-yellow-300 to-yellow-500 rounded-md opacity-80" />
+            <div className="flex gap-1">
+              <div className="w-6 h-6 bg-red-500 rounded-full opacity-80" />
+              <div className="w-6 h-6 bg-orange-400 rounded-full opacity-80 -ml-3" />
+            </div>
+          </div>
+          <p className="text-xl font-mono tracking-[3px] mb-6">{formatNumber(number)}</p>
+          <div className="flex justify-between items-end">
+            <div>
+              <p className="text-[9px] text-white/50 uppercase mb-0.5">Titular</p>
+              <p className="text-sm font-medium tracking-wide">{name || 'TU NOMBRE'}</p>
+            </div>
+            <div>
+              <p className="text-[9px] text-white/50 uppercase mb-0.5">Expira</p>
+              <p className="text-sm font-mono">{expiry || 'MM/AA'}</p>
+            </div>
+          </div>
+        </div>
+        {/* Back */}
+        <div className="absolute inset-0 rounded-[20px] bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 text-white shadow-[0px_10px_30px_-5px_rgba(0,0,0,0.3)]"
+          style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+          <div className="w-full h-10 bg-slate-900 mt-8" />
+          <div className="px-6 mt-4">
+            <div className="flex items-center justify-end gap-3">
+              <div className="flex-1 h-8 bg-slate-200 rounded" />
+              <div className="w-12 h-8 bg-white rounded flex items-center justify-center text-slate-900 text-xs font-bold">CVV</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { user, loginWithGoogle, addNotification } = useAuth();
+  const { user, addNotification } = useAuth();
   const { items, total, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,26 +98,41 @@ export default function CheckoutPage() {
 
   const [address, setAddress] = useState(user?.address || '');
   const [phone, setPhone] = useState(user?.phone || '');
+  const [observations, setObservations] = useState('');
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState('card');
+
+  // Card fields
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardName, setCardName] = useState(user?.name || '');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [cardFlipped, setCardFlipped] = useState(false);
 
   useEffect(() => {
-    if (user && (user.address || user.phone)) {
+    if (user) {
       setAddress(user.address || '');
       setPhone(user.phone || '');
+      setCardName(user.name || '');
     }
   }, [user]);
 
+  const formatCardNumber = (v: string) => {
+    const clean = v.replace(/\D/g, '').slice(0, 16);
+    return clean.replace(/(.{4})/g, '$1 ').trim();
+  };
+
+  const formatExpiry = (v: string) => {
+    const clean = v.replace(/\D/g, '').slice(0, 4);
+    if (clean.length >= 3) return `${clean.slice(0, 2)}/${clean.slice(2)}`;
+    return clean;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user) {
-      addNotification('Debes iniciar sesión para completar la compra', 'error');
-      return;
-    }
-
-    if (!address || !phone) {
-      setError('Completa todos los campos de envío');
-      return;
-    }
+    if (!user) { addNotification('Debes iniciar sesion', 'error'); return; }
+    if (!address || !phone) { setError('Completa direccion y telefono'); return; }
+    if (paymentMethod === 'card' && (!cardNumber || cardNumber.replace(/\D/g, '').length < 16)) { setError('Numero de tarjeta invalido'); return; }
 
     setLoading(true);
     setError('');
@@ -47,45 +140,32 @@ export default function CheckoutPage() {
     try {
       const orderData = {
         userId: user.id,
-        items: items.map(item => ({
-          productId: item.product.id,
-          quantity: item.quantity,
-          notes: item.notes
-        })),
+        items: items.map(item => ({ productId: item.product.id, quantity: item.quantity, notes: item.notes })),
         shippingAddress: address,
-        shippingPhone: phone
+        shippingPhone: phone,
+        contactNotes: [
+          observations,
+          coords ? `GPS: ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}` : '',
+        ].filter(Boolean).join('\n') || undefined,
       };
-
       const result = await ordersApi.create(orderData);
       setOrderId(result.id);
       setOrderComplete(true);
       clearCart();
-      addNotification('¡Pedido confirmado con éxito!', 'success');
+      addNotification('Pedido confirmado!', 'success');
     } catch (err: any) {
       setError(err.message || 'Error al crear la orden');
-      addNotification('Error al procesar el pedido', 'error');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   if (items.length === 0 && !orderComplete) {
     return (
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-20 -left-20 w-72 h-72 bg-blue-300 rounded-full opacity-20 blur-3xl" />
-          <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-purple-300 rounded-full opacity-20 blur-3xl" />
-        </div>
-        
-        <div className="text-center relative z-10">
-          <div className="text-8xl mb-6">🛒</div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Tu carrito está vacío
-          </h2>
-          <p className="text-gray-500 mb-8">¡Agrega productos para continuar!</p>
-          <Link href="/catalog" className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg transition-shadow inline-flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5" />
-            Ver Catálogo
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 bg-sky-100">
+        <div className="text-center">
+          <ShoppingCart className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-900 mb-1">Tu carrito esta vacio</h2>
+          <Link href="/catalog" className="bg-blue-500 text-white px-5 py-2.5 rounded-xl font-bold text-sm mt-4 inline-block hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
+            Ver Catalogo
           </Link>
         </div>
       </div>
@@ -94,67 +174,13 @@ export default function CheckoutPage() {
 
   if (!user) {
     return (
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-20 -left-20 w-72 h-72 bg-yellow-300 rounded-full opacity-30 blur-3xl" />
-          <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-pink-300 rounded-full opacity-30 blur-3xl" />
-        </div>
-        
-        <div className="max-w-md w-full text-gray-900 placeholder-gray-400 rounded-3xl shadow-2xl p-8 relative z-10">
-          <div className="text-center mb-6">
-            <div className="text-6xl mb-4">🔒</div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-              ¡Casi listo!
-            </h2>
-            <p className="text-gray-600">
-              Inicia sesión o regístrate para completar tu compra
-            </p>
-          </div>
-
-          <div className="space-y-4 mb-6">
-            <div className="bg-gray-50 rounded-xl p-4 text-center">
-              <p className="text-sm text-gray-500 mb-3">Productos en tu carrito:</p>
-              <p className="text-2xl font-bold text-blue-600">{items.length} productos</p>
-              <p className="text-lg text-gray-600">Total: {formatPrice(total)}</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Link
-              href="/login?redirect=/checkout"
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 px-6 rounded-xl font-bold hover:shadow-lg transition-shadow flex items-center justify-center gap-2"
-            >
-              <span>🔑</span>
-              Iniciar Sesión
-            </Link>
-            
-            <button
-              onClick={loginWithGoogle}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
-            >
-              <svg className="w-6 h-6" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              <span className="font-medium text-gray-700">Continuar con Google</span>
-            </button>
-            
-            <Link
-              href="/register?redirect=/checkout"
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-4 px-6 rounded-xl font-bold hover:shadow-lg transition-shadow flex items-center justify-center gap-2"
-            >
-              <span>✨</span>
-              Crear Cuenta
-            </Link>
-          </div>
-
-          <div className="mt-6 text-center">
-            <Link href="/cart" className="text-gray-500 hover:text-gray-700 text-sm flex items-center justify-center gap-1">
-              ← Volver al carrito
-            </Link>
-          </div>
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 bg-sky-100">
+        <div className="bg-white rounded-[20px] shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)] p-7 max-w-sm w-full text-center">
+          <h2 className="text-xl font-bold text-slate-900 mb-1">Casi listo!</h2>
+          <p className="text-neutral-400 text-sm mb-5">Inicia sesion para completar tu compra</p>
+          <Link href="/login?redirect=/checkout" className="w-full bg-blue-500 text-white py-3 rounded-xl font-bold text-sm inline-block hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
+            Iniciar Sesion
+          </Link>
         </div>
       </div>
     );
@@ -162,35 +188,21 @@ export default function CheckoutPage() {
 
   if (orderComplete) {
     return (
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-green-300 rounded-full opacity-30 blur-3xl" />
-        </div>
-        
-        <div className="max-w-md w-full text-center relative z-10">
-          <div className="text-gray-900 placeholder-gray-400 rounded-3xl shadow-2xl p-8">
-            <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/30">
-              <CheckCircle className="h-12 w-12 text-white" />
-            </div>
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-4">
-              ¡Pedido Confirmado! 🎉
-            </h2>
-            <p className="text-gray-600 mb-2">
-              Tu pedido <span className="font-bold text-gray-900">#{orderId.slice(0, 8)}</span> ha sido recibido
-            </p>
-            <p className="text-gray-500 mb-8">
-              Te notificaremos cuando comience a prepararse
-            </p>
-            <div className="flex flex-col gap-3">
-              <Link href={`/orders/${orderId}`} className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-8 py-4 rounded-xl font-bold hover:shadow-lg transition-shadow inline-flex items-center justify-center gap-2">
-                Ver Detalles del Pedido
-                <ArrowRight className="h-5 w-5" />
-              </Link>
-              <Link href="/catalog" className="bg-gray-100 text-gray-700 px-8 py-4 rounded-xl font-medium hover:bg-gray-200 transition-colors inline-flex items-center justify-center gap-2">
-                <Package className="h-5 w-5" />
-                Continuar Comprando
-              </Link>
-            </div>
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 bg-sky-100">
+        <div className="max-w-sm w-full text-center animate-scale-in">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Pedido Confirmado</h2>
+          <p className="text-neutral-400 text-sm mb-1">Pedido <span className="font-bold text-slate-700">#{orderId.slice(0, 8)}</span></p>
+          <p className="text-neutral-400 text-sm mb-6">Te contactaremos al {phone}</p>
+          <div className="flex flex-col gap-2.5">
+            <Link href={`/orders/${orderId}`} className="bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
+              Ver Pedido <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link href="/catalog" className="bg-white text-slate-700 px-6 py-3 rounded-xl font-medium text-sm shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] flex items-center justify-center gap-2">
+              <Package className="h-4 w-4" /> Seguir Comprando
+            </Link>
           </div>
         </div>
       </div>
@@ -198,119 +210,175 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 flex items-center gap-3">
-        <span className="text-4xl">💳</span>
-        Finalizar Compra
-      </h1>
+    <div className="min-h-screen bg-sky-100">
+      <div className="max-w-4xl mx-auto py-6 px-4">
+        <h1 className="text-xl font-bold text-slate-900 mb-6">Finalizar Compra</h1>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Form */}
-        <div className="lg:col-span-2">
-          <div className="text-gray-900 placeholder-gray-400 rounded-2xl shadow-lg border border-gray-100 p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-blue-500" />
-              Información de envío
-            </h2>
-            
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl">
-                  {error}
+        <form onSubmit={handleSubmit} className="grid lg:grid-cols-5 gap-6">
+          {/* Left: Form */}
+          <div className="lg:col-span-3 space-y-4">
+            {error && <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">{error}</div>}
+
+            {/* Shipping */}
+            <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5">
+              <h2 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-blue-500" /> Datos de envio
+              </h2>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-1">Selecciona tu ubicacion en el mapa</label>
+                  <MapPicker onLocationSelect={(lat, lng) => {
+                    setCoords({ lat, lng });
+                  }} />
                 </div>
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-1">Direccion (referencia)</label>
+                  <textarea value={address} onChange={e => setAddress(e.target.value)} required rows={2}
+                    placeholder="Calle, numero, urbanizacion, distrito..."
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-1">Telefono de contacto</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} required
+                      placeholder="+51 999 123 456"
+                      className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Observations */}
+            <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5">
+              <h2 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-blue-500" /> Observaciones del pedido
+              </h2>
+              <textarea value={observations} onChange={e => setObservations(e.target.value)} rows={3}
+                placeholder="Algun pedido especial, indicacion adicional, productos extra que necesites..."
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+              <p className="text-[10px] text-neutral-400 mt-1">Estas observaciones seran visibles para nuestro equipo</p>
+            </div>
+
+            {/* Card */}
+            <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5">
+              <h2 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-blue-500" /> Metodo de pago
+              </h2>
+
+              {/* Payment method selector */}
+              <PaymentMethodSelector selected={paymentMethod} onSelect={setPaymentMethod} />
+
+              {paymentMethod === 'card' && (
+                <CreditCardVisual number={cardNumber} name={cardName.toUpperCase()} expiry={cardExpiry} flipped={cardFlipped} />
               )}
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Dirección de entrega
-                </label>
-                <div className="relative">
-                  <textarea
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    required
-                    rows={3}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pl-12 text-gray-900 placeholder-gray-400"
-                    placeholder="Calle, número, departamento, ciudad..."
-                  />
-                  <MapPin className="absolute left-4 top-4 h-5 w-5 text-gray-400" />
+              {paymentMethod === 'card' && <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-1">Numero de tarjeta</label>
+                  <input type="text" value={formatCardNumber(cardNumber)}
+                    onChange={e => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
+                    onFocus={() => setCardFlipped(false)}
+                    placeholder="1234 5678 9012 3456" maxLength={19}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-1">Nombre en la tarjeta</label>
+                  <input type="text" value={cardName} onChange={e => setCardName(e.target.value)}
+                    onFocus={() => setCardFlipped(false)}
+                    placeholder="Como aparece en la tarjeta"
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-neutral-400 mb-1">Vencimiento</label>
+                    <input type="text" value={cardExpiry}
+                      onChange={e => setCardExpiry(formatExpiry(e.target.value))}
+                      onFocus={() => setCardFlipped(false)}
+                      placeholder="MM/AA" maxLength={5}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-neutral-400 mb-1">CVV</label>
+                    <input type="text" value={cardCvv}
+                      onChange={e => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      onFocus={() => setCardFlipped(true)}
+                      onBlur={() => setCardFlipped(false)}
+                      placeholder="***" maxLength={4}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                </div>
+              </div>}
+
+              {paymentMethod === 'yape' && (
+                <div className="bg-purple-50 rounded-xl p-4 text-center">
+                  <div className="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-white text-2xl font-bold">Y</div>
+                  <p className="text-sm font-bold text-purple-900 mb-1">Paga con Yape</p>
+                  <p className="text-xs text-purple-600">Te enviaremos el QR o numero al confirmar</p>
+                </div>
+              )}
+              {paymentMethod === 'plin' && (
+                <div className="bg-green-50 rounded-xl p-4 text-center">
+                  <div className="w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-3 text-white text-2xl font-bold">P</div>
+                  <p className="text-sm font-bold text-green-900 mb-1">Paga con Plin</p>
+                  <p className="text-xs text-green-600">Te enviaremos el numero al confirmar</p>
+                </div>
+              )}
+              {paymentMethod === 'paypal' && (
+                <div className="bg-sky-50 rounded-xl p-4 text-center">
+                  <div className="w-16 h-16 bg-sky-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-white text-lg font-bold">PP</div>
+                  <p className="text-sm font-bold text-sky-900 mb-1">Paga con PayPal</p>
+                  <p className="text-xs text-sky-600">Seras redirigido a PayPal al confirmar</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Summary */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 sticky top-20">
+              <h2 className="text-sm font-bold text-slate-900 mb-4">Resumen</h2>
+
+              <div className="space-y-2 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
+                {items.map(item => (
+                  <div key={item.product.id} className="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-900 truncate">{item.product.name}</p>
+                      <p className="text-[10px] text-neutral-400">x{item.quantity}</p>
+                    </div>
+                    <span className="text-xs font-bold text-slate-900 ml-2">{formatPrice(item.product.basePrice * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-slate-100 pt-3 space-y-2 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-400">Subtotal</span>
+                  <span className="font-bold text-slate-900">{formatPrice(total)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-400">Envio</span>
+                  <span className="font-medium text-green-600">Gratis</span>
+                </div>
+                <div className="flex justify-between text-lg pt-2 border-t border-slate-100">
+                  <span className="font-bold text-slate-900">Total</span>
+                  <span className="font-bold text-slate-900">{formatPrice(total)}</span>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Teléfono de contacto
-                </label>
-                <div className="relative">
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pl-12 text-gray-900 placeholder-gray-400"
-                    placeholder="+56 9 1234 5678"
-                  />
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white py-4 px-6 rounded-xl font-bold hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/30"
-              >
-                {loading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <>
-                    <CheckCircle className="h-5 w-5" />
-                    Confirmar Pedido - {formatPrice(total)}
-                  </>
+              <button type="submit" disabled={loading}
+                className="w-full bg-blue-500 text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                  <><Lock className="h-4 w-4" /> Confirmar Pedido - {formatPrice(total)}</>
                 )}
               </button>
-            </form>
-          </div>
-        </div>
 
-        {/* Order Summary */}
-        <div className="lg:col-span-1">
-          <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl shadow-lg p-6 text-white sticky top-24">
-            <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5" />
-              Resumen del Pedido
-            </h2>
-            
-            <div className="space-y-4 mb-6 max-h-64 overflow-y-auto">
-              {items.map(item => (
-                <div key={item.product.id} className="flex justify-between items-start text-gray-900 placeholder-gray-400/10 rounded-xl p-3">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{item.product.name}</p>
-                    <p className="text-xs text-white/70">Cantidad: {item.quantity}</p>
-                  </div>
-                  <span className="font-bold">{formatPrice(item.product.basePrice * item.quantity)}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-white/20 pt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-white/80">Total ({items.reduce((s, i) => s + i.quantity, 0)} items)</span>
-                <span className="text-2xl font-bold">{formatPrice(total)}</span>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-white/20">
-              <div className="flex items-center gap-2 text-sm text-white/80">
-                <span>🔒</span>
-                <span>Pago 100% seguro</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-white/80 mt-2">
-                <span>🚚</span>
-                <span>Envío a domicilio</span>
+              <div className="flex items-center justify-center gap-1.5 mt-3 text-[10px] text-neutral-400">
+                <Lock className="h-3 w-3" /> Pago 100% seguro
               </div>
             </div>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

@@ -8,9 +8,9 @@ import { LayoutDashboard, List, Package, Settings, ClipboardList } from 'lucide-
 const adminNavItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/lists', label: 'Listas', icon: List },
-  { href: '/admin/lists/review', label: 'Revisión', icon: ClipboardList },
+  { href: '/admin/lists/review', label: 'Revision', icon: ClipboardList },
   { href: '/admin/products', label: 'Productos', icon: Package },
-  { href: '/admin/settings', label: 'Configuración', icon: Settings },
+  { href: '/admin/settings', label: 'Config', icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -19,18 +19,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
+      <div className="flex justify-center items-center min-h-[calc(100vh-64px)] bg-sky-100">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!isAdmin) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Acceso restringido</h2>
-          <p className="text-gray-600 mb-6">No tienes permisos para acceder al panel de administración.</p>
+      <div className="flex justify-center items-center min-h-[calc(100vh-64px)] bg-sky-100">
+        <div className="bg-white p-8 rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] text-center">
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Acceso restringido</h2>
+          <p className="text-neutral-400 text-sm">No tienes permisos para el panel de administracion.</p>
         </div>
       </div>
     );
@@ -38,39 +38,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex min-h-[calc(100vh-64px)]">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gradient-to-b from-blue-600 to-purple-600 text-white flex-shrink-0 shadow-lg">
-        <div className="p-4 border-b border-white/20">
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            <span>⚙️</span> Panel Admin
+      <aside className="w-56 bg-white shadow-[2px_0_8px_0px_rgba(0,0,0,0.05)] flex-shrink-0">
+        <div className="p-4 border-b border-slate-100">
+          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <Settings className="h-4 w-4 text-blue-500" /> Panel Admin
           </h2>
         </div>
-        <nav className="p-4 space-y-2">
+        <nav className="p-3 space-y-0.5">
           {adminNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              <Link key={item.href} href={item.href}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 ${
                   isActive
-                    ? 'bg-white text-blue-600 shadow-lg'
-                    : 'text-white/90 hover:bg-white/20 hover:text-white'
-                }`}
-              >
-                <Icon className="h-5 w-5" />
+                    ? 'bg-blue-500 text-white font-medium shadow-md shadow-blue-500/20'
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                }`}>
+                <Icon className="h-4 w-4" />
                 {item.label}
               </Link>
             );
           })}
         </nav>
       </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 p-8 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-        {children}
-      </main>
+      <main className="flex-1 p-6 bg-blue-50/50">{children}</main>
     </div>
   );
 }
