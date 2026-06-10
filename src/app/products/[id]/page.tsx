@@ -225,33 +225,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               )}
             </div>
 
-            {/* Payment methods */}
-            <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 mt-4">
-              <p className="text-sm font-bold text-slate-900 mb-3">Metodos de pago</p>
-              <div className="flex flex-wrap gap-3">
-                <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 rounded-xl border border-purple-100">
-                  <div className="w-6 h-6 bg-purple-600 rounded-md flex items-center justify-center text-white text-[10px] font-bold">Y</div>
-                  <span className="text-xs font-medium text-purple-700">Yape</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-xl border border-green-100">
-                  <div className="w-6 h-6 bg-green-500 rounded-md flex items-center justify-center text-white text-[10px] font-bold">P</div>
-                  <span className="text-xs font-medium text-green-700">Plin</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-xl border border-blue-100">
-                  <div className="w-6 h-6 bg-blue-700 rounded-md flex items-center justify-center text-white text-[8px] font-bold">VISA</div>
-                  <span className="text-xs font-medium text-blue-700">Visa</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 rounded-xl border border-orange-100">
-                  <div className="w-6 h-6 bg-orange-500 rounded-md flex items-center justify-center text-white text-[7px] font-bold">MC</div>
-                  <span className="text-xs font-medium text-orange-700">Mastercard</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-2 bg-sky-50 rounded-xl border border-sky-100">
-                  <div className="w-6 h-6 bg-sky-600 rounded-md flex items-center justify-center text-white text-[7px] font-bold">PP</div>
-                  <span className="text-xs font-medium text-sky-700">PayPal</span>
-                </div>
-              </div>
-            </div>
-
             {/* Shipping info */}
             <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 mt-4">
               <div className="flex items-center gap-3">
