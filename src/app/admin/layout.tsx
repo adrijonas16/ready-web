@@ -3,14 +3,16 @@
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, List, Package, Settings, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, List, Package, Settings, ClipboardList, ShoppingCart, Users, GraduationCap, Tag } from 'lucide-react';
 
 const adminNavItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/orders', label: 'Pedidos', icon: ShoppingCart },
   { href: '/admin/lists', label: 'Listas', icon: List },
-  { href: '/admin/lists/review', label: 'Revision', icon: ClipboardList },
   { href: '/admin/products', label: 'Productos', icon: Package },
-  { href: '/admin/settings', label: 'Config', icon: Settings },
+  { href: '/admin/brands', label: 'Marcas', icon: Tag },
+  { href: '/admin/schools', label: 'Colegios', icon: GraduationCap },
+  { href: '/admin/users', label: 'Usuarios', icon: Users },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
