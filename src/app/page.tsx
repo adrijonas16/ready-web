@@ -1,9 +1,27 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Ready - Utiles Escolares en Arequipa | Envio a Domicilio',
+  description: 'Compra utiles escolares online en Arequipa. Sube la lista de tu colegio, elige productos economicos o premium. Envio gratis en la Ciudad Blanca.',
+};
 import { Upload, ShoppingBag, Package, CheckCircle, Search, Truck, ClipboardList, ArrowRight } from 'lucide-react';
 
 export default function HomePage() {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Store',
+    name: 'Ready - Utiles Escolares',
+    description: 'Tienda online de utiles escolares en Arequipa, Peru',
+    url: 'https://ready.pe',
+    areaServed: { '@type': 'City', name: 'Arequipa', addressCountry: 'PE' },
+    priceRange: '$-$$$',
+  };
+
   return (
     <div className="min-h-screen bg-sky-100">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
       {/* Arequipa Banner */}
       <div className="px-4 pt-4 max-w-7xl mx-auto">
         <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-4 flex items-center gap-4">

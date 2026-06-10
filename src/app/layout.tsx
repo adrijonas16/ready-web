@@ -16,8 +16,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ready - Utiles Escolares",
-  description: "Plataforma para compra de utiles escolares con generacion automatica de listas",
+  title: "Ready - Utiles Escolares en Arequipa | Compra Online",
+  description: "Compra utiles escolares online en Arequipa. Sube la lista de tu colegio, elige entre productos economicos, estandar o premium. Envio a domicilio en 24-48 horas.",
+  keywords: ["utiles escolares", "arequipa", "lista de utiles", "cuadernos", "lapices", "colores", "mochila escolar", "compra online", "peru", "colegio"],
+  openGraph: {
+    title: "Ready - Utiles Escolares en Arequipa",
+    description: "Sube la lista de utiles de tu hijo y recibe todo en casa. Productos economicos, estandar y premium.",
+    url: "https://ready.pe",
+    siteName: "Ready",
+    locale: "es_PE",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ready - Utiles Escolares en Arequipa",
+    description: "Compra utiles escolares online. Envio a domicilio en Arequipa.",
+  },
+  robots: { index: true, follow: true },
+  alternates: { canonical: "https://ready.pe" },
 };
 
 export default function RootLayout({
