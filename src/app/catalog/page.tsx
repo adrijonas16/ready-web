@@ -6,10 +6,15 @@ import { Product } from '@/lib/types';
 import ProductCard from '@/components/ProductCard';
 import { Search, MapPin, X, ChevronDown, ChevronUp, SlidersHorizontal, Star, Percent } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
 export default function CatalogPage() {
+  return <Suspense><CatalogContent /></Suspense>;
+}
+
+function CatalogContent() {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
