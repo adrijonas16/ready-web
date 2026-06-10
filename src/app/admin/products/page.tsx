@@ -5,6 +5,7 @@ import { productsApi } from '@/services/api';
 import { Product } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
 import { Plus, Edit2, Trash2, Search, Star, Package, X, Image as ImageIcon, Layers } from 'lucide-react';
+import Link from 'next/link';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
@@ -89,10 +90,10 @@ export default function AdminProductsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-slate-900">Productos ({products.length})</h1>
-        <button onClick={() => setCreating(true)}
+        <Link href="/admin/products/new"
           className="bg-blue-500 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
           <Plus className="h-4 w-4" /> Nuevo Producto
-        </button>
+        </Link>
       </div>
 
       <div className="relative mb-4">
@@ -135,9 +136,9 @@ export default function AdminProductsPage() {
                     className={`p-2 rounded-xl transition-colors ${expandedVariants === product.id ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                     <Layers className="h-4 w-4" />
                   </button>
-                  <button onClick={() => setEditing(product)} className="p-2 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-colors">
+                  <Link href={`/admin/products/${product.id}/edit`} className="p-2 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-colors">
                     <Edit2 className="h-4 w-4" />
-                  </button>
+                  </Link>
                 </div>
               </div>
 

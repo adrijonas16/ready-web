@@ -4,14 +4,18 @@ import { Upload, ShoppingBag, Package, CheckCircle, Search, Truck, ClipboardList
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-sky-100">
-      {/* Location Banner */}
+      {/* Arequipa Banner */}
       <div className="px-4 pt-4 max-w-7xl mx-auto">
-        <div className="bg-blue-500/10 rounded-2xl px-4 py-2.5 flex items-center gap-2.5">
-          <svg className="h-4 w-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <p className="text-xs text-blue-700"><span className="font-bold">Arequipa, Peru</span> — Proximamente en mas ciudades</p>
+        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-4 flex items-center gap-4">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Bandera_de_Arequipa.svg/960px-Bandera_de_Arequipa.svg.png"
+            alt="Bandera de Arequipa"
+            className="h-10 w-auto rounded-md shadow-sm flex-shrink-0"
+          />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-slate-900">Disponible en Arequipa</p>
+            <p className="text-xs text-neutral-400">La Ciudad Blanca — Proximamente en mas ciudades del Peru</p>
+          </div>
         </div>
       </div>
 

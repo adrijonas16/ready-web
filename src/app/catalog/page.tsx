@@ -195,34 +195,6 @@ export default function CatalogPage() {
   return (
     <div className="min-h-screen bg-sky-100">
       <div className="max-w-7xl mx-auto py-6 px-4">
-        {/* Arequipa Banner */}
-        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-4 mb-4 flex items-center gap-4 overflow-hidden relative">
-          {/* Arequipa flag */}
-          <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 relative bg-red-600 flex items-center justify-center">
-            <div className="absolute inset-0 flex flex-col">
-              <div className="flex-1 bg-red-600" />
-              <div className="flex-1 bg-white" />
-              <div className="flex-1 bg-red-600" />
-            </div>
-            <div className="relative z-10 w-6 h-6 border-2 border-yellow-400 rounded-full bg-white flex items-center justify-center">
-              <span className="text-[8px]">🏔️</span>
-            </div>
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-slate-900">Envios en Arequipa</p>
-            <p className="text-xs text-neutral-400">La Ciudad Blanca — Proximamente en Lima, Cusco y mas</p>
-          </div>
-          {/* Mini Peru flag */}
-          <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-            <div className="w-8 h-5 rounded-sm overflow-hidden flex shadow-sm">
-              <div className="w-1/3 bg-red-600" />
-              <div className="w-1/3 bg-white" />
-              <div className="w-1/3 bg-red-600" />
-            </div>
-            <span className="text-[10px] text-neutral-400 font-medium">Peru</span>
-          </div>
-        </div>
-
         {/* Search bar */}
         <div className="flex gap-3 mb-4">
           <div className="flex-1 relative">
