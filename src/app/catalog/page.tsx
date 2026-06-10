@@ -4,39 +4,69 @@ import { useState, useEffect } from 'react';
 import { productsApi, brandsApi } from '@/services/api';
 import { Product } from '@/lib/types';
 import ProductCard from '@/components/ProductCard';
-import { Search, MapPin, X, ChevronDown, ChevronUp, SlidersHorizontal, Star } from 'lucide-react';
+import { Search, MapPin, X, ChevronDown, ChevronUp, SlidersHorizontal, Star, Percent } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
 export default function CatalogPage() {
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
+  const [campaigns, setCampaigns] = useState<{ id: string; name: string; slug: string; discount_percent: number }[]>([]);
+  const [campaignProductIds, setCampaignProductIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('');
   const [selectedTier, setSelectedTier] = useState('');
+  const [selectedCampaign, setSelectedCampaign] = useState(searchParams.get('campaign') || '');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 30000]);
   const [sortBy, setSortBy] = useState('name');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // Collapsible sections
-  const [openSections, setOpenSections] = useState({ categories: true, brands: true, tier: true, price: true });
+  const [openSections, setOpenSections] = useState({ categories: true, brands: true, tier: true, price: true, campaigns: true });
   const toggleSection = (s: string) => setOpenSections(prev => ({ ...prev, [s]: !(prev as any)[s] }));
 
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
-      const [productsData, categoriesData, brandsData] = await Promise.all([
-        productsApi.getAll({ limit: 200 }), productsApi.getCategories(), brandsApi.getAll()
+      const [productsData, categoriesData, brandsData, campaignsData] = await Promise.all([
+        productsApi.getAll({ limit: 200 }), productsApi.getCategories(), brandsApi.getAll(),
+        fetch(`${API}/campaigns?activeOnly=true`).then(r => r.json()).then(d => d.data || []),
       ]);
       setAllProducts(productsData);
       setProducts(productsData);
       setCategories(categoriesData);
       setBrands(brandsData);
+      setCampaigns(campaignsData);
+
+      // If campaign from URL, load campaign products
+      const cSlug = searchParams.get('campaign');
+      if (cSlug) {
+        const cRes = await fetch(`${API}/campaigns/${cSlug}`).then(r => r.json());
+        if (cRes.success) {
+          const pids = new Set<string>(cRes.data.products?.map((p: any) => p.id) || []);
+          setCampaignProductIds(pids);
+          setSelectedCampaign(cSlug);
+        }
+      }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
+  };
+
+  const loadCampaignProducts = async (slug: string) => {
+    if (!slug) { setCampaignProductIds(new Set()); setSelectedCampaign(''); return; }
+    try {
+      const res = await fetch(`${API}/campaigns/${slug}`).then(r => r.json());
+      if (res.success) {
+        setCampaignProductIds(new Set(res.data.products?.map((p: any) => p.id) || []));
+        setSelectedCampaign(slug);
+      }
+    } catch { setCampaignProductIds(new Set()); }
   };
 
   // Get filtered products for display
@@ -46,6 +76,7 @@ export default function CatalogPage() {
     if (selectedCategory) filtered = filtered.filter(p => p.category === selectedCategory);
     if (selectedBrand) filtered = filtered.filter(p => p.brand === selectedBrand);
     if (selectedTier) filtered = filtered.filter(p => p.tier === selectedTier);
+    if (selectedCampaign && campaignProductIds.size > 0) filtered = filtered.filter(p => campaignProductIds.has(p.id));
     filtered = filtered.filter(p => p.basePrice >= priceRange[0] && p.basePrice <= priceRange[1]);
 
     if (sortBy === 'price-asc') filtered.sort((a, b) => a.basePrice - b.basePrice);
@@ -90,16 +121,17 @@ export default function CatalogPage() {
     };
   };
 
-  useEffect(() => { setProducts(getFiltered()); }, [selectedCategory, selectedBrand, selectedTier, priceRange, sortBy, search, allProducts]);
+  useEffect(() => { setProducts(getFiltered()); }, [selectedCategory, selectedBrand, selectedTier, selectedCampaign, campaignProductIds, priceRange, sortBy, search, allProducts]);
 
   const available = getAvailable();
 
   const clearFilters = () => {
     setSearch(''); setSelectedCategory(''); setSelectedBrand(''); setSelectedTier('');
+    setSelectedCampaign(''); setCampaignProductIds(new Set());
     setPriceRange([0, 30000]); setSortBy('name');
   };
 
-  const activeFilterCount = [selectedCategory, selectedBrand, selectedTier].filter(Boolean).length + (priceRange[0] > 0 || priceRange[1] < 30000 ? 1 : 0);
+  const activeFilterCount = [selectedCategory, selectedBrand, selectedTier, selectedCampaign].filter(Boolean).length + (priceRange[0] > 0 || priceRange[1] < 30000 ? 1 : 0);
 
   const FilterSidebar = () => (
     <div className="space-y-4">
@@ -184,6 +216,31 @@ export default function CatalogPage() {
         )}
       </div>
 
+      {/* Campaigns / Promos */}
+      {campaigns.length > 0 && (
+        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
+          <button onClick={() => toggleSection('campaigns')} className="w-full px-4 py-3 flex items-center justify-between text-sm font-bold text-slate-900">
+            <span className="flex items-center gap-1.5"><Percent className="h-3.5 w-3.5 text-red-500" /> Ofertas</span>
+            {openSections.campaigns ? <ChevronUp className="h-4 w-4 text-neutral-400" /> : <ChevronDown className="h-4 w-4 text-neutral-400" />}
+          </button>
+          {openSections.campaigns && (
+            <div className="px-4 pb-3 space-y-1">
+              <button onClick={() => { setSelectedCampaign(''); setCampaignProductIds(new Set()); }}
+                className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${!selectedCampaign ? 'bg-blue-500 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                Todos
+              </button>
+              {campaigns.map(c => (
+                <button key={c.id} onClick={() => loadCampaignProducts(selectedCampaign === c.slug ? '' : c.slug)}
+                  className={`w-full text-left px-3 py-1.5 rounded-lg text-xs flex justify-between transition-colors ${selectedCampaign === c.slug ? 'bg-red-500 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  <span>{c.name}</span>
+                  <span className={selectedCampaign === c.slug ? 'text-white/70' : 'text-red-500'}>{c.discount_percent}%</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeFilterCount > 0 && (
         <button onClick={clearFilters} className="w-full py-2 text-xs text-red-500 font-medium hover:text-red-600">
           Limpiar filtros ({activeFilterCount})
@@ -245,6 +302,7 @@ export default function CatalogPage() {
                   {selectedCategory && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">{selectedCategory} <button onClick={() => setSelectedCategory('')}><X className="h-2.5 w-2.5" /></button></span>}
                   {selectedBrand && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">{selectedBrand} <button onClick={() => setSelectedBrand('')}><X className="h-2.5 w-2.5" /></button></span>}
                   {selectedTier && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1 capitalize">{selectedTier} <button onClick={() => setSelectedTier('')}><X className="h-2.5 w-2.5" /></button></span>}
+                  {selectedCampaign && <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">{campaigns.find(c => c.slug === selectedCampaign)?.name} <button onClick={() => { setSelectedCampaign(''); setCampaignProductIds(new Set()); }}><X className="h-2.5 w-2.5" /></button></span>}
                 </div>
               )}
             </div>

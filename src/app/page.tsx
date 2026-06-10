@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import NewsCarousel from '@/components/NewsCarousel';
 
 export const metadata: Metadata = {
   title: 'Ready - Utiles Escolares en Arequipa | Envio a Domicilio',
@@ -36,6 +37,11 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* News / Promotions */}
+      <section className="px-4 pt-4 max-w-7xl mx-auto">
+        <NewsCarousel />
+      </section>
 
       {/* Hero Banner */}
       <section className="px-4 pt-6 pb-4 max-w-7xl mx-auto">
