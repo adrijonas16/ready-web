@@ -681,13 +681,22 @@ function AddValueInline({ onAdd }: { onAdd: (v: string, p: number, s: number, c?
 
   return (
     <div className="mt-2 p-2.5 bg-blue-50 rounded-xl space-y-2">
-      <div className="flex gap-2">
-        <input type="text" value={val} onChange={e => setVal(e.target.value)} placeholder="Valor (ej: Rojo, A4...)"
-          className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
-        <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="+$"
-          className="w-16 px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
-        <input type="number" value={stock} onChange={e => setStock(e.target.value)} placeholder="Stock"
-          className="w-14 px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+      <div className="flex gap-2 items-end">
+        <div className="flex-1">
+          <label className="block text-[10px] text-slate-500 mb-0.5">Valor</label>
+          <input type="text" value={val} onChange={e => setVal(e.target.value)} placeholder="Ej: 100 hojas, Rojo, A4..."
+            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+        </div>
+        <div className="w-20">
+          <label className="block text-[10px] text-slate-500 mb-0.5">+/- Precio</label>
+          <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0"
+            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+        </div>
+        <div className="w-16">
+          <label className="block text-[10px] text-slate-500 mb-0.5">Stock</label>
+          <input type="number" value={stock} onChange={e => setStock(e.target.value)} placeholder="100"
+            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <button onClick={() => setShowColor(!showColor)}
