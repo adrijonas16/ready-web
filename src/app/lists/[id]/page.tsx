@@ -317,6 +317,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [data, setData] = useState<ListDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [localQty, setLocalQty] = useState<Record<string, number>>({});
+  const [hiddenItems, setHiddenItems] = useState<Set<string>>(new Set());
   const [editingItem, setEditingItem] = useState<SupplyItem | null>(null);
   const [customizingItem, setCustomizingItem] = useState<SupplyItem | null>(null);
   const [plan, setPlan] = useState('medio');
@@ -382,7 +383,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   const addAllToCart = () => {
     if (!data) return;
-    const assigned = data.items.filter(i => i.matchedProduct);
+    const assigned = visibleItems.filter(i => i.matchedProduct);
     if (assigned.length === 0) { showToast('No hay productos', 'error'); return; }
     assigned.forEach(item => addItem(item.matchedProduct!, getQty(item), item.userNotas || item.notas, item));
     router.push('/cart');
@@ -411,9 +412,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     );
   }
 
-  const totalEstimado = data.items.reduce((s, i) => s + ((i.priceAtMatch || 0) * getQty(i)), 0);
-  const matchedCount = data.items.filter(i => i.matchedProduct).length;
-  const hasCustomizations = data.items.some(i => i.forro || i.etiqueta || i.caratula);
+  const visibleItems = data.items.filter(i => !hiddenItems.has(i.id));
+  const totalEstimado = visibleItems.reduce((s, i) => s + ((i.priceAtMatch || 0) * getQty(i)), 0);
+  const matchedCount = visibleItems.filter(i => i.matchedProduct).length;
+  const hasCustomizations = visibleItems.some(i => i.forro || i.etiqueta || i.caratula);
 
   return (
     <div className="min-h-screen bg-sky-100">
@@ -476,7 +478,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
         {/* Items */}
         <div className="space-y-3 mb-4">
-          {data.items.map((item) => {
+          {data.items.filter(item => !hiddenItems.has(item.id)).map((item) => {
             const customized = item.forro || item.etiqueta || item.caratula;
             return (
               <div key={item.id} className={`bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden ${
@@ -546,9 +548,23 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     {item.matchedProduct && (
                       <button onClick={() => addOneToCart(item)}
                         className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-xs font-medium hover:bg-green-100 transition-colors border border-green-100">
-                        <ShoppingCart className="h-3 w-3" /> Agregar al carrito
+                        <ShoppingCart className="h-3 w-3" /> Agregar
                       </button>
                     )}
+                    <button onClick={() => setEditingItem(item)}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-medium hover:bg-blue-100 transition-colors border border-blue-100">
+                      <Edit2 className="h-3 w-3" /> Cambiar
+                    </button>
+                    <button onClick={() => setCustomizingItem(item)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors border ${
+                        customized ? 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-slate-100'
+                      }`}>
+                      <Settings2 className="h-3 w-3" /> Personalizar
+                    </button>
+                    <button onClick={() => setHiddenItems(prev => new Set([...prev, item.id]))}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-400 rounded-xl text-xs font-medium hover:bg-red-100 transition-colors border border-red-100">
+                      <X className="h-3 w-3" /> Quitar
+                    </button>
 
                     {/* Quantity control - local only, for cart */}
                     <div className="flex items-center gap-1 ml-auto">
@@ -569,6 +585,17 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           })}
         </div>
 
+        {/* Hidden items restore */}
+        {hiddenItems.size > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-[20px] p-4 mb-4 flex items-center justify-between">
+            <p className="text-sm text-orange-700">{hiddenItems.size} producto{hiddenItems.size > 1 ? 's' : ''} quitado{hiddenItems.size > 1 ? 's' : ''} de tu lista</p>
+            <button onClick={() => setHiddenItems(new Set())}
+              className="text-xs font-medium text-orange-600 hover:text-orange-800 px-3 py-1.5 bg-white rounded-lg border border-orange-200">
+              Restaurar todos
+            </button>
+          </div>
+        )}
+
         {/* Observations */}
         <ObservationBox listId={id} existing={data.list.userObservaciones} onSaved={() => loadList()} />
 
@@ -576,7 +603,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         <div className="bg-white rounded-[30px] shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)] p-6 sticky bottom-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-xs text-neutral-400">{matchedCount}/{data.items.length} productos asignados</p>
+              <p className="text-xs text-neutral-400">
+                {matchedCount}/{visibleItems.length} productos
+                {hiddenItems.size > 0 && <span className="text-orange-500"> ({hiddenItems.size} quitados)</span>}
+              </p>
               <p className="text-2xl font-bold text-slate-900">{formatPrice(totalEstimado)}</p>
             </div>
             <button onClick={addAllToCart} disabled={matchedCount === 0}
