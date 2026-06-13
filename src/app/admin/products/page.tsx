@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { productsApi, brandsApi } from '@/services/api';
 import { Product } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
-import { Plus, Edit2, Search, Star, Package, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit2, Search, Star, Package, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminProductsPage() {
@@ -168,6 +168,10 @@ export default function AdminProductsPage() {
                           className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100 transition-colors" title="Editar">
                           <Edit2 className="h-3.5 w-3.5" />
                         </Link>
+                        <button onClick={async () => { if (confirm(`Eliminar "${p.name}"?`)) { await productsApi.delete(p.id); loadData(); } }}
+                          className="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-100 transition-colors" title="Eliminar">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
