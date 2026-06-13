@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { listsApi, schoolsApi } from '@/services/api';
-import { SupplyList, School, Grade } from '@/lib/types';
+import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
+import { SupplyList, School, Section } from '@/lib/types';
+import { groupSections } from '@/lib/constants';
 import Link from 'next/link';
 import StatusBadge from '@/components/StatusBadge';
 import { Package, GraduationCap, Search, ArrowRight } from 'lucide-react';
@@ -12,34 +13,36 @@ export default function ListsPage() {
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('');
-  const [grades, setGrades] = useState<Grade[]>([]);
+  const [allSections, setAllSections] = useState<Section[]>([]);
+  const [schoolSections, setSchoolSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    if (selectedSchool) { loadGrades(selectedSchool); }
-    else { setGrades([]); setSelectedGrade(''); }
+    if (selectedSchool) { loadSchoolSections(selectedSchool); }
+    else { setSchoolSections([]); setSelectedGrade(''); }
   }, [selectedSchool]);
 
   const loadData = async () => {
     try {
-      const [listsData, schoolsData] = await Promise.all([listsApi.getOfficial(), schoolsApi.getAll()]);
+      const [listsData, schoolsData, sectionsData] = await Promise.all([listsApi.getOfficial(), schoolsApi.getAll(), sectionsApi.getAll()]);
       setOfficialLists(listsData);
       setSchools(schoolsData);
+      setAllSections(sectionsData);
     } catch (err) { console.error('Error loading data:', err); }
     finally { setLoading(false); }
   };
 
-  const loadGrades = async (schoolId: string) => {
-    try { const data = await schoolsApi.getGrades(schoolId); setGrades(data); }
-    catch (err) { console.error('Error loading grades:', err); }
+  const loadSchoolSections = async (schoolId: string) => {
+    try { const data = await schoolsApi.getSchoolSections(schoolId); setSchoolSections(data); }
+    catch (err) { console.error('Error loading school sections:', err); }
   };
 
   const filteredLists = officialLists.filter(list => {
     if (list.estado !== 'VALIDADA' && list.estado !== 'PROCESADA') return false;
     if (selectedSchool && list.schoolId !== selectedSchool) return false;
-    if (selectedGrade && list.gradeId !== selectedGrade) return false;
+    if (selectedGrade && list.gradeName !== selectedGrade) return false;
     return true;
   });
 
@@ -62,10 +65,14 @@ export default function ListsPage() {
               <option value="">Todos los colegios</option>
               {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            <select value={selectedGrade} onChange={(e) => setSelectedGrade(e.target.value)} disabled={!selectedSchool}
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:text-neutral-400 text-sm">
+            <select value={selectedGrade} onChange={(e) => setSelectedGrade(e.target.value)}
+              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm">
               <option value="">Todos los grados</option>
-              {grades.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              {groupSections(selectedSchool && schoolSections.length > 0 ? schoolSections : allSections).map(g => (
+                <optgroup key={g.group} label={g.group}>
+                  {g.options.map(o => <option key={o} value={o}>{o}</option>)}
+                </optgroup>
+              ))}
             </select>
             <button onClick={() => { setSelectedSchool(''); setSelectedGrade(''); }}
               className="py-3 px-4 bg-white text-slate-600 rounded-xl font-medium text-sm border border-slate-200 hover:bg-slate-50 transition-colors">
