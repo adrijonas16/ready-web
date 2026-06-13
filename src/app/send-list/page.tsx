@@ -303,7 +303,7 @@ export default function SendListPage() {
                     <div key={index} className="flex gap-2 items-center">
                       <span className="w-6 text-xs text-neutral-400 font-mono text-right flex-shrink-0">{index + 1}.</span>
                       <input type="text" value={item.name} onChange={(e) => updateItem(index, 'name', e.target.value)}
-                        placeholder="Nombre del util"
+                        placeholder="Nombre del producto"
                         className="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder-neutral-400" />
                       <div className="flex items-center gap-1">
                         <button onClick={() => updateItem(index, 'quantity', Math.max(1, item.quantity - 1))}
