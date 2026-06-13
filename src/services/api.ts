@@ -116,6 +116,7 @@ export const listsApi = {
   updateItem: (listId: string, itemId: string, data: any) =>
     api.put<boolean>(`/lists/${listId}/items/${itemId}`, data),
   reprocess: (id: string) => api.post<boolean>(`/lists/${id}/reprocess`),
+  autoMatch: (id: string, force = false) => api.post<boolean>(`/lists/${id}/auto-match?force=${force}`),
   updatePlan: (id: string, data: { plan: string; estudianteNombre?: string; estudianteGrado?: string }) =>
     api.put<boolean>(`/lists/${id}/plan`, data),
   delete: (id: string) => api.delete<boolean>(`/lists/${id}`),

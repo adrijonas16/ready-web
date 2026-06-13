@@ -37,11 +37,18 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
   const [showPreview, setShowPreview] = useState(false);
   const [previewTier, setPreviewTier] = useState('medio');
 
-  useEffect(() => { loadList(); }, [resolvedParams.id]);
+  useEffect(() => { loadList(true); }, [resolvedParams.id]);
 
-  const loadList = async () => {
-    try { setData(await listsApi.getById(resolvedParams.id)); }
-    catch (err) { console.error(err); }
+  const loadList = async (tryAutoMatch = false) => {
+    try {
+      const result = await listsApi.getById(resolvedParams.id);
+      setData(result);
+      // Auto-match if any item is missing tier products
+      if (tryAutoMatch && result.items.some((i: any) => !i.productEconomicoId || !i.productMedioId || !i.productPremiumId)) {
+        await listsApi.autoMatch(resolvedParams.id);
+        setData(await listsApi.getById(resolvedParams.id));
+      }
+    } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
@@ -146,6 +153,10 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
           <div className="flex items-center gap-2 flex-wrap">
             {saving && <span className="text-xs text-blue-500 animate-pulse">Guardando...</span>}
             {saved && <span className="text-xs text-green-600 flex items-center gap-1"><Check className="h-3 w-3" /> Guardado</span>}
+            <button onClick={async () => { setSaving(true); await listsApi.autoMatch(resolvedParams.id, true); await loadList(); setSaving(false); }}
+              disabled={saving} className="bg-purple-100 text-purple-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-200 flex items-center gap-1.5 disabled:opacity-50">
+              <RefreshCw className="h-4 w-4" /> Auto-asignar
+            </button>
             <button onClick={() => setShowPreview(true)} className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 flex items-center gap-1.5">
               <Eye className="h-4 w-4" /> Vista Previa
             </button>
