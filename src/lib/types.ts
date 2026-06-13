@@ -89,6 +89,15 @@ export interface SupplyItem {
   caratula?: boolean;
   caratulaCurso?: string;
   datosEstudiante?: string;
+  productEconomicoId?: string;
+  productEconomico?: Product;
+  priceEconomico?: number;
+  productMedioId?: string;
+  productMedio?: Product;
+  priceMedio?: number;
+  productPremiumId?: string;
+  productPremium?: Product;
+  pricePremium?: number;
 }
 
 export interface ListDetail {
