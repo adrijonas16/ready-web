@@ -100,10 +100,15 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
             await listsApi.addItem(id, { nombreOriginal: item.nombreOriginal.trim(), cantidad: item.cantidad, notas: item.notas || undefined });
           }
         } else {
-          await listsApi.updateItem(id, item.id, { nombreOriginal: item.nombreOriginal, cantidad: item.cantidad, notas: item.notas });
+          await listsApi.updateItem(id, item.id, {
+            nombreOriginal: item.nombreOriginal,
+            cantidad: item.cantidad,
+            notas: item.notas,
+          });
         }
       }
       await loadList();
+      setHasChanges(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) { console.error(err); }
