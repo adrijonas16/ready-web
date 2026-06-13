@@ -393,6 +393,20 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   if (loading) return <div className="flex justify-center items-center min-h-[60vh]"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
   if (!data) return <div className="text-center py-12"><h2 className="text-lg font-bold text-slate-900">Lista no encontrada</h2></div>;
 
+  // Block access if list is not approved (unless it's the owner viewing their own pending list)
+  const isOwner = user && data.list.userId === user.id;
+  const isApproved = data.list.estado === 'VALIDADA' || data.list.estado === 'PROCESADA';
+  if (!isApproved && !isOwner && user?.role !== 'ADMIN') {
+    return (
+      <div className="min-h-screen bg-sky-100 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-lg font-bold text-slate-900 mb-2">Lista en revision</h2>
+          <p className="text-neutral-400 text-sm">Esta lista aun no ha sido aprobada.</p>
+        </div>
+      </div>
+    );
+  }
+
   const totalEstimado = data.items.reduce((s, i) => s + ((i.priceAtMatch || 0) * getQty(i)), 0);
   const matchedCount = data.items.filter(i => i.matchedProduct).length;
   const hasCustomizations = data.items.some(i => i.forro || i.etiqueta || i.caratula);
