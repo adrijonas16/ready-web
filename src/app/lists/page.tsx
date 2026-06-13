@@ -60,7 +60,7 @@ export default function ListsPage() {
             </div>
             <h2 className="font-bold text-slate-900 text-sm">Buscar por colegio</h2>
           </div>
-          <div className="grid md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <SearchSelect
               value={selectedSchool}
               onChange={setSelectedSchool}
@@ -97,7 +97,7 @@ export default function ListsPage() {
             <p className="text-neutral-400 text-sm">Prueba con otros filtros</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children mb-8">
             {filteredLists.map((list) => (
               <Link key={list.id} href={`/lists/${list.id}`}
                 className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)] group">

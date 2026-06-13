@@ -43,7 +43,7 @@ export default function AdminOrdersPage() {
         <h1 className="text-xl font-bold text-slate-900">Pedidos ({orders.length})</h1>
       </div>
 
-      <div className="bg-white rounded-[16px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-3 mb-4 flex items-center gap-2">
+      <div className="bg-white rounded-[16px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-3 mb-4 flex flex-wrap items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar ID o telefono..."
@@ -62,7 +62,7 @@ export default function AdminOrdersPage() {
           filtered.length === 0 ? <p className="text-center py-10 text-neutral-400 text-sm">No hay pedidos</p> :
           filtered.map(order => (
             <div key={order.id} className="bg-white rounded-[16px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
-              <div className="px-4 py-3 flex items-center gap-4">
+              <div className="px-4 py-3 flex flex-wrap items-center gap-3 md:gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-900">#{order.id.slice(0, 8)}</span>
@@ -88,7 +88,7 @@ export default function AdminOrdersPage() {
 
               {expanded === order.id && (
                 <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50 space-y-2">
-                  <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div><span className="text-neutral-400">Direccion:</span> <span className="text-slate-700">{order.shippingAddress}</span></div>
                     <div><span className="text-neutral-400">Telefono:</span> <span className="text-slate-700">{order.shippingPhone}</span></div>
                   </div>

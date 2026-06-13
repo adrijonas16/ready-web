@@ -58,7 +58,7 @@ export default function RegisterPage() {
           <p className="text-neutral-400 text-sm">Unete a Ready y haz tu lista escolar</p>
         </div>
 
-        <div className="bg-white p-8 rounded-[20px] shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)]">
+        <div className="bg-white p-5 sm:p-8 rounded-[20px] shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)]">
           <div className="flex gap-2 mb-6">
             <Link href="/login" className="flex-1 py-2.5 text-center rounded-xl font-medium text-sm bg-white text-blue-500 border border-slate-200 hover:bg-slate-50 transition-colors">
               Iniciar Sesion

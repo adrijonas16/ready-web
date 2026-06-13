@@ -168,17 +168,17 @@ export default function ProductWizard({ productId }: { productId?: string }) {
         <span className="text-slate-900 text-sm font-medium">{productId ? 'Editar' : 'Crear'} Producto</span>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex flex-col md:flex-row gap-4">
         {/* Left: Steps sidebar */}
-        <div className="w-52 flex-shrink-0 space-y-3">
+        <div className="flex flex-row md:flex-col md:w-52 flex-shrink-0 gap-2 md:gap-0 md:space-y-3 overflow-x-auto pb-2 md:pb-0">
           {STEPS.map(s => (
             <button key={s.num} onClick={() => (s.num === 1 || savedId) && setStep(s.num)}
-              className={`w-full text-left p-3 rounded-[16px] transition-all duration-150 ${
+              className={`flex-shrink-0 md:w-full text-left p-2 md:p-3 rounded-[16px] transition-all duration-150 ${
                 step === s.num
                   ? 'bg-white shadow-[0px_2px_6px_2px_rgba(0,0,0,0.15)] border border-slate-900'
                   : 'bg-white shadow-[0px_2px_6px_2px_rgba(0,0,0,0.08)] hover:shadow-md'
               }`}>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1 md:mb-2">
                 <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${
                   stepComplete(s.num) ? 'bg-blue-500 text-white' :
                   step === s.num ? 'bg-slate-900 text-white border border-slate-900' :
@@ -187,8 +187,8 @@ export default function ProductWizard({ productId }: { productId?: string }) {
                   {stepComplete(s.num) ? <Check className="h-3 w-3" /> : s.num}
                 </div>
               </div>
-              <p className={`text-sm ${step === s.num ? 'text-slate-900 font-medium' : 'text-slate-500'}`}>{s.label}</p>
-              <p className="text-[10px] text-neutral-400 mt-0.5">
+              <p className={`text-xs md:text-sm whitespace-nowrap ${step === s.num ? 'text-slate-900 font-medium' : 'text-slate-500'}`}>{s.label}</p>
+              <p className="hidden md:block text-[10px] text-neutral-400 mt-0.5">
                 {s.num === 1 && form.name ? `${form.name}` : ''}
                 {s.num === 2 ? `${variants.length} grupos de variantes` : ''}
                 {s.num === 3 ? `Stock: ${parseInt(form.stock) + totalVariantStock}` : ''}
@@ -203,7 +203,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
           {/* Step 1: Info */}
           {step === 1 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-slate-900 mb-1">Codigo Producto</label>
                   <input type="text" value={form.sku || `SKU-${Date.now()}`} disabled
@@ -296,7 +296,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
               <Field label="Detalle corto (128 chars)" value={form.shortDesc} onChange={v => updateForm('shortDesc', v)} placeholder="Descripcion breve..." full />
               <FieldArea label="Descripcion completa (512 chars)" value={form.description} onChange={v => updateForm('description', v)} placeholder="Descripcion detallada..." />
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Field label="Precio Base" value={form.basePrice} onChange={v => updateForm('basePrice', v)} type="number" />
                 <Field label="Stock" value={form.stock} onChange={v => updateForm('stock', v)} type="number" />
                 <div>
@@ -535,7 +535,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
         </div>
 
         {/* Right: Live Preview */}
-        <div className="w-72 flex-shrink-0 space-y-4">
+        <div className="hidden lg:block w-72 flex-shrink-0 space-y-4">
           <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-4">
             <p className="text-sm font-medium text-slate-900 mb-1">Vista Previa</p>
             <p className="text-[10px] text-neutral-400 mb-3">Los cambios se reflejan aqui</p>

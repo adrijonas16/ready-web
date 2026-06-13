@@ -58,6 +58,7 @@ export default function AdminCategoriesPage() {
 
       <div className="bg-white rounded-[16px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
         {loading ? <div className="flex justify-center py-12"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div> : (
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-4 py-2.5 text-[10px] font-bold text-slate-500 uppercase">Nombre</th>
@@ -76,6 +77,7 @@ export default function AdminCategoriesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
         {filtered.length === 0 && !loading && <p className="p-8 text-center text-neutral-400 text-sm">No hay categorias</p>}
       </div>

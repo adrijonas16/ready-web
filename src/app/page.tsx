@@ -25,7 +25,7 @@ export default function HomePage() {
 
       {/* Arequipa Banner */}
       <div className="px-4 pt-4 max-w-7xl mx-auto">
-        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-4 flex items-center gap-4">
+        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-3 md:p-4 flex items-center gap-3 md:gap-4">
           <img
             src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Bandera_de_Arequipa.svg/960px-Bandera_de_Arequipa.svg.png"
             alt="Bandera de Arequipa"
@@ -53,7 +53,7 @@ export default function HomePage() {
             </h1>
             <p className="text-white text-base font-semibold mb-1">Todo lo que necesitas</p>
             <p className="text-white/60 text-sm mb-6">para el ano escolar en un solo lugar</p>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Link
                 href="/lists"
                 className="bg-amber-300 text-white px-5 py-2 rounded-lg font-semibold text-sm transition-shadow duration-200 hover:shadow-lg"
@@ -80,7 +80,7 @@ export default function HomePage() {
             <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
           {[
             { icon: Upload, title: 'Sube tu lista', desc: 'Foto o texto de la lista', color: 'bg-blue-500' },
             { icon: Search, title: 'Procesamos', desc: 'Encontramos los productos', color: 'bg-blue-500' },
@@ -101,7 +101,7 @@ export default function HomePage() {
       {/* Features */}
       <section className="px-4 py-6 max-w-7xl mx-auto">
         <h2 className="text-slate-900 text-xl font-bold tracking-tight mb-5">Por que Ready</h2>
-        <div className="grid md:grid-cols-3 gap-4 stagger-children">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger-children">
           {[
             { icon: CheckCircle, title: 'Listas Oficiales', desc: 'Acceso directo a las listas de colegios asociados. Sin revision, compra inmediata.', bgColor: 'bg-green-100' },
             { icon: Package, title: 'Gran Catalogo', desc: 'Miles de productos de las mejores marcas en un solo lugar.', bgColor: 'bg-violet-100' },

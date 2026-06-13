@@ -129,7 +129,7 @@ export default function UploadPage() {
         <p className="text-neutral-400 text-sm mb-6">Sube fotos, PDF o Word de tu lista (hasta 5 archivos). La revisaremos y te notificaremos.</p>
 
         <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 space-y-5 animate-slide-up">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs text-neutral-400 mb-1">Colegio</label>
               <SearchSelect

@@ -45,7 +45,7 @@ export default function MyListsPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-10 px-4">
+    <div className="max-w-6xl mx-auto py-6 md:py-10 px-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Mis Listas</h1>
       </div>
@@ -65,7 +65,8 @@ export default function MyListsPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[540px]">
             <thead className="bg-sky-100 border-b border-slate-100">
               <tr>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Colegio</th>
@@ -99,6 +100,7 @@ export default function MyListsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

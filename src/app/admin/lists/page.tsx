@@ -73,6 +73,7 @@ export default function AdminListsPage() {
         {loading ? (
           <div className="flex justify-center py-12"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
@@ -120,6 +121,7 @@ export default function AdminListsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
         {filtered.length === 0 && !loading && (
           <p className="p-8 text-center text-neutral-400 text-sm">No hay listas</p>

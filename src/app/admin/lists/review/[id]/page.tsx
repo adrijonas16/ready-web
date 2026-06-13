@@ -205,7 +205,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
             <h1 className="text-xl font-bold text-gray-900">{data.list.schoolName} - {data.list.gradeName}</h1>
             <p className="text-sm text-gray-500">{data.list.year} | {formatDate(data.list.fechaSubida)} | {data.items.length} items</p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap mt-2 sm:mt-0">
             {saving && <span className="text-xs text-blue-500 animate-pulse">Guardando...</span>}
             {saved && <span className="text-xs text-green-600 flex items-center gap-1"><Check className="h-3 w-3" /> Guardado</span>}
             <button onClick={runAutoMatch} disabled={saving}
@@ -245,7 +245,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {/* Tier summary */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         {TIERS.map(t => {
           const Icon = t.icon;
           const colors: Record<string, string> = { green: 'border-green-200 bg-green-50', blue: 'border-blue-200 bg-blue-50', amber: 'border-amber-200 bg-amber-50' };
@@ -261,7 +261,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
 
       {/* Tabs */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="flex border-b border-gray-100">
+        <div className="flex overflow-x-auto border-b border-gray-100">
           <button onClick={() => setActiveTab('items')}
             className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 flex items-center justify-center gap-1.5 ${activeTab === 'items' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
             <FileText className="h-4 w-4" />Items{hasChanges && <span className="w-2 h-2 bg-orange-500 rounded-full" />}

@@ -48,8 +48,8 @@ export default function AdminSectionsPage() {
 
       {showForm && (
         <div className="bg-white rounded-[16px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-4 mb-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-48">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="w-full sm:w-48">
               <label className="block text-xs text-slate-500 mb-1">Nivel</label>
               {useCustomGroup ? (
                 <div className="flex gap-1">
@@ -80,7 +80,7 @@ export default function AdminSectionsPage() {
                 onKeyDown={e => e.key === 'Enter' && save()}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" autoFocus />
             </div>
-            <div className="flex gap-2 pt-5">
+            <div className="flex gap-2 sm:pt-5">
               <button onClick={save} className="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold">Crear</button>
               <button onClick={() => setShowForm(false)} className="text-neutral-400"><X className="h-4 w-4" /></button>
             </div>

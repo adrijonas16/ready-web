@@ -20,7 +20,7 @@ function PlanSelector({ currentPlan, onSelect }: { currentPlan: string; onSelect
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {plans.map(p => {
         const Icon = p.icon;
         const selected = currentPlan === p.id;
@@ -458,7 +458,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           <PlanSelector currentPlan={plan} onSelect={handlePlanChange} />
 
           {/* Student info */}
-          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-3">
+          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-neutral-400 mb-1">Nombre del estudiante</label>
               <input type="text" value={studentName} onChange={e => setStudentName(e.target.value)}
@@ -544,7 +544,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50">
+                  <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-50">
                     {item.matchedProduct && (
                       <button onClick={() => addOneToCart(item)}
                         className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-xs font-medium hover:bg-green-100 transition-colors border border-green-100">
@@ -600,8 +600,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         <ObservationBox listId={id} existing={data.list.userObservaciones} onSaved={() => loadList()} />
 
         {/* Bottom Summary */}
-        <div className="bg-white rounded-[30px] shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)] p-6 sticky bottom-4">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-[30px] shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)] p-4 md:p-6 sticky bottom-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div>
               <p className="text-xs text-neutral-400">
                 {matchedCount}/{visibleItems.length} productos
@@ -610,7 +610,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               <p className="text-2xl font-bold text-slate-900">{formatPrice(totalEstimado)}</p>
             </div>
             <button onClick={addAllToCart} disabled={matchedCount === 0}
-              className="bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-sm disabled:opacity-40 flex items-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
+              className="w-full sm:w-auto bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
               <ShoppingCart className="h-4 w-4" /> Agregar todo al carrito
             </button>
           </div>
