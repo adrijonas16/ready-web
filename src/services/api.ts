@@ -154,6 +154,13 @@ export const brandsApi = {
   create: (name: string, logoUrl?: string) => api.post<any>('/brands', { name, logoUrl }),
 };
 
+// Categories API
+export const categoriesApi = {
+  getAll: () => api.get<any[]>('/categories'),
+  create: (name: string) => api.post<any>('/categories', { name }),
+  delete: (id: string) => api.delete<boolean>(`/categories/${id}`),
+};
+
 // Orders API
 export const ordersApi = {
   create: (order: any) => api.post<any>('/orders', order),

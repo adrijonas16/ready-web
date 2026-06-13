@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { productsApi } from '@/services/api';
+import { productsApi, brandsApi, categoriesApi } from '@/services/api';
 import { formatPrice } from '@/lib/utils';
 import { ArrowLeft, Check, Plus, X, Star, Package, Trash2, Image as ImageIcon, Upload, ChevronDown, ShoppingCart } from 'lucide-react';
 
@@ -36,6 +36,10 @@ export default function ProductWizard({ productId }: { productId?: string }) {
   const [newTag, setNewTag] = useState('');
   const [specs, setSpecs] = useState<Spec[]>([]);
 
+  // Selects data
+  const [categories, setCategories] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
+
   // Step 2: Variants
   const [variants, setVariants] = useState<VariantType[]>([]);
   const [newTypeName, setNewTypeName] = useState('');
@@ -43,6 +47,12 @@ export default function ProductWizard({ productId }: { productId?: string }) {
 
   // Step 4: FAQ
   const [faqs, setFaqs] = useState<FAQ[]>([]);
+
+  // Load categories and brands
+  useEffect(() => {
+    categoriesApi.getAll().then(setCategories).catch(() => {});
+    brandsApi.getAll().then(setBrands).catch(() => {});
+  }, []);
 
   // Load existing product
   useEffect(() => {
@@ -193,15 +203,33 @@ export default function ProductWizard({ productId }: { productId?: string }) {
           {step === 1 && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Codigo Producto" value={form.sku} onChange={v => updateForm('sku', v)} placeholder="AUTO-GENERADO" />
-                <Field label="Categoria" value={form.category} onChange={v => updateForm('category', v)} placeholder="Cuadernos" />
-                <Field label="Marca" value={form.brand} onChange={v => updateForm('brand', v)} placeholder="Faber-Castell" />
+                <div>
+                  <label className="block text-xs text-slate-900 mb-1">Codigo Producto</label>
+                  <input type="text" value={form.sku || `SKU-${Date.now()}`} disabled
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-400 cursor-not-allowed" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-900 mb-1">Categoria *</label>
+                  <select value={form.category} onChange={e => updateForm('category', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    <option value="">Seleccionar categoria</option>
+                    {categories.map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-900 mb-1">Marca</label>
+                  <select value={form.brand} onChange={e => updateForm('brand', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    <option value="">Seleccionar marca</option>
+                    {brands.map((b: any) => <option key={b.id} value={b.name}>{b.name}</option>)}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-xs text-slate-900 mb-1">Tier</label>
                   <select value={form.tier} onChange={e => updateForm('tier', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
                     <option value="economico">Economico</option>
-                    <option value="medio">Medio</option>
+                    <option value="medio">Estandar</option>
                     <option value="premium">Premium</option>
                   </select>
                 </div>

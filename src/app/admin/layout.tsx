@@ -3,13 +3,14 @@
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, List, Package, Settings, ClipboardList, ShoppingCart, Users, GraduationCap, Tag, Percent } from 'lucide-react';
+import { LayoutDashboard, List, Package, Settings, ClipboardList, ShoppingCart, Users, GraduationCap, Tag, Percent, Folders } from 'lucide-react';
 
 const adminNavItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/orders', label: 'Pedidos', icon: ShoppingCart },
   { href: '/admin/lists', label: 'Listas', icon: List },
   { href: '/admin/products', label: 'Productos', icon: Package },
+  { href: '/admin/categories', label: 'Categorias', icon: Folders },
   { href: '/admin/campaigns', label: 'Campanas', icon: Percent },
   { href: '/admin/brands', label: 'Marcas', icon: Tag },
   { href: '/admin/schools', label: 'Colegios', icon: GraduationCap },
