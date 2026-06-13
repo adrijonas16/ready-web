@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { schoolsApi } from '@/services/api';
 import { Plus, Edit2, Trash2, Search, X, ChevronDown, ChevronUp, GraduationCap } from 'lucide-react';
+import { GRADE_OPTIONS } from '@/lib/constants';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
@@ -127,9 +128,15 @@ export default function AdminSchoolsPage() {
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    <input type="text" value={newGrade} onChange={e => setNewGrade(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && addGrade()}
-                      placeholder="Nuevo grado (ej: 4to Primaria)" className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs" />
+                    <select value={newGrade} onChange={e => setNewGrade(e.target.value)}
+                      className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs">
+                      <option value="">Seleccionar grado</option>
+                      {GRADE_OPTIONS.map(g => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.options.map(o => <option key={o} value={o}>{o}</option>)}
+                        </optgroup>
+                      ))}
+                    </select>
                     <button onClick={addGrade} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Agregar</button>
                   </div>
                 </div>

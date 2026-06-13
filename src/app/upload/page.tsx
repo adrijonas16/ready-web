@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import ImageUploader from '@/components/ImageUploader';
 import { useAuth } from '@/lib/auth-context';
 import { listsApi, schoolsApi } from '@/services/api';
-import { School, Grade } from '@/lib/types';
+import { School } from '@/lib/types';
+import { GRADE_OPTIONS } from '@/lib/constants';
 import { ImageValidationResult } from '@/lib/utils';
 import { CheckCircle, List, Upload } from 'lucide-react';
 import Link from 'next/link';
@@ -15,9 +16,8 @@ export default function UploadPage() {
   const router = useRouter();
 
   const [schools, setSchools] = useState<School[]>([]);
-  const [grades, setGrades] = useState<Grade[]>([]);
   const [selectedSchool, setSelectedSchool] = useState('');
-  const [selectedGrade, setSelectedGrade] = useState('');
+  const [selectedGradeName, setSelectedGradeName] = useState('');
   const [year, setYear] = useState(new Date().getFullYear());
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -27,19 +27,9 @@ export default function UploadPage() {
 
   useEffect(() => { loadSchools(); }, []);
 
-  useEffect(() => {
-    if (selectedSchool) { loadGrades(selectedSchool); }
-    else { setGrades([]); setSelectedGrade(''); }
-  }, [selectedSchool]);
-
   const loadSchools = async () => {
     try { const data = await schoolsApi.getAll(); setSchools(data); }
     catch (err) { console.error('Error loading schools:', err); }
-  };
-
-  const loadGrades = async (schoolId: string) => {
-    try { const data = await schoolsApi.getGrades(schoolId); setGrades(data); }
-    catch (err) { console.error('Error loading grades:', err); }
   };
 
   const handleImageSelected = (file: File, validation: ImageValidationResult) => {
@@ -53,7 +43,7 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
-    if (!imageFile || !selectedSchool || !selectedGrade) {
+    if (!imageFile || !selectedSchool || !selectedGradeName) {
       setError('Completa todos los campos y sube una imagen');
       return;
     }
@@ -62,11 +52,15 @@ export default function UploadPage() {
     setError('');
 
     try {
+      // Create or find the grade
+      const newGrade = await schoolsApi.createGrade(selectedSchool, selectedGradeName, year);
+      const gradeId = typeof newGrade === 'string' ? newGrade : newGrade.id || newGrade;
+
       const formData = new FormData();
       formData.append('file', imageFile);
       formData.append('userId', user?.id || '');
       formData.append('schoolId', selectedSchool);
-      formData.append('gradeId', selectedGrade);
+      formData.append('gradeId', gradeId);
       formData.append('year', year.toString());
 
       const result = await listsApi.upload(formData);
@@ -110,7 +104,7 @@ export default function UploadPage() {
               className="w-full bg-blue-500 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
               <List className="h-4 w-4" /> Ver mis listas
             </button>
-            <button onClick={() => { setUploadComplete(false); setImageFile(null); setSelectedSchool(''); setSelectedGrade(''); }}
+            <button onClick={() => { setUploadComplete(false); setImageFile(null); setSelectedSchool(''); setSelectedGradeName(''); }}
               className="w-full bg-white text-slate-700 py-3 rounded-xl font-medium text-sm shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] hover:shadow-md transition-shadow">
               Subir otra lista
             </button>
@@ -139,10 +133,14 @@ export default function UploadPage() {
             </div>
             <div>
               <label className="block text-xs text-neutral-400 mb-1">Grado</label>
-              <select value={selectedGrade} onChange={(e) => setSelectedGrade(e.target.value)} disabled={!selectedSchool}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:text-neutral-400">
+              <select value={selectedGradeName} onChange={(e) => setSelectedGradeName(e.target.value)}
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
                 <option value="">Seleccionar</option>
-                {grades.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                {GRADE_OPTIONS.map(g => (
+                  <optgroup key={g.group} label={g.group}>
+                    {g.options.map(o => <option key={o} value={o}>{o}</option>)}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div>
@@ -164,7 +162,7 @@ export default function UploadPage() {
 
           {/* Submit */}
           <button onClick={handleUpload}
-            disabled={!imageFile || !selectedSchool || !selectedGrade || uploading}
+            disabled={!imageFile || !selectedSchool || !selectedGradeName || uploading}
             className="w-full bg-blue-500 text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
             {uploading ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

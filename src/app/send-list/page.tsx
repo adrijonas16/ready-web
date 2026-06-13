@@ -5,14 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { listsApi, schoolsApi } from '@/services/api';
 import { School, Grade } from '@/lib/types';
+import { GRADE_OPTIONS } from '@/lib/constants';
 import { CheckCircle, List, Plus, Trash2, ClipboardList, ArrowRight, School as SchoolIcon } from 'lucide-react';
 import Link from 'next/link';
-
-const GRADE_OPTIONS = [
-  { group: 'Inicial', options: ['Inicial - 4 años', 'Inicial - 5 años'] },
-  { group: 'Primaria', options: ['1ro Primaria', '2do Primaria', '3ro Primaria', '4to Primaria', '5to Primaria', '6to Primaria'] },
-  { group: 'Secundaria', options: ['1ro Secundaria', '2do Secundaria', '3ro Secundaria', '4to Secundaria', '5to Secundaria'] },
-];
 
 export default function SendListPage() {
   const { user } = useAuth();

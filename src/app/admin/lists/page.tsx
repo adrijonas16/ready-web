@@ -101,7 +101,7 @@ export default function AdminListsPage() {
                   </td>
                   <td className="px-4 py-2 text-[10px] text-neutral-400">{formatDate(list.fechaSubida)}</td>
                   <td className="px-4 py-2 text-center">
-                    <Link href={`/lists/${list.id}`} className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100 transition-colors inline-flex">
+                    <Link href={`/admin/lists/review/${list.id}`} className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100 transition-colors inline-flex">
                       <Eye className="h-3.5 w-3.5" />
                     </Link>
                   </td>

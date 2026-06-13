@@ -109,6 +109,10 @@ export const listsApi = {
     api.put<boolean>(`/lists/${id}/plan`, data),
   addObservacion: (id: string, observacion: string) =>
     api.post<boolean>(`/lists/${id}/observaciones`, { observacion }),
+  addItem: (listId: string, data: { nombreOriginal: string; cantidad: number; notas?: string }) =>
+    api.post<any>(`/lists/${listId}/items`, data),
+  deleteItem: (listId: string, itemId: string) =>
+    api.delete<boolean>(`/lists/${listId}/items/${itemId}`),
   createFromText: (data: {
     userId: string;
     schoolId: string;

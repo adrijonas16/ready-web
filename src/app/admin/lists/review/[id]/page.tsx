@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { listsApi, productsApi } from '@/services/api';
 import { ListDetail, Product } from '@/lib/types';
 import { formatPrice, formatDate } from '@/lib/utils';
-import { ArrowLeft, Check, AlertTriangle, RefreshCw, Search, Save } from 'lucide-react';
+import { ArrowLeft, Check, AlertTriangle, RefreshCw, Search, Save, Plus, Trash2 } from 'lucide-react';
 
 export default function ReviewListPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -16,6 +16,8 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
   const [searchProduct, setSearchProduct] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemQty, setNewItemQty] = useState(1);
 
   useEffect(() => {
     loadList();
@@ -57,6 +59,34 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
     }
   };
 
+  const addNewItem = async () => {
+    if (!newItemName.trim()) return;
+    setSaving(true);
+    try {
+      await listsApi.addItem(resolvedParams.id, { nombreOriginal: newItemName.trim(), cantidad: newItemQty });
+      setNewItemName('');
+      setNewItemQty(1);
+      await loadList();
+    } catch (err) {
+      console.error('Error adding item:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteItem = async (itemId: string) => {
+    if (!confirm('Eliminar este item?')) return;
+    setSaving(true);
+    try {
+      await listsApi.deleteItem(resolvedParams.id, itemId);
+      await loadList();
+    } catch (err) {
+      console.error('Error deleting item:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSearch = async () => {
     if (!searchProduct.trim()) return;
     try {
@@ -83,7 +113,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
     );
   }
 
-  const canApprove = data.list.estado === 'EN_REVISION';
+  const canApprove = data.list.estado === 'EN_REVISION' || data.list.estado === 'OBSERVADA';
   const canStartReview = data.list.estado === 'PENDIENTE_REVISION';
 
   return (
@@ -186,7 +216,14 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
             <tbody className="divide-y divide-gray-100">
               {data.items.map((item) => (
                 <tr key={item.id} className={!item.matchedProductId ? 'bg-yellow-50' : ''}>
-                  <td className="px-4 py-3 text-gray-900">{item.nombreOriginal}</td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="text"
+                      defaultValue={item.nombreOriginal}
+                      className="px-2 py-1 border border-gray-300 rounded text-sm font-medium"
+                      onBlur={(e) => updateItem(item.id, { nombreOriginal: e.target.value })}
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     <input
                       type="text"
@@ -228,17 +265,54 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
                     />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setEditingItemId(item.id)}
-                      className="text-blue-600 hover:text-blue-700 text-sm"
-                    >
-                      Buscar
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => setEditingItemId(item.id)}
+                        className="text-blue-600 hover:text-blue-700 text-sm"
+                      >
+                        Buscar
+                      </button>
+                      <button
+                        onClick={() => deleteItem(item.id)}
+                        className="text-red-400 hover:text-red-600 p-1"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Add new item */}
+        <div className="p-4 border-t border-gray-100 bg-gray-50">
+          <p className="text-sm font-medium text-gray-700 mb-2">Agregar item</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addNewItem()}
+              placeholder="Nombre del producto..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+            <input
+              type="number"
+              value={newItemQty}
+              onChange={(e) => setNewItemQty(parseInt(e.target.value) || 1)}
+              min={1}
+              className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+            <button
+              onClick={addNewItem}
+              disabled={!newItemName.trim() || saving}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:bg-blue-400 flex items-center gap-1"
+            >
+              <Plus className="h-4 w-4" /> Agregar
+            </button>
+          </div>
         </div>
       </div>
 

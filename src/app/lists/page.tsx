@@ -37,6 +37,7 @@ export default function ListsPage() {
   };
 
   const filteredLists = officialLists.filter(list => {
+    if (list.estado !== 'VALIDADA' && list.estado !== 'PROCESADA') return false;
     if (selectedSchool && list.schoolId !== selectedSchool) return false;
     if (selectedGrade && list.gradeId !== selectedGrade) return false;
     return true;
