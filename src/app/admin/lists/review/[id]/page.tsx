@@ -289,7 +289,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
                     placeholder="Nombre del producto"
                     className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none" />
                   <input type="number" value={item.cantidad} min={1}
-                    onChange={(e) => updateLocal(i, 'cantidad', parseInt(e.target.value) || 1)}
+                    onChange={(e) => updateLocal(i, 'cantidad', e.target.value === '' ? 1 : Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-16 px-2 py-2 border border-gray-200 rounded-lg text-sm text-center bg-white focus:border-blue-500 outline-none" />
                   <input type="text" value={item.notas}
                     onChange={(e) => updateLocal(i, 'notas', e.target.value)}
