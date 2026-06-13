@@ -6,6 +6,8 @@ import { useAuth } from '@/lib/auth-context';
 import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
 import { School, Grade, Section } from '@/lib/types';
 import { groupSections } from '@/lib/constants';
+
+
 import { CheckCircle, List, Plus, Trash2, ClipboardList, ArrowRight, School as SchoolIcon } from 'lucide-react';
 import Link from 'next/link';
 
@@ -15,7 +17,8 @@ export default function SendListPage() {
 
   const [schools, setSchools] = useState<School[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
+  const [allSections, setAllSections] = useState<Section[]>([]);
+  const [schoolSections, setSchoolSections] = useState<Section[]>([]);
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('');
   const [year, setYear] = useState(new Date().getFullYear());
@@ -39,8 +42,12 @@ export default function SendListPage() {
   useEffect(() => { loadSchools(); loadSections(); }, []);
 
   useEffect(() => {
-    if (selectedSchool && !isNewSchool) { loadGrades(selectedSchool); }
-    else { setGrades([]); setSelectedGrade(''); }
+    if (selectedSchool && !isNewSchool) {
+      loadGrades(selectedSchool);
+      loadSchoolSections(selectedSchool);
+    } else {
+      setGrades([]); setSelectedGrade(''); setSchoolSections([]);
+    }
   }, [selectedSchool, isNewSchool]);
 
   const loadSchools = async () => {
@@ -49,8 +56,13 @@ export default function SendListPage() {
   };
 
   const loadSections = async () => {
-    try { const data = await sectionsApi.getAll(); setSections(data); }
+    try { const data = await sectionsApi.getAll(); setAllSections(data); }
     catch (err) { console.error('Error loading sections:', err); }
+  };
+
+  const loadSchoolSections = async (schoolId: string) => {
+    try { const data = await schoolsApi.getSchoolSections(schoolId); setSchoolSections(data); }
+    catch (err) { console.error('Error loading school sections:', err); }
   };
 
   const loadGrades = async (schoolId: string) => {
@@ -210,7 +222,7 @@ export default function SendListPage() {
                       className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     >
                       <option value="">Seleccionar grado</option>
-                      {groupSections(sections).map(g => (
+                      {groupSections(allSections).map(g => (
                         <optgroup key={g.group} label={g.group}>
                           {g.options.map(o => <option key={o} value={o}>{o}</option>)}
                         </optgroup>
@@ -267,7 +279,7 @@ export default function SendListPage() {
                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                       >
                         <option value="">Seleccionar grado</option>
-                        {GRADE_OPTIONS.map(g => (
+                        {groupSections(schoolSections).map(g => (
                           <optgroup key={g.group} label={g.group}>
                             {g.options.map(o => <option key={o} value={o}>{o}</option>)}
                           </optgroup>

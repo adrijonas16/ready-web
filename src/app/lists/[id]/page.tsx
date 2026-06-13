@@ -409,8 +409,12 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         {/* Header */}
         <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 mb-4">
           {data.list.imageUrl && (
-            <div className="mb-4 rounded-xl overflow-hidden bg-slate-50 max-h-64 flex items-center justify-center">
-              <img src={data.list.imageUrl} alt="Foto de la lista" className="max-h-64 object-contain" />
+            <div className="mb-4 flex gap-2 overflow-x-auto">
+              {data.list.imageUrl.split('|').map((url: string, i: number) => (
+                <div key={i} className="rounded-xl overflow-hidden bg-slate-50 max-h-64 flex-shrink-0">
+                  <img src={url} alt={`Foto ${i + 1}`} className="max-h-64 object-contain" />
+                </div>
+              ))}
             </div>
           )}
           <div className="flex items-start justify-between">

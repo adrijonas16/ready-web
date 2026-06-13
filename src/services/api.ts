@@ -90,6 +90,9 @@ export const schoolsApi = {
     api.post<any>('/schools', { name, address }),
   createGrade: (schoolId: string, name: string, year: number) =>
     api.post<any>(`/schools/${schoolId}/grades`, { name, year }),
+  getSchoolSections: (schoolId: string) => api.get<any[]>(`/schools/${schoolId}/sections`),
+  setSchoolSections: (schoolId: string, sectionIds: string[]) =>
+    api.put<boolean>(`/schools/${schoolId}/sections`, { sectionIds }),
 };
 
 // Sections API

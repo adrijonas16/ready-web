@@ -20,11 +20,13 @@ export default function AdminSchoolsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [grades, setGrades] = useState<any[]>([]);
   const [newGrade, setNewGrade] = useState('');
-  const [sections, setSections] = useState<Section[]>([]);
+  const [allSections, setAllSections] = useState<Section[]>([]);
+  const [schoolSectionIds, setSchoolSectionIds] = useState<Set<string>>(new Set());
+  const [savingSections, setSavingSections] = useState(false);
 
-  useEffect(() => { load(); loadSections(); }, []);
+  useEffect(() => { load(); loadAllSections(); }, []);
   const load = async () => { try { setSchools(await schoolsApi.getAll()); } catch {} finally { setLoading(false); } };
-  const loadSections = async () => { try { setSections(await sectionsApi.getAll()); } catch {} };
+  const loadAllSections = async () => { try { setAllSections(await sectionsApi.getAll()); } catch {} };
 
   const save = async () => {
     if (!name.trim()) return;
@@ -45,8 +47,23 @@ export default function AdminSchoolsPage() {
   const toggleGrades = async (id: string) => {
     if (expanded === id) { setExpanded(null); return; }
     setExpanded(id);
-    const data = await schoolsApi.getGrades(id);
-    setGrades(data);
+    const [gradesData, schoolSecs] = await Promise.all([
+      schoolsApi.getGrades(id),
+      schoolsApi.getSchoolSections(id),
+    ]);
+    setGrades(gradesData);
+    setSchoolSectionIds(new Set(schoolSecs.map((s: any) => s.id)));
+  };
+
+  const toggleSection = async (schoolId: string, sectionId: string) => {
+    const newSet = new Set(schoolSectionIds);
+    if (newSet.has(sectionId)) newSet.delete(sectionId);
+    else newSet.add(sectionId);
+    setSchoolSectionIds(newSet);
+    setSavingSections(true);
+    try { await schoolsApi.setSchoolSections(schoolId, Array.from(newSet)); }
+    catch (err) { console.error(err); }
+    finally { setSavingSections(false); }
   };
 
   const addGrade = async () => {
@@ -118,30 +135,59 @@ export default function AdminSchoolsPage() {
               </div>
 
               {expanded === s.id && (
-                <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Grados ({grades.length})</p>
-                  <div className="space-y-1 mb-2">
-                    {grades.map(g => (
-                      <div key={g.id} className="flex items-center justify-between px-3 py-1.5 bg-white rounded-lg">
-                        <span className="text-xs text-slate-700">{g.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-neutral-400">{g.year}</span>
-                          <button onClick={() => deleteGrade(s.id, g.id)} className="text-red-300 hover:text-red-500"><X className="h-3 w-3" /></button>
+                <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50 space-y-4">
+                  {/* Secciones del colegio */}
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">
+                      Secciones que tiene este colegio {savingSections && <span className="text-blue-500">(guardando...)</span>}
+                    </p>
+                    <div className="space-y-1">
+                      {groupSections(allSections).map(group => (
+                        <div key={group.group}>
+                          <p className="text-[10px] font-bold text-slate-400 mt-1">{group.group}</p>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {allSections.filter(sec => sec.groupName === group.group).map(sec => (
+                              <button key={sec.id} onClick={() => toggleSection(s.id, sec.id)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                                  schoolSectionIds.has(sec.id)
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-white border border-slate-200 text-slate-500 hover:border-blue-300'
+                                }`}>
+                                {sec.name}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <select value={newGrade} onChange={e => setNewGrade(e.target.value)}
-                      className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs">
-                      <option value="">Seleccionar grado</option>
-                      {groupSections(sections).map(g => (
-                        <optgroup key={g.group} label={g.group}>
-                          {g.options.map(o => <option key={o} value={o}>{o}</option>)}
-                        </optgroup>
                       ))}
-                    </select>
-                    <button onClick={addGrade} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Agregar</button>
+                    </div>
+                  </div>
+
+                  {/* Grados */}
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Grados ({grades.length})</p>
+                    <div className="space-y-1 mb-2">
+                      {grades.map(g => (
+                        <div key={g.id} className="flex items-center justify-between px-3 py-1.5 bg-white rounded-lg">
+                          <span className="text-xs text-slate-700">{g.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-neutral-400">{g.year}</span>
+                            <button onClick={() => deleteGrade(s.id, g.id)} className="text-red-300 hover:text-red-500"><X className="h-3 w-3" /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <select value={newGrade} onChange={e => setNewGrade(e.target.value)}
+                        className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs">
+                        <option value="">Seleccionar grado</option>
+                        {groupSections(allSections.filter(s => schoolSectionIds.has(s.id))).map(g => (
+                          <optgroup key={g.group} label={g.group}>
+                            {g.options.map(o => <option key={o} value={o}>{o}</option>)}
+                          </optgroup>
+                        ))}
+                      </select>
+                      <button onClick={addGrade} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Agregar</button>
+                    </div>
                   </div>
                 </div>
               )}

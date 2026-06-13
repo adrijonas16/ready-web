@@ -178,10 +178,12 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
         )}
 
         {data.list.imageUrl && (
-          <div className="mt-4">
-            <a href={data.list.imageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700">
-              Ver imagen original →
-            </a>
+          <div className="mt-4 flex gap-3 overflow-x-auto">
+            {data.list.imageUrl.split('|').map((url: string, i: number) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                <img src={url} alt={`Imagen ${i + 1}`} className="h-32 rounded-lg border border-gray-200 object-cover hover:opacity-80 transition-opacity" />
+              </a>
+            ))}
           </div>
         )}
       </div>
