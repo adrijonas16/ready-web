@@ -316,6 +316,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const { user } = useAuth();
   const [data, setData] = useState<ListDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [localQty, setLocalQty] = useState<Record<string, number>>({});
   const [editingItem, setEditingItem] = useState<SupplyItem | null>(null);
   const [customizingItem, setCustomizingItem] = useState<SupplyItem | null>(null);
   const [plan, setPlan] = useState('medio');
@@ -331,6 +332,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     try {
       const result = await listsApi.getById(id);
       setData(result);
+      const qtys: Record<string, number> = {};
+      result.items.forEach((i: SupplyItem) => { qtys[i.id] = i.userCustomQuantity || i.matchedQuantity || i.cantidad; });
+      setLocalQty(qtys);
       if (result.list.plan) setPlan(result.list.plan);
       if (result.list.estudianteNombre) setStudentName(result.list.estudianteNombre);
       if (result.list.estudianteGrado) setStudentGrade(result.list.estudianteGrado);
@@ -374,7 +378,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     } catch { showToast('Error al guardar', 'error'); }
   };
 
-  const getQty = (item: SupplyItem) => item.userCustomQuantity || item.matchedQuantity || item.cantidad;
+  const getQty = (item: SupplyItem) => localQty[item.id] || item.userCustomQuantity || item.matchedQuantity || item.cantidad;
 
   const addAllToCart = () => {
     if (!data) return;
@@ -542,35 +546,19 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     {item.matchedProduct && (
                       <button onClick={() => addOneToCart(item)}
                         className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-xs font-medium hover:bg-green-100 transition-colors border border-green-100">
-                        <ShoppingCart className="h-3 w-3" /> Agregar
+                        <ShoppingCart className="h-3 w-3" /> Agregar al carrito
                       </button>
                     )}
-                    <button onClick={() => setEditingItem(item)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-medium hover:bg-blue-100 transition-colors border border-blue-100">
-                      <Edit2 className="h-3 w-3" /> Cambiar
-                    </button>
-                    <button onClick={() => setCustomizingItem(item)}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors border ${
-                        customized ? 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-slate-100'
-                      }`}>
-                      <Settings2 className="h-3 w-3" /> Personalizar
-                    </button>
 
-                    {/* Quantity control */}
+                    {/* Quantity control - local only, for cart */}
                     <div className="flex items-center gap-1 ml-auto">
-                      <button onClick={async () => {
-                        const newQty = Math.max(1, getQty(item) - 1);
-                        await listsApi.updateItem(id, item.id, { userCustomQuantity: newQty });
-                        await loadList();
-                      }} className="w-6 h-6 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center text-xs">
+                      <button onClick={() => setLocalQty(prev => ({ ...prev, [item.id]: Math.max(1, getQty(item) - 1) }))}
+                        className="w-6 h-6 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center text-xs">
                         <Minus className="h-3 w-3" />
                       </button>
                       <span className="w-5 text-center text-sm font-bold">{getQty(item)}</span>
-                      <button onClick={async () => {
-                        const newQty = getQty(item) + 1;
-                        await listsApi.updateItem(id, item.id, { userCustomQuantity: newQty });
-                        await loadList();
-                      }} className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">
+                      <button onClick={() => setLocalQty(prev => ({ ...prev, [item.id]: getQty(item) + 1 }))}
+                        className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">
                         <Plus className="h-3 w-3" />
                       </button>
                     </div>
