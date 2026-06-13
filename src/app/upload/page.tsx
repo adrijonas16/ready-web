@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ImageUploader from '@/components/ImageUploader';
 import { useAuth } from '@/lib/auth-context';
-import { listsApi, schoolsApi } from '@/services/api';
+import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
 import { School, Section } from '@/lib/types';
 import { groupSections } from '@/lib/constants';
 import { CheckCircle, List, Upload } from 'lucide-react';
@@ -15,6 +15,7 @@ export default function UploadPage() {
   const router = useRouter();
 
   const [schools, setSchools] = useState<School[]>([]);
+  const [allSections, setAllSections] = useState<Section[]>([]);
   const [schoolSections, setSchoolSections] = useState<Section[]>([]);
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedGradeName, setSelectedGradeName] = useState('');
@@ -25,7 +26,7 @@ export default function UploadPage() {
   const [uploadedListId, setUploadedListId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => { loadSchools(); }, []);
+  useEffect(() => { loadSchools(); loadAllSections(); }, []);
 
   useEffect(() => {
     if (selectedSchool) { loadSchoolSections(selectedSchool); }
@@ -35,6 +36,11 @@ export default function UploadPage() {
   const loadSchools = async () => {
     try { const data = await schoolsApi.getAll(); setSchools(data); }
     catch (err) { console.error('Error loading schools:', err); }
+  };
+
+  const loadAllSections = async () => {
+    try { const data = await sectionsApi.getAll(); setAllSections(data); }
+    catch (err) { console.error('Error loading sections:', err); }
   };
 
   const loadSchoolSections = async (schoolId: string) => {
@@ -137,7 +143,7 @@ export default function UploadPage() {
                 disabled={!selectedSchool}
                 className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:text-neutral-400">
                 <option value="">{!selectedSchool ? 'Primero selecciona colegio' : 'Seleccionar'}</option>
-                {groupSections(schoolSections).map(g => (
+                {groupSections(schoolSections.length > 0 ? schoolSections : allSections).map(g => (
                   <optgroup key={g.group} label={g.group}>
                     {g.options.map(o => <option key={o} value={o}>{o}</option>)}
                   </optgroup>
