@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { listsApi, productsApi } from '@/services/api';
 import { ListDetail, Product } from '@/lib/types';
 import { formatPrice, formatDate } from '@/lib/utils';
-import { ArrowLeft, Check, AlertTriangle, RefreshCw, Search, Save, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, AlertTriangle, RefreshCw, Search, Save, Plus, Trash2, X } from 'lucide-react';
 
 export default function ReviewListPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -87,6 +87,14 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
     }
   };
 
+  const deleteList = async () => {
+    if (!confirm('Eliminar esta lista y todos sus items?')) return;
+    try {
+      await listsApi.delete(resolvedParams.id);
+      router.push('/admin/lists');
+    } catch (err) { console.error(err); }
+  };
+
   const handleSearch = async () => {
     if (!searchProduct.trim()) return;
     try {
@@ -137,6 +145,13 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
             </p>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={deleteList}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 flex items-center gap-2"
+            >
+              <Trash2 className="h-5 w-5" />
+              Eliminar
+            </button>
             {canStartReview && (
               <button
                 onClick={() => updateStatus('EN_REVISION')}

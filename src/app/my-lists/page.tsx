@@ -7,7 +7,7 @@ import { SupplyList } from '@/lib/types';
 import Link from 'next/link';
 import StatusBadge from '@/components/StatusBadge';
 import { formatDate } from '@/lib/utils';
-import { List, Plus, Eye } from 'lucide-react';
+import { List, Eye } from 'lucide-react';
 
 export default function MyListsPage() {
   const { user } = useAuth();
@@ -48,21 +48,6 @@ export default function MyListsPage() {
     <div className="max-w-6xl mx-auto py-10 px-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Mis Listas</h1>
-        <div className="flex gap-2">
-          <Link
-            href="/send-list"
-            className="bg-blue-500 text-white px-4 py-2 rounded-xl font-medium text-sm flex items-center gap-2 transition-[box-shadow] duration-200 hover:shadow-md"
-          >
-            <Plus className="h-4 w-4" />
-            Enviar Lista
-          </Link>
-          <Link
-            href="/upload"
-            className="bg-white text-slate-700 px-4 py-2 rounded-xl font-medium text-sm flex items-center gap-2 hover:bg-slate-50 transition-colors duration-150"
-          >
-            Subir Foto
-          </Link>
-        </div>
       </div>
 
       {loading ? (
@@ -73,15 +58,10 @@ export default function MyListsPage() {
         <div className="bg-white rounded-xl border border-slate-100 p-12 text-center">
           <List className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-slate-900 mb-1">No tienes listas aun</h3>
-          <p className="text-neutral-400 text-sm mb-6">Envia o sube tu primera lista de utiles para comenzar.</p>
-          <div className="flex gap-3 justify-center">
-            <Link href="/send-list" className="bg-blue-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:shadow-lg hover:shadow-blue-500/25 transition-colors duration-150">
-              Enviar mi lista
-            </Link>
-            <Link href="/upload" className="bg-white text-slate-700 px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors duration-150">
-              Subir foto
-            </Link>
-          </div>
+          <p className="text-neutral-400 text-sm mb-6">Sube tu primera lista de utiles para comenzar.</p>
+          <Link href="/upload" className="bg-blue-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:shadow-lg hover:shadow-blue-500/25 transition-colors duration-150">
+            Subir lista
+          </Link>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">

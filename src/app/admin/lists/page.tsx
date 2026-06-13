@@ -6,7 +6,7 @@ import { SupplyList } from '@/lib/types';
 import Link from 'next/link';
 import StatusBadge from '@/components/StatusBadge';
 import { formatDate } from '@/lib/utils';
-import { Eye, Search, Image as ImageIcon, MessageSquare } from 'lucide-react';
+import { Eye, Search, Image as ImageIcon, MessageSquare, Trash2 } from 'lucide-react';
 
 export default function AdminListsPage() {
   const [lists, setLists] = useState<SupplyList[]>([]);
@@ -25,6 +25,12 @@ export default function AdminListsPage() {
       setLists(data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
+  };
+
+  const deleteList = async (id: string) => {
+    if (!confirm('Eliminar esta lista y todos sus items?')) return;
+    try { await listsApi.delete(id); loadLists(); }
+    catch (err) { console.error(err); }
   };
 
   const filtered = lists.filter(l => {
@@ -78,7 +84,7 @@ export default function AdminListsPage() {
                 <th className="text-left px-4 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Foto</th>
                 <th className="text-left px-4 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Obs</th>
                 <th className="text-left px-4 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
-                <th className="text-center px-4 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-16">Ver</th>
+                <th className="text-center px-4 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-24">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -101,9 +107,14 @@ export default function AdminListsPage() {
                   </td>
                   <td className="px-4 py-2 text-[10px] text-neutral-400">{formatDate(list.fechaSubida)}</td>
                   <td className="px-4 py-2 text-center">
-                    <Link href={`/admin/lists/review/${list.id}`} className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100 transition-colors inline-flex">
-                      <Eye className="h-3.5 w-3.5" />
-                    </Link>
+                    <div className="flex items-center justify-center gap-1">
+                      <Link href={`/admin/lists/review/${list.id}`} className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100 transition-colors inline-flex">
+                        <Eye className="h-3.5 w-3.5" />
+                      </Link>
+                      <button onClick={() => deleteList(list.id)} className="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-100 transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Upload, AlertCircle, CheckCircle, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, CheckCircle, X, FileText } from 'lucide-react';
 import { validateImage, ImageValidationResult } from '@/lib/utils';
 
 interface ImageUploaderProps {
@@ -16,6 +16,8 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
   const [isValidating, setIsValidating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+
   const addFiles = async (newFiles: File[]) => {
     setIsValidating(true);
     const validFiles: { file: File; url: string; validation: ImageValidationResult }[] = [...previews];
@@ -23,18 +25,23 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
 
     for (const file of newFiles) {
       if (validFiles.length >= maxFiles) {
-        errors.push(`Maximo ${maxFiles} imagenes`);
+        errors.push(`Maximo ${maxFiles} archivos`);
         break;
       }
-      if (!file.type.startsWith('image/')) {
-        errors.push(`${file.name}: no es una imagen`);
+      if (!allowedTypes.includes(file.type)) {
+        errors.push(`${file.name}: solo imagenes, PDF o Word`);
         continue;
       }
-      const result = await validateImage(file);
-      if (result.isValid) {
-        validFiles.push({ file, url: URL.createObjectURL(file), validation: result });
+      if (file.type.startsWith('image/')) {
+        const result = await validateImage(file);
+        if (result.isValid) {
+          validFiles.push({ file, url: URL.createObjectURL(file), validation: result });
+        } else {
+          errors.push(`${file.name}: ${result.errors.join(', ')}`);
+        }
       } else {
-        errors.push(`${file.name}: ${result.errors.join(', ')}`);
+        // PDF or Word - no image validation needed
+        validFiles.push({ file, url: '', validation: { isValid: true, errors: [], width: 0, height: 0, brightness: 0, blurScore: 0 } });
       }
     }
 
@@ -74,7 +81,7 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.pdf,.doc,.docx"
           multiple
           onChange={(e) => {
             if (e.target.files) addFiles(Array.from(e.target.files));
@@ -91,10 +98,10 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
             )}
           </div>
           <p className="text-sm font-medium text-gray-700">
-            {isValidating ? 'Validando...' : 'Arrastra tus imagenes aqui'}
+            {isValidating ? 'Validando...' : 'Arrastra tus archivos aqui'}
           </p>
           <p className="text-xs text-gray-500">
-            o haz clic para seleccionar ({previews.length}/{maxFiles})
+            Fotos, PDF o Word ({previews.length}/{maxFiles})
           </p>
         </div>
       </div>
@@ -102,8 +109,15 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
       {previews.length > 0 && (
         <div className="grid grid-cols-5 gap-2">
           {previews.map((p, i) => (
-            <div key={i} className="relative aspect-square rounded-xl overflow-hidden bg-slate-50 border border-slate-200">
-              <img src={p.url} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+            <div key={i} className="relative aspect-square rounded-xl overflow-hidden bg-slate-50 border border-slate-200 flex items-center justify-center">
+              {p.url ? (
+                <img src={p.url} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-center p-2">
+                  <FileText className="h-6 w-6 text-blue-500 mx-auto mb-1" />
+                  <p className="text-[9px] text-slate-500 truncate max-w-full">{p.file.name}</p>
+                </div>
+              )}
               <button
                 onClick={(e) => { e.stopPropagation(); removeFile(i); }}
                 className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600"

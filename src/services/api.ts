@@ -118,6 +118,7 @@ export const listsApi = {
   reprocess: (id: string) => api.post<boolean>(`/lists/${id}/reprocess`),
   updatePlan: (id: string, data: { plan: string; estudianteNombre?: string; estudianteGrado?: string }) =>
     api.put<boolean>(`/lists/${id}/plan`, data),
+  delete: (id: string) => api.delete<boolean>(`/lists/${id}`),
   addObservacion: (id: string, observacion: string) =>
     api.post<boolean>(`/lists/${id}/observaciones`, { observacion }),
   addItem: (listId: string, data: { nombreOriginal: string; cantidad: number; notas?: string }) =>

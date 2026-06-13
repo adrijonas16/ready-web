@@ -118,8 +118,8 @@ export default function UploadPage() {
   return (
     <div className="min-h-screen bg-sky-100">
       <div className="max-w-3xl mx-auto py-6 px-4">
-        <h1 className="text-slate-900 text-2xl font-bold tracking-tight mb-1">Subir Foto de Lista</h1>
-        <p className="text-neutral-400 text-sm mb-6">Sube hasta 5 fotos y procesaremos los productos automaticamente.</p>
+        <h1 className="text-slate-900 text-2xl font-bold tracking-tight mb-1">Enviar Lista de Utiles</h1>
+        <p className="text-neutral-400 text-sm mb-6">Sube fotos, PDF o Word de tu lista (hasta 5 archivos). La revisaremos y te notificaremos.</p>
 
         <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 space-y-5 animate-slide-up">
           <div className="grid grid-cols-3 gap-3">

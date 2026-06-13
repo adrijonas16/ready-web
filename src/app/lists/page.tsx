@@ -5,7 +5,7 @@ import { listsApi, schoolsApi } from '@/services/api';
 import { SupplyList, School, Grade } from '@/lib/types';
 import Link from 'next/link';
 import StatusBadge from '@/components/StatusBadge';
-import { Package, GraduationCap, School as SchoolIcon, Plus, Search, ArrowRight } from 'lucide-react';
+import { Package, GraduationCap, Search, ArrowRight } from 'lucide-react';
 
 export default function ListsPage() {
   const [officialLists, setOfficialLists] = useState<SupplyList[]>([]);
@@ -88,10 +88,7 @@ export default function ListsPage() {
           <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-12 text-center">
             <Package className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-slate-900 mb-1">No hay listas disponibles</h3>
-            <p className="text-neutral-400 text-sm mb-6">Prueba con otros filtros o envia tu propia lista</p>
-            <Link href="/send-list" className="inline-flex items-center gap-2 bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-              <Plus className="h-4 w-4" /> Enviar mi lista
-            </Link>
+            <p className="text-neutral-400 text-sm">Prueba con otros filtros</p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children mb-8">
@@ -122,23 +119,6 @@ export default function ListsPage() {
           </div>
         )}
 
-        {/* CTA Banner */}
-        <div className="bg-blue-500 rounded-[20px] p-7 text-white shadow-lg shadow-blue-500/20">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold mb-1">No encuentras tu lista?</h2>
-              <p className="text-white/60 text-sm">Envia la lista de tu hijo y la procesamos</p>
-            </div>
-            <div className="flex gap-3">
-              <Link href="/send-list" className="bg-white text-blue-500 px-5 py-2.5 rounded-xl font-bold text-sm hover:shadow-lg transition-shadow">
-                Enviar lista
-              </Link>
-              <Link href="/upload" className="bg-white/15 text-white px-5 py-2.5 rounded-xl font-bold text-sm border border-white/20 hover:bg-white/25 transition-colors">
-                Subir foto
-              </Link>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
