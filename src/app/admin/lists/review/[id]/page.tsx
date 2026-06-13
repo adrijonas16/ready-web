@@ -37,6 +37,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState(1);
   const [showPreview, setShowPreview] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => { loadList(); }, [resolvedParams.id]);
 
@@ -54,8 +55,8 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
   };
 
   const updateItem = async (itemId: string, updates: any) => {
-    setSaving(true);
-    try { await listsApi.updateItem(resolvedParams.id, itemId, updates); await loadList(); }
+    setSaving(true); setSaved(false);
+    try { await listsApi.updateItem(resolvedParams.id, itemId, updates); await loadList(); setSaved(true); setTimeout(() => setSaved(false), 2000); }
     catch (err) { console.error(err); }
     finally { setSaving(false); }
   };
@@ -84,12 +85,13 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
     catch (err) { console.error(err); }
   };
 
-  const handleSearch = async (query?: string) => {
+  const handleSearch = async (query?: string, tierFilter?: string) => {
     const q = query || searchProduct;
     if (!q.trim()) return;
+    const tier = tierFilter !== undefined ? tierFilter : searchTier;
     try {
       const results = await productsApi.search(q);
-      setSearchResults(searchTier ? results.filter((p: Product) => p.tier === searchTier) : results);
+      setSearchResults(tier ? results.filter((p: Product) => p.tier === tier) : results);
     } catch (err) { console.error(err); }
   };
 
@@ -97,7 +99,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
     setEditingItemId(item.id);
     setSearchProduct(item.nombreOriginal);
     setSearchTier(tier || '');
-    setTimeout(() => handleSearch(item.nombreOriginal), 100);
+    handleSearch(item.nombreOriginal, tier || '');
   };
 
   const assignProduct = async (product: Product) => {
@@ -137,6 +139,8 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {saving && <span className="text-xs text-blue-500 animate-pulse">Guardando...</span>}
+            {saved && <span className="text-xs text-green-500 flex items-center gap-1"><Check className="h-3 w-3" /> Guardado</span>}
             <button onClick={() => setShowPreview(true)}
               className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 flex items-center gap-2">
               <Eye className="h-4 w-4" /> Vista Previa
@@ -311,12 +315,12 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
               </div>
               {/* Tier filter */}
               <div className="flex gap-2 mt-2">
-                <button onClick={() => { setSearchTier(''); handleSearch(); }}
+                <button onClick={() => { setSearchTier(''); handleSearch(undefined, ''); }}
                   className={`px-3 py-1 rounded-lg text-xs font-medium ${!searchTier ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'}`}>
                   Todos
                 </button>
                 {TIERS.map(t => (
-                  <button key={t.id} onClick={() => { setSearchTier(t.id); setTimeout(() => handleSearch(), 50); }}
+                  <button key={t.id} onClick={() => { setSearchTier(t.id); handleSearch(undefined, t.id); }}
                     className={`px-3 py-1 rounded-lg text-xs font-medium ${searchTier === t.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'}`}>
                     {t.label}
                   </button>

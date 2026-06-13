@@ -98,9 +98,9 @@ export async function validateImage(file: File): Promise<ImageValidationResult> 
 }
 
 export function formatPrice(price: number): string {
-  return new Intl.NumberFormat('es-CL', {
+  return new Intl.NumberFormat('es-PE', {
     style: 'currency',
-    currency: 'CLP',
+    currency: 'PEN',
   }).format(price);
 }
 
