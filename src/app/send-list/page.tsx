@@ -8,6 +8,12 @@ import { School, Grade } from '@/lib/types';
 import { CheckCircle, List, Plus, Trash2, ClipboardList, ArrowRight, School as SchoolIcon } from 'lucide-react';
 import Link from 'next/link';
 
+const GRADE_OPTIONS = [
+  { group: 'Inicial', options: ['Inicial - 4 años', 'Inicial - 5 años'] },
+  { group: 'Primaria', options: ['1ro Primaria', '2do Primaria', '3ro Primaria', '4to Primaria', '5to Primaria', '6to Primaria'] },
+  { group: 'Secundaria', options: ['1ro Secundaria', '2do Secundaria', '3ro Secundaria', '4to Secundaria', '5to Secundaria'] },
+];
+
 export default function SendListPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -197,13 +203,18 @@ export default function SendListPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-neutral-400 mb-1">Grado / Curso *</label>
-                    <input
-                      type="text"
+                    <select
                       value={newGradeName}
                       onChange={(e) => setNewGradeName(e.target.value)}
-                      placeholder="Ej: 3 Basico"
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder-neutral-400"
-                    />
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    >
+                      <option value="">Seleccionar grado</option>
+                      {GRADE_OPTIONS.map(g => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.options.map(o => <option key={o} value={o}>{o}</option>)}
+                        </optgroup>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs text-neutral-400 mb-1">Ano</label>
@@ -249,13 +260,18 @@ export default function SendListPage() {
                     </div>
 
                     {isNewGrade || grades.length === 0 ? (
-                      <input
-                        type="text"
+                      <select
                         value={newGradeName}
                         onChange={(e) => setNewGradeName(e.target.value)}
-                        placeholder="Ej: 3 Basico, Kinder, 1 Medio..."
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder-neutral-400"
-                      />
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      >
+                        <option value="">Seleccionar grado</option>
+                        {GRADE_OPTIONS.map(g => (
+                          <optgroup key={g.group} label={g.group}>
+                            {g.options.map(o => <option key={o} value={o}>{o}</option>)}
+                          </optgroup>
+                        ))}
+                      </select>
                     ) : (
                       <select value={selectedGrade} onChange={(e) => setSelectedGrade(e.target.value)}
                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
