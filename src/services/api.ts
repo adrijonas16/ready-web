@@ -98,8 +98,8 @@ export const schoolsApi = {
 // Sections API
 export const sectionsApi = {
   getAll: () => api.get<any[]>('/sections'),
-  create: (groupName: string, name: string, sortOrder: number) =>
-    api.post<any>('/sections', { groupName, name, sortOrder }),
+  create: (groupName: string, name: string, sortOrder?: number) =>
+    api.post<any>('/sections', { groupName, name, sortOrder: sortOrder || 0 }),
   delete: (id: string) => api.delete<boolean>(`/sections/${id}`),
 };
 

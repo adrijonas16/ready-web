@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, List, Package, Settings, ClipboardList, ShoppingCart, Users, GraduationCap, Tag, Percent, Folders } from 'lucide-react';
+import { LayoutDashboard, List, Package, Settings, ClipboardList, ShoppingCart, Users, GraduationCap, Tag, Percent, Folders, Layers } from 'lucide-react';
 
 const adminNavItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,6 +13,7 @@ const adminNavItems = [
   { href: '/admin/categories', label: 'Categorias', icon: Folders },
   { href: '/admin/campaigns', label: 'Campanas', icon: Percent },
   { href: '/admin/brands', label: 'Marcas', icon: Tag },
+  { href: '/admin/sections', label: 'Grados', icon: Layers },
   { href: '/admin/schools', label: 'Colegios', icon: GraduationCap },
   { href: '/admin/users', label: 'Usuarios', icon: Users },
 ];

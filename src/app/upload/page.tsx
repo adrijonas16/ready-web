@@ -8,6 +8,7 @@ import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
 import { School, Section } from '@/lib/types';
 import { groupSections } from '@/lib/constants';
 import { CheckCircle, List, Upload } from 'lucide-react';
+import SearchSelect from '@/components/SearchSelect';
 import Link from 'next/link';
 
 export default function UploadPage() {
@@ -131,31 +132,30 @@ export default function UploadPage() {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs text-neutral-400 mb-1">Colegio</label>
-              <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
-                <option value="">Seleccionar</option>
-                {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <SearchSelect
+                value={selectedSchool}
+                onChange={setSelectedSchool}
+                placeholder="Seleccionar colegio"
+                options={schools.map(s => ({ value: s.id, label: s.name }))}
+              />
             </div>
             <div>
               <label className="block text-xs text-neutral-400 mb-1">Grado</label>
-              <select value={selectedGradeName} onChange={(e) => setSelectedGradeName(e.target.value)}
+              <SearchSelect
+                value={selectedGradeName}
+                onChange={setSelectedGradeName}
                 disabled={!selectedSchool}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:text-neutral-400">
-                <option value="">{!selectedSchool ? 'Primero selecciona colegio' : 'Seleccionar'}</option>
-                {groupSections(schoolSections.length > 0 ? schoolSections : allSections).map(g => (
-                  <optgroup key={g.group} label={g.group}>
-                    {g.options.map(o => <option key={o} value={o}>{o}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+                placeholder={!selectedSchool ? 'Primero selecciona colegio' : 'Seleccionar grado'}
+                options={(schoolSections.length > 0 ? schoolSections : allSections).map(s => ({ value: s.name, label: s.name, group: s.groupName }))}
+              />
             </div>
             <div>
               <label className="block text-xs text-neutral-400 mb-1">Ano</label>
-              <select value={year} onChange={(e) => setYear(parseInt(e.target.value))}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
-                {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
+              <SearchSelect
+                value={String(year)}
+                onChange={v => setYear(parseInt(v))}
+                options={[2024, 2025, 2026, 2027].map(y => ({ value: String(y), label: String(y) }))}
+              />
             </div>
           </div>
 

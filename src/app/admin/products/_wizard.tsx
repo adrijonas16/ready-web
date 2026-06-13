@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { productsApi, brandsApi, categoriesApi } from '@/services/api';
 import { formatPrice } from '@/lib/utils';
 import { ArrowLeft, Check, Plus, X, Star, Package, Trash2, Image as ImageIcon, Upload, ChevronDown, ShoppingCart } from 'lucide-react';
+import SearchSelect from '@/components/SearchSelect';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
@@ -210,19 +211,21 @@ export default function ProductWizard({ productId }: { productId?: string }) {
                 </div>
                 <div>
                   <label className="block text-xs text-slate-900 mb-1">Categoria *</label>
-                  <select value={form.category} onChange={e => updateForm('category', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                    <option value="">Seleccionar categoria</option>
-                    {categories.map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)}
-                  </select>
+                  <SearchSelect
+                    value={form.category}
+                    onChange={v => updateForm('category', v)}
+                    placeholder="Seleccionar categoria"
+                    options={categories.map((c: any) => ({ value: c.name, label: c.name }))}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs text-slate-900 mb-1">Marca</label>
-                  <select value={form.brand} onChange={e => updateForm('brand', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                    <option value="">Seleccionar marca</option>
-                    {brands.map((b: any) => <option key={b.id} value={b.name}>{b.name}</option>)}
-                  </select>
+                  <SearchSelect
+                    value={form.brand}
+                    onChange={v => updateForm('brand', v)}
+                    placeholder="Seleccionar marca"
+                    options={brands.map((b: any) => ({ value: b.name, label: b.name }))}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs text-slate-900 mb-1">Tier</label>

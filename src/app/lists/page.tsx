@@ -7,6 +7,7 @@ import { groupSections } from '@/lib/constants';
 import Link from 'next/link';
 import StatusBadge from '@/components/StatusBadge';
 import { Package, GraduationCap, Search, ArrowRight } from 'lucide-react';
+import SearchSelect from '@/components/SearchSelect';
 
 export default function ListsPage() {
   const [officialLists, setOfficialLists] = useState<SupplyList[]>([]);
@@ -60,20 +61,18 @@ export default function ListsPage() {
             <h2 className="font-bold text-slate-900 text-sm">Buscar por colegio</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-3">
-            <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm">
-              <option value="">Todos los colegios</option>
-              {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            <select value={selectedGrade} onChange={(e) => setSelectedGrade(e.target.value)}
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm">
-              <option value="">Todos los grados</option>
-              {groupSections(selectedSchool && schoolSections.length > 0 ? schoolSections : allSections).map(g => (
-                <optgroup key={g.group} label={g.group}>
-                  {g.options.map(o => <option key={o} value={o}>{o}</option>)}
-                </optgroup>
-              ))}
-            </select>
+            <SearchSelect
+              value={selectedSchool}
+              onChange={setSelectedSchool}
+              placeholder="Todos los colegios"
+              options={schools.map(s => ({ value: s.id, label: s.name }))}
+            />
+            <SearchSelect
+              value={selectedGrade}
+              onChange={setSelectedGrade}
+              placeholder="Todos los grados"
+              options={(selectedSchool && schoolSections.length > 0 ? schoolSections : allSections).map(s => ({ value: s.name, label: s.name, group: s.groupName }))}
+            />
             <button onClick={() => { setSelectedSchool(''); setSelectedGrade(''); }}
               className="py-3 px-4 bg-white text-slate-600 rounded-xl font-medium text-sm border border-slate-200 hover:bg-slate-50 transition-colors">
               Limpiar filtros
