@@ -524,11 +524,22 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                             </div>
                           )}
                         </div>
-                        <div className="text-right flex-shrink-0 ml-2">
-                          <p className="text-sm font-bold text-slate-900">
+                        {/* Price + quantity always visible */}
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setLocalQty(prev => ({ ...prev, [item.id]: Math.max(1, getQty(item) - 1) }))}
+                              className="w-7 h-7 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center text-xs hover:bg-blue-50">
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-6 text-center text-sm font-bold">{getQty(item)}</span>
+                            <button onClick={() => setLocalQty(prev => ({ ...prev, [item.id]: getQty(item) + 1 }))}
+                              className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs hover:shadow-md">
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <p className="text-sm font-bold text-slate-900 min-w-[60px] text-right">
                             {item.priceAtMatch ? formatPrice(item.priceAtMatch * getQty(item)) : '-'}
                           </p>
-                          <p className="text-[10px] text-neutral-400">x{getQty(item)}</p>
                         </div>
                       </div>
 
@@ -545,12 +556,6 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
                   {/* Action buttons */}
                   <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-50">
-                    {item.matchedProduct && (
-                      <button onClick={() => addOneToCart(item)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-xs font-medium hover:bg-green-100 transition-colors border border-green-100">
-                        <ShoppingCart className="h-3 w-3" /> Agregar
-                      </button>
-                    )}
                     <button onClick={() => setEditingItem(item)}
                       className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-medium hover:bg-blue-100 transition-colors border border-blue-100">
                       <Edit2 className="h-3 w-3" /> Cambiar
@@ -565,19 +570,6 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                       className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-400 rounded-xl text-xs font-medium hover:bg-red-100 transition-colors border border-red-100">
                       <X className="h-3 w-3" /> Quitar
                     </button>
-
-                    {/* Quantity control - local only, for cart */}
-                    <div className="flex items-center gap-1 ml-auto">
-                      <button onClick={() => setLocalQty(prev => ({ ...prev, [item.id]: Math.max(1, getQty(item) - 1) }))}
-                        className="w-6 h-6 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center text-xs">
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-5 text-center text-sm font-bold">{getQty(item)}</span>
-                      <button onClick={() => setLocalQty(prev => ({ ...prev, [item.id]: getQty(item) + 1 }))}
-                        className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -601,19 +593,17 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
         {/* Bottom Summary */}
         <div className="bg-white rounded-[30px] shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)] p-4 md:p-6 sticky bottom-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <div>
-              <p className="text-xs text-neutral-400">
-                {matchedCount}/{visibleItems.length} productos
-                {hiddenItems.size > 0 && <span className="text-orange-500"> ({hiddenItems.size} quitados)</span>}
-              </p>
-              <p className="text-2xl font-bold text-slate-900">{formatPrice(totalEstimado)}</p>
-            </div>
-            <button onClick={addAllToCart} disabled={matchedCount === 0}
-              className="w-full sm:w-auto bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-              <ShoppingCart className="h-4 w-4" /> Agregar todo al carrito
-            </button>
+          <div className="text-center mb-3">
+            <p className="text-xs text-neutral-400">
+              {matchedCount}/{visibleItems.length} productos
+              {hiddenItems.size > 0 && <span className="text-orange-500"> ({hiddenItems.size} quitados)</span>}
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{formatPrice(totalEstimado)}</p>
           </div>
+          <button onClick={addAllToCart} disabled={matchedCount === 0}
+            className="w-full bg-blue-500 text-white px-6 py-3.5 rounded-xl font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
+            <ShoppingCart className="h-4 w-4" /> Agregar todo al carrito
+          </button>
           {studentName && (
             <p className="text-xs text-neutral-400 border-t border-slate-100 pt-3">
               Estudiante: <span className="text-slate-700 font-medium">{studentName}</span>

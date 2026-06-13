@@ -86,7 +86,13 @@ export default function ListsPage() {
           <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">{filteredLists.length} disponibles</span>
         </div>
 
-        {loading ? (
+        {!selectedSchool ? (
+          <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-12 text-center">
+            <GraduationCap className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Selecciona un colegio</h3>
+            <p className="text-neutral-400 text-sm">Elige un colegio arriba para ver sus listas de utiles disponibles</p>
+          </div>
+        ) : loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
@@ -94,7 +100,7 @@ export default function ListsPage() {
           <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-12 text-center">
             <Package className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-slate-900 mb-1">No hay listas disponibles</h3>
-            <p className="text-neutral-400 text-sm">Prueba con otros filtros</p>
+            <p className="text-neutral-400 text-sm">No se encontraron listas para este colegio</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children mb-8">
