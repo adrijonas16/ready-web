@@ -1,5 +1,14 @@
-export const GRADE_OPTIONS = [
-  { group: 'Inicial', options: ['Inicial - 4 años', 'Inicial - 5 años'] },
-  { group: 'Primaria', options: ['1ro Primaria', '2do Primaria', '3ro Primaria', '4to Primaria', '5to Primaria', '6to Primaria'] },
-  { group: 'Secundaria', options: ['1ro Secundaria', '2do Secundaria', '3ro Secundaria', '4to Secundaria', '5to Secundaria'] },
-];
+import { Section } from './types';
+
+export function groupSections(sections: Section[]): { group: string; options: string[] }[] {
+  const groups: Record<string, string[]> = {};
+  const groupOrder: string[] = [];
+  for (const s of sections) {
+    if (!groups[s.groupName]) {
+      groups[s.groupName] = [];
+      groupOrder.push(s.groupName);
+    }
+    groups[s.groupName].push(s.name);
+  }
+  return groupOrder.map(g => ({ group: g, options: groups[g] }));
+}

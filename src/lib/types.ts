@@ -36,6 +36,13 @@ export interface Grade {
   year: number;
 }
 
+export interface Section {
+  id: string;
+  groupName: string;
+  name: string;
+  sortOrder: number;
+}
+
 export type ListStatus = 'PENDIENTE_REVISION' | 'EN_REVISION' | 'OBSERVADA' | 'VALIDADA' | 'PROCESADA';
 
 export interface SupplyList {

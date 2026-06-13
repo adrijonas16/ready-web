@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { schoolsApi } from '@/services/api';
 import { Plus, Edit2, Trash2, Search, X, ChevronDown, ChevronUp, GraduationCap } from 'lucide-react';
-import { GRADE_OPTIONS } from '@/lib/constants';
+import { sectionsApi } from '@/services/api';
+import { Section } from '@/lib/types';
+import { groupSections } from '@/lib/constants';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
@@ -18,9 +20,11 @@ export default function AdminSchoolsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [grades, setGrades] = useState<any[]>([]);
   const [newGrade, setNewGrade] = useState('');
+  const [sections, setSections] = useState<Section[]>([]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadSections(); }, []);
   const load = async () => { try { setSchools(await schoolsApi.getAll()); } catch {} finally { setLoading(false); } };
+  const loadSections = async () => { try { setSections(await sectionsApi.getAll()); } catch {} };
 
   const save = async () => {
     if (!name.trim()) return;
@@ -131,7 +135,7 @@ export default function AdminSchoolsPage() {
                     <select value={newGrade} onChange={e => setNewGrade(e.target.value)}
                       className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs">
                       <option value="">Seleccionar grado</option>
-                      {GRADE_OPTIONS.map(g => (
+                      {groupSections(sections).map(g => (
                         <optgroup key={g.group} label={g.group}>
                           {g.options.map(o => <option key={o} value={o}>{o}</option>)}
                         </optgroup>

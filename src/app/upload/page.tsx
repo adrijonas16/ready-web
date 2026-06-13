@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ImageUploader from '@/components/ImageUploader';
 import { useAuth } from '@/lib/auth-context';
-import { listsApi, schoolsApi } from '@/services/api';
-import { School } from '@/lib/types';
-import { GRADE_OPTIONS } from '@/lib/constants';
+import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
+import { School, Section } from '@/lib/types';
+import { groupSections } from '@/lib/constants';
 import { ImageValidationResult } from '@/lib/utils';
 import { CheckCircle, List, Upload } from 'lucide-react';
 import Link from 'next/link';
@@ -16,6 +16,7 @@ export default function UploadPage() {
   const router = useRouter();
 
   const [schools, setSchools] = useState<School[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedGradeName, setSelectedGradeName] = useState('');
   const [year, setYear] = useState(new Date().getFullYear());
@@ -25,11 +26,16 @@ export default function UploadPage() {
   const [uploadedListId, setUploadedListId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => { loadSchools(); }, []);
+  useEffect(() => { loadSchools(); loadSections(); }, []);
 
   const loadSchools = async () => {
     try { const data = await schoolsApi.getAll(); setSchools(data); }
     catch (err) { console.error('Error loading schools:', err); }
+  };
+
+  const loadSections = async () => {
+    try { const data = await sectionsApi.getAll(); setSections(data); }
+    catch (err) { console.error('Error loading sections:', err); }
   };
 
   const handleImageSelected = (file: File, validation: ImageValidationResult) => {
@@ -136,7 +142,7 @@ export default function UploadPage() {
               <select value={selectedGradeName} onChange={(e) => setSelectedGradeName(e.target.value)}
                 className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
                 <option value="">Seleccionar</option>
-                {GRADE_OPTIONS.map(g => (
+                {groupSections(sections).map(g => (
                   <optgroup key={g.group} label={g.group}>
                     {g.options.map(o => <option key={o} value={o}>{o}</option>)}
                   </optgroup>

@@ -92,6 +92,14 @@ export const schoolsApi = {
     api.post<any>(`/schools/${schoolId}/grades`, { name, year }),
 };
 
+// Sections API
+export const sectionsApi = {
+  getAll: () => api.get<any[]>('/sections'),
+  create: (groupName: string, name: string, sortOrder: number) =>
+    api.post<any>('/sections', { groupName, name, sortOrder }),
+  delete: (id: string) => api.delete<boolean>(`/sections/${id}`),
+};
+
 // Lists API
 export const listsApi = {
   upload: (formData: FormData) => api.uploadFormData<any>('/lists/upload', formData),
