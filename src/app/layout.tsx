@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
-import "@fontsource-variable/bricolage-grotesque";
+import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/nunito-sans";
+import "@fontsource-variable/rubik";
 import "@fontsource/caveat/500.css";
 import "@fontsource/caveat/700.css";
 import "./globals.css";
@@ -8,6 +9,10 @@ import { AuthProvider } from "@/lib/auth-context";
 import { CartProvider } from "@/lib/cart-context";
 import Header from "@/components/Header";
 import Logo from "@/components/Logo";
+
+export const viewport: Viewport = {
+  themeColor: "#F8FAFC",
+};
 
 export const metadata: Metadata = {
   title: "Ready - Utiles Escolares en Arequipa | Compra Online",
@@ -52,18 +57,18 @@ export default function RootLayout({
                 </div>
                 <nav aria-label="Comprar" className="flex flex-col gap-2 text-sm">
                   <p className="font-semibold text-grafito">Comprar</p>
-                  <Link href="/upload" className="text-tenue hover:text-pizarra">Subir mi lista</Link>
-                  <Link href="/lists" className="text-tenue hover:text-pizarra">Listas de colegios</Link>
-                  <Link href="/catalog" className="text-tenue hover:text-pizarra">Catálogo</Link>
+                  <Link href="/upload" className="text-tenue hover:text-primario">Subir mi lista</Link>
+                  <Link href="/lists" className="text-tenue hover:text-primario">Listas de colegios</Link>
+                  <Link href="/catalog" className="text-tenue hover:text-primario">Catálogo</Link>
                 </nav>
                 <nav aria-label="Mi cuenta" className="flex flex-col gap-2 text-sm">
                   <p className="font-semibold text-grafito">Mi cuenta</p>
-                  <Link href="/my-lists" className="text-tenue hover:text-pizarra">Mis listas</Link>
-                  <Link href="/cart" className="text-tenue hover:text-pizarra">Carrito</Link>
-                  <Link href="/login" className="text-tenue hover:text-pizarra">Iniciar sesión</Link>
+                  <Link href="/my-lists" className="text-tenue hover:text-primario">Mis listas</Link>
+                  <Link href="/cart" className="text-tenue hover:text-primario">Carrito</Link>
+                  <Link href="/login" className="text-tenue hover:text-primario">Iniciar sesión</Link>
                 </nav>
               </div>
-              <p className="border-t border-linea py-4 text-center text-xs text-tenue">© 2026 Ready, Arequipa (Perú)</p>
+              <p className="border-t border-linea py-4 text-center text-xs text-tenue">© 2026 <span translate="no">Ready</span>, Arequipa (Perú)</p>
             </footer>
           </CartProvider>
         </AuthProvider>

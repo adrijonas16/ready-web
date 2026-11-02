@@ -39,20 +39,20 @@ function ProductModal({ item, onSave, onClose }: { item: SupplyItem; onSave: (pr
   const selected = results.find(p => p.id === selectedId);
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-[20px] max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-scale-in" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 overscroll-contain" onClick={onClose} onKeyDown={e => e.key === 'Escape' && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label="Elegir otro producto" className="bg-white rounded-[20px] max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-scale-in" onClick={e => e.stopPropagation()}>
         <div className="p-5 border-b border-slate-100">
           <div className="flex justify-between items-start mb-3">
             <div>
               <h2 className="text-base font-bold text-slate-900">Seleccionar Producto</h2>
               <p className="text-xs text-neutral-400">Para: {item.nombreOriginal}</p>
             </div>
-            <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-xl"><X className="h-4 w-4" /></button>
+            <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-xl" aria-label="Cerrar"><X className="h-4 w-4" /></button>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
             <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)}
-              placeholder="Buscar producto..."
+              placeholder="Buscar producto, ej.: colores x24…" aria-label="Buscar producto" name="buscar" autoComplete="off"
               className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
             {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 animate-spin" />}
           </div>
@@ -68,7 +68,7 @@ function ProductModal({ item, onSave, onClose }: { item: SupplyItem; onSave: (pr
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {results.map(p => (
                 <button key={p.id} onClick={() => setSelectedId(selectedId === p.id ? null : p.id)}
-                  className={`text-left rounded-[16px] border-2 overflow-hidden transition-all ${selectedId === p.id ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-100 hover:border-slate-300'}`}>
+                  className={`text-left rounded-[16px] border-2 overflow-hidden transition-[border-color,box-shadow] ${selectedId === p.id ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-100 hover:border-slate-300'}`}>
                   <div className="aspect-square bg-slate-50 relative flex items-center justify-center">
                     {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <Package className="h-8 w-8 text-neutral-300" />}
                     {selectedId === p.id && <div className="absolute top-2 right-2 p-0.5 bg-blue-500 rounded-full"><Check className="h-3 w-3 text-white" /></div>}
@@ -147,7 +147,7 @@ function ObservationBox({ listId, existing, onSaved }: { listId: string; existin
       <div className="flex gap-2">
         <input type="text" value={text} onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSend()}
-          placeholder="Escribe una observacion o correccion..."
+          placeholder="Escribe una observación o corrección…" aria-label="Observación" name="observacion" autoComplete="off"
           className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
         <button onClick={handleSend} disabled={!text.trim() || sending}
           className="bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
@@ -171,16 +171,16 @@ function LeyendoLista({ imageUrl, startedAt, onTimeout }: { imageUrl?: string; s
     <div className="mx-auto grid max-w-5xl items-center gap-8 px-4 py-10 md:grid-cols-[minmax(0,380px)_1fr] md:gap-10 md:py-12">
       <div className="relative order-2 mx-auto w-full max-w-[380px] overflow-hidden rounded-xl border border-linea bg-papel sombra-hoja md:order-1">
         {primera
-          ? <img src={primera} alt="Tu lista de útiles" className="max-h-[520px] w-full object-contain" />
+          ? <img src={primera} alt="Tu lista de útiles" width={380} height={507} className="max-h-[520px] h-auto w-full object-contain" />
           : <div className="papel-rayado h-[420px]" />}
-        <div aria-hidden="true" className="animate-escaneo absolute inset-x-0 h-1 bg-coral shadow-[0_0_24px_6px_rgba(255,198,41,0.55)]" />
+        <div aria-hidden="true" className="animate-escaneo absolute inset-x-0 h-1 bg-acento shadow-[0_0_24px_6px_rgba(255,198,41,0.55)]" />
       </div>
       <div aria-live="polite" className="order-1 md:order-2">
         <h1 className="text-4xl font-extrabold tracking-[-0.03em]">Estamos leyendo tu lista</h1>
         <p className="mt-3 text-lg text-tenue">{onTimeout ? 'Está tardando más de lo normal. Recarga la página en un momento.' : paso}</p>
         <p className="mt-6 max-w-md text-sm text-tenue">
-          Suele tomar menos de un minuto. Puedes cerrar esta página: la lista queda guardada en{' '}
-          <Link href="/my-lists" className="font-semibold text-pizarra underline underline-offset-2">Mis listas</Link>.
+          Suele tomar menos de un minuto. Después nuestro equipo la revisa. Puedes cerrar esta página: la lista queda guardada en{' '}
+          <Link href="/my-lists" className="font-semibold text-primario underline underline-offset-2">Mis listas</Link>.
         </p>
       </div>
     </div>
@@ -192,7 +192,7 @@ function SinLectura({ estado, mensaje, onRetry, retrying }: { estado?: string | 
   const error = estado === 'ERROR';
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
-      <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${error ? 'bg-profe-claro text-profe' : 'bg-pizarra-claro text-pizarra'}`}>
+      <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${error ? 'bg-profe-claro text-profe' : 'bg-primario-claro text-primario'}`}>
         <Info className="h-7 w-7" aria-hidden="true" />
       </div>
       <h1 className="mt-5 text-3xl font-extrabold tracking-tight">{error ? 'No pudimos leer la lista' : 'Tu lista está en revisión'}</h1>
@@ -200,7 +200,7 @@ function SinLectura({ estado, mensaje, onRetry, retrying }: { estado?: string | 
       <div className="mt-8 flex flex-col justify-center gap-2 sm:flex-row">
         {error && (
           <button onClick={onRetry} disabled={retrying}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-pizarra px-5 py-3 font-bold text-white hover:bg-pizarra-oscuro disabled:opacity-50">
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro disabled:opacity-50">
             <RotateCcw className="h-4 w-4" aria-hidden="true" /> Intentar de nuevo
           </button>
         )}
@@ -211,19 +211,69 @@ function SinLectura({ estado, mensaje, onRetry, retrying }: { estado?: string | 
 }
 
 
+// ── Esperando la aprobación del equipo ──
+function EnRevision({ estado, observaciones, utiles, libros, imageUrl, leida }: {
+  estado: string; observaciones?: string; utiles: number; libros: number; imageUrl?: string; leida: boolean;
+}) {
+  const observada = estado === 'OBSERVADA';
+  const pasos = [
+    { t: 'Recibimos tu lista', hecho: true },
+    { t: leida ? `La leímos: ${utiles} útiles${libros ? ` y ${libros} libros` : ''}` : 'La revisaremos a mano', hecho: leida },
+    { t: observada ? 'Encontramos algo por corregir' : 'Nuestro equipo la está revisando', hecho: false, actual: true },
+    { t: 'Eliges tu opción y compras', hecho: false },
+  ];
+  const primera = imageUrl?.split('|').find(u => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
+
+  return (
+    <div className="mx-auto grid max-w-5xl items-start gap-10 px-4 py-10 md:grid-cols-[1fr_320px] md:py-14">
+      <div>
+        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">{observada ? 'Tu lista necesita una corrección' : 'Tu lista está en revisión'}</h1>
+        <p className="mt-3 max-w-xl text-lg text-tenue">
+          {observada
+            ? 'Revisa la observación de nuestro equipo. Cuando la corrijamos, podrás elegir tu opción.'
+            : 'Revisamos que cada útil coincida con lo que pide el colegio. Cuando la aprobemos te avisamos y podrás elegir entre Económico, Normal y Premium.'}
+        </p>
+        {observada && observaciones && (
+          <p className="mt-5 rounded-2xl border border-profe/30 bg-profe-claro px-4 py-3 text-profe">{observaciones}</p>
+        )}
+        <ol className="mt-8 space-y-0">
+          {pasos.map((p, i) => (
+            <li key={p.t} className="relative flex gap-4 pb-6 last:pb-0">
+              {i < pasos.length - 1 && <span className={`absolute left-[13px] top-7 h-[calc(100%-20px)] w-0.5 ${p.hecho ? 'bg-primario' : 'bg-linea'}`} aria-hidden="true" />}
+              <span className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
+                p.hecho ? 'border-primario bg-primario text-white' : p.actual ? 'border-primario bg-papel text-primario' : 'border-linea bg-papel text-tenue'}`}>
+                {p.hecho ? <Check className="h-4 w-4" aria-hidden="true" /> : i + 1}
+              </span>
+              <p className={`pt-0.5 ${p.actual ? 'font-bold' : p.hecho ? '' : 'text-tenue'}`}>
+                {p.t}{p.actual && !observada && <span className="ml-2 inline-block h-2 w-2 animate-pulse rounded-full bg-acento align-middle" aria-hidden="true" />}
+              </p>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-8 text-sm text-tenue">
+          Puedes cerrar esta página. La lista queda en <Link href="/my-lists" className="font-semibold text-primario underline underline-offset-2">Mis listas</Link>.
+        </p>
+      </div>
+      {primera && (
+        <img src={primera} alt="Tu lista de útiles" width={320} height={427} className="h-auto w-full rounded-2xl border border-linea bg-papel object-contain sombra-hoja" />
+      )}
+    </div>
+  );
+}
+
 // ── Fotos de la lista original ──
 function FotosLista({ urls, onClose }: { urls: string[]; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-papel p-4" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose} onKeyDown={e => e.key === 'Escape' && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label="Lista original" className="max-h-[90vh] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-2xl bg-papel p-4" onClick={e => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-bold">Lista original</h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-fondo" aria-label="Cerrar"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} autoFocus className="rounded-lg p-1.5 hover:bg-fondo" aria-label="Cerrar"><X className="h-4 w-4" /></button>
         </div>
         <div className="space-y-3">
           {urls.map((u, i) => /\.(pdf|docx?)(\?|$)/i.test(u)
-            ? <a key={u} href={u} target="_blank" rel="noreferrer" className="block rounded-xl border border-linea p-4 font-semibold text-pizarra">Abrir archivo {i + 1}</a>
-            : <img key={u} src={u} alt={`Hoja ${i + 1}`} className="w-full rounded-xl border border-linea" />)}
+            ? <a key={u} href={u} target="_blank" rel="noreferrer" className="block rounded-xl border border-linea p-4 font-semibold text-primario">Abrir archivo {i + 1}</a>
+            : <img key={u} src={u} alt={`Hoja ${i + 1}`} width={720} height={960} loading="lazy" className="h-auto w-full rounded-xl border border-linea" />)}
         </div>
       </div>
     </div>
@@ -295,6 +345,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     const limite = setTimeout(() => setAgotado(true), 4 * 60 * 1000);
     return () => { clearInterval(t); clearTimeout(limite); };
   }, [procesando, agotado, loadList]);
+
+  // Esperando aprobación: revisar cada 30 s para desbloquear la lista sin recargar
+  const esperandoAprobacion = !!data && !procesando && data.list.estado !== 'VALIDADA' && data.list.estado !== 'PROCESADA' && user?.role !== 'ADMIN';
+  useEffect(() => {
+    if (!esperandoAprobacion) return;
+    const t = setInterval(() => { loadList(); }, 30000);
+    return () => clearInterval(t);
+  }, [esperandoAprobacion, loadList]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
@@ -379,8 +437,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     cambiarExtras({ ...extras, excluidos: [...set] });
   };
 
-  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-pizarra" /></div>;
-  if (!data) return <div className="py-20 text-center"><h1 className="text-2xl font-bold">No encontramos esta lista</h1><Link href="/my-lists" className="mt-4 inline-block font-semibold text-pizarra">Ver mis listas</Link></div>;
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primario" /></div>;
+  if (!data) return <div className="py-20 text-center"><h1 className="text-2xl font-bold">No encontramos esta lista</h1><Link href="/my-lists" className="mt-4 inline-block font-semibold text-primario">Ver mis listas</Link></div>;
 
   const isOwner = !!user && data.list.userId === user.id;
   const isApproved = data.list.estado === 'VALIDADA' || data.list.estado === 'PROCESADA';
@@ -388,9 +446,15 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     return <div className="py-20 text-center"><h1 className="text-2xl font-bold">Lista en revisión</h1><p className="mt-2 text-tenue">Esta lista todavía no fue aprobada.</p></div>;
   }
 
+  const esAdmin = user?.role === 'ADMIN';
   if (procesando) return <LeyendoLista imageUrl={data.list.imageUrl} startedAt={pollStart} onTimeout={agotado} />;
-  if (data.items.length === 0 && extras.libros.length === 0 && (data.list.iaEstado === 'ERROR' || data.list.iaEstado === 'MANUAL')) {
+  if (data.items.length === 0 && extras.libros.length === 0 && data.list.iaEstado === 'ERROR') {
     return <SinLectura estado={data.list.iaEstado} mensaje={data.list.iaMensaje} onRetry={reintentar} retrying={retrying} />;
+  }
+  // Solo se elige y compra cuando el equipo aprobó la lista
+  if (!isApproved && !esAdmin) {
+    return <EnRevision estado={data.list.estado} observaciones={data.list.observaciones} utiles={data.items.length}
+      libros={extras.libros.length} imageUrl={data.list.imageUrl} leida={data.items.length > 0} />;
   }
 
   const items = data.items;
@@ -433,9 +497,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       if (extras.forro.activo && extras.forrarLibros && s.forroLibro && libros > 0) addItem(s.forroLibro, libros, `(${origen})`);
       if (extras.etiquetas.activo && s.etiqueta && conteo.etiquetas > 0) addItem(s.etiqueta, conteo.etiquetas, `${etiquetaNota} (${origen})`);
       if (s.caratula && conteo.caratulas > 0) addItem(s.caratula, conteo.caratulas, `Cursos: ${extras.caratulas.cursos.join(', ')}${extras.etiquetas.nombre ? ` | Nombre: ${extras.etiquetas.nombre}` : ''}`);
-      for (const l of extras.libros.filter(x => x.precio && x.productoId)) {
-        try { addItem(await productsApi.getById(l.productoId!), l.cantidad, `Libro: ${l.titulo}`); } catch { librosPorCotizar.push(l); }
-      }
+      // Libros del catálogo: se piden en paralelo (react-best-practices: async-parallel)
+      const conPrecio = extras.libros.filter(x => x.precio && x.productoId);
+      const productosLibro = await Promise.allSettled(conPrecio.map(l => productsApi.getById(l.productoId!)));
+      productosLibro.forEach((r, i) => {
+        if (r.status === 'fulfilled') addItem(r.value, conPrecio[i].cantidad, `Libro: ${conPrecio[i].titulo}`);
+        else librosPorCotizar.push(conPrecio[i]);
+      });
       // Servicios elegidos cuyo precio aún no está configurado en la tienda
       const sinPrecio = [
         extras.forro.activo && !s.forroCuaderno && cuadernos > 0 && `Forrado de ${cuadernos} cuadernos, color ${extras.forro.color || 'a elegir'}`,
@@ -467,14 +535,21 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           </button>
           <p className="text-sm text-tenue"><span className="font-semibold text-grafito">{data.list.schoolName}</span>, {data.list.gradeName} {data.list.year}</p>
           {imagenes.length > 0 && (
-            <button onClick={() => setVerFotos(true)} className="inline-flex items-center gap-1.5 text-sm font-semibold text-pizarra hover:underline">
+            <button onClick={() => setVerFotos(true)} className="inline-flex items-center gap-1.5 text-sm font-semibold text-primario hover:underline">
               <ImageIcon className="h-4 w-4" aria-hidden="true" /> Ver lista original
             </button>
           )}
         </div>
 
+        {esAdmin && !isApproved && (
+          <p className="mb-5 rounded-xl bg-eco-claro px-4 py-3 text-sm">
+            Vista de administrador: el cliente verá esta lista cuando la apruebes en{' '}
+            <Link href={`/admin/lists/review/${id}`} className="font-semibold underline">Revisar lista</Link>.
+          </p>
+        )}
+
         {data.list.iaMensaje && (
-          <p className={`mb-5 rounded-xl px-4 py-3 text-sm ${data.list.iaEstado === 'DEMO' ? 'bg-sol-claro' : 'bg-pizarra-claro text-pizarra-oscuro'}`}>{data.list.iaMensaje}</p>
+          <p className={`mb-5 rounded-xl px-4 py-3 text-sm ${data.list.iaEstado === 'DEMO' ? 'bg-eco-claro' : 'bg-primario-claro text-primario-oscuro'}`}>{data.list.iaMensaje}</p>
         )}
 
         {!plan && hayNiveles ? (
@@ -522,7 +597,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <span className="text-3xl font-extrabold tracking-tight tabular-nums">{formatPrice(total)}</span>
                 </div>
                 <button onClick={agregarAlCarrito} disabled={agregando}
-                  className="mt-4 hidden w-full items-center justify-center gap-2 rounded-xl bg-coral py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-coral-oscuro disabled:opacity-50 lg:flex">
+                  className="mt-4 hidden w-full items-center justify-center gap-2 rounded-xl bg-acento py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50 lg:flex">
                   <ShoppingBag className="h-5 w-5" aria-hidden="true" /> {agregando ? 'Agregando…' : 'Agregar al carrito'}
                 </button>
               </div>
@@ -540,7 +615,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               <p className="text-2xl font-extrabold tabular-nums">{formatPrice(total)}</p>
             </div>
             <button onClick={agregarAlCarrito} disabled={agregando}
-              className="ml-auto inline-flex items-center gap-2 rounded-xl bg-coral px-5 py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-coral-oscuro disabled:opacity-50">
+              className="ml-auto inline-flex items-center gap-2 rounded-xl bg-acento px-5 py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50">
               <ShoppingBag className="h-5 w-5" aria-hidden="true" /> Agregar al carrito
             </button>
           </div>

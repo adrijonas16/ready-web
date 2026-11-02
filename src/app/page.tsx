@@ -11,17 +11,17 @@ export const metadata: Metadata = {
 // Ejemplo ilustrativo: una lista escrita y las 3 opciones que se arman con ella
 const lineas = ['3 cuad. cuadriculado A4', '1 caja colores x24', '2 gomas en barra', '1 papel lustre', 'témperas x7'];
 const paquetes = [
-  { nombre: 'Económico', total: 'S/ 51.60', fondo: 'bg-sol-claro', punto: 'bg-sol', nota: 'Lo que pide la lista' },
-  { nombre: 'Normal', total: 'S/ 69.80', fondo: 'bg-pizarra-claro', punto: 'bg-pizarra', nota: 'Marcas conocidas' },
-  { nombre: 'Premium', total: 'S/ 102.50', fondo: 'bg-uva-claro', punto: 'bg-uva', nota: 'Dura todo el año' },
+  { nombre: 'Económico', total: 'S/ 51.60', fondo: 'bg-eco-claro', punto: 'bg-eco', nota: 'Lo que pide la lista' },
+  { nombre: 'Normal', total: 'S/ 69.80', fondo: 'bg-primario-claro', punto: 'bg-primario', nota: 'Marcas conocidas' },
+  { nombre: 'Premium', total: 'S/ 102.50', fondo: 'bg-premium-claro', punto: 'bg-premium', nota: 'Dura todo el año' },
 ];
 
 function ListaYPaquetes() {
   return (
     <figure className="relative mx-auto h-[400px] w-full max-w-[480px] sm:h-[430px]">
       <div className="papel-rayado sombra-hoja absolute left-0 top-0 w-[62%] -rotate-[4deg] rounded-[6px] pb-6 pl-[50px] pr-4 pt-[14px]">
-        <p className="font-mano text-[1.5rem] leading-[38px] text-pizarra">Lista de útiles</p>
-        {lineas.map(l => <p key={l} className="font-mano text-[1.35rem] leading-[52px] text-pizarra">{l}</p>)}
+        <p className="font-mano text-[1.5rem] leading-[38px] text-primario">Lista de útiles</p>
+        {lineas.map(l => <p key={l} className="font-mano text-[1.35rem] leading-[52px] text-primario">{l}</p>)}
       </div>
       <div className="absolute bottom-0 right-0 w-[62%] space-y-2.5">
         {paquetes.map((p, i) => (
@@ -72,7 +72,7 @@ export default function HomePage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/upload"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-coral px-6 py-4 text-base font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.12)] transition-colors hover:bg-coral-oscuro">
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-acento px-6 py-4 text-base font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.12)] transition-colors hover:bg-acento-oscuro">
                 <Camera className="h-5 w-5" aria-hidden="true" /> Subir mi lista
               </Link>
               <Link href="/lists"
@@ -80,7 +80,7 @@ export default function HomePage() {
                 <Search className="h-5 w-5" aria-hidden="true" /> Buscar la lista de mi colegio
               </Link>
             </div>
-            <p className="mt-5 text-sm text-tenue">Funciona con fotos, PDF o Word. Tu lista queda armada en alrededor de un minuto.</p>
+            <p className="mt-5 text-sm text-tenue">Funciona con fotos, PDF o Word. Revisamos cada lista antes de que la elijas.</p>
           </div>
           <ListaYPaquetes />
         </div>
@@ -92,11 +92,11 @@ export default function HomePage() {
         <ol className="mt-8 grid gap-8 md:grid-cols-3">
           {[
             { t: 'Toma la foto de la lista', d: 'Elige el colegio y el grado, y sube la foto, el PDF o el Word que te dio el colegio. Puedes subir varias hojas.' },
-            { t: 'Elige tu opción', d: 'Te mostramos la lista armada en Económico, Normal y Premium con el precio total. Eliges una y cambias lo que quieras: un útil, la cantidad o lo que ya tienes.' },
+            { t: 'Elige tu opción', d: 'Cuando revisamos tu lista te avisamos y la ves armada en Económico, Normal y Premium con el precio total. Eliges una y cambias lo que quieras.' },
             { t: 'Forrado, etiquetas y libros', d: 'Forramos los cuadernos del color que pidas, ponemos etiquetas con su nombre, hacemos las carátulas y conseguimos los libros. Te llega todo listo a casa.' },
           ].map((paso, i) => (
             <li key={paso.t} className="border-t-2 border-grafito pt-4">
-              <span className="font-mano text-4xl font-bold leading-none text-pizarra">{i + 1}.</span>
+              <span className="font-mano text-4xl font-bold leading-none text-primario">{i + 1}.</span>
               <h3 className="mt-2 text-xl font-bold">{paso.t}</h3>
               <p className="mt-2 leading-relaxed text-tenue">{paso.d}</p>
             </li>
@@ -110,14 +110,14 @@ export default function HomePage() {
       </section>
 
       {/* Cierre */}
-      <section className="bg-pizarra text-white">
+      <section className="bg-primario text-white">
         <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-14 sm:px-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-3xl font-extrabold tracking-[-0.025em]">¿Tienes la lista a la mano?</h2>
             <p className="mt-2 max-w-xl text-white/80">Tómale una foto ahora y en un minuto ves cuánto cuesta completa, en el nivel que prefieras.</p>
           </div>
           <Link href="/upload"
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-coral px-6 py-4 font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.15)] hover:bg-coral-oscuro">
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-acento px-6 py-4 font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.15)] hover:bg-acento-oscuro">
             <Camera className="h-5 w-5" aria-hidden="true" /> Subir mi lista
           </Link>
         </div>

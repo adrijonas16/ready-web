@@ -27,7 +27,7 @@ const ICONO_DISENO: Record<string, typeof Star> = {
 function Interruptor({ activo, onChange, etiqueta }: { activo: boolean; onChange: (v: boolean) => void; etiqueta: string }) {
   return (
     <button role="switch" aria-checked={activo} aria-label={etiqueta} onClick={() => onChange(!activo)}
-      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${activo ? 'bg-pizarra' : 'bg-linea'}`}>
+      className={`relative h-7 w-12 shrink-0 cursor-pointer rounded-full transition-colors ${activo ? 'bg-primario' : 'bg-linea'}`}>
       <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${activo ? 'translate-x-5' : 'translate-x-0'}`} />
     </button>
   );
@@ -39,9 +39,9 @@ function Tarjeta({ icono, titulo, detalle, monto, activo, onToggle, children }: 
 }) {
   const abierto = onToggle ? activo : true;
   return (
-    <div className={`rounded-2xl border bg-papel transition-colors ${abierto && onToggle ? 'border-pizarra/40' : 'border-linea'}`}>
+    <div className={`rounded-2xl border bg-papel transition-colors ${abierto && onToggle ? 'border-primario/40' : 'border-linea'}`}>
       <div className="flex items-center gap-3 p-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-coral-claro text-coral-oscuro">{icono}</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-acento-claro text-acento-oscuro">{icono}</span>
         <div className="min-w-0 flex-1">
           <h3 className="font-bold leading-tight">{titulo}</h3>
           <p className="text-sm text-tenue">{detalle}</p>
@@ -99,7 +99,7 @@ export default function Extras({ extras, onChange, conteo, servicios }: {
         </div>
         {conteo.libros > 0 && (
           <label className="mt-3 flex items-center gap-2 text-sm">
-            <input type="checkbox" className="h-4 w-4 accent-pizarra" checked={extras.forrarLibros} onChange={e => set({ forrarLibros: e.target.checked })} />
+            <input type="checkbox" className="h-4 w-4 accent-primario" checked={extras.forrarLibros} onChange={e => set({ forrarLibros: e.target.checked })} />
             Forrar también los {conteo.libros} libros ({precio(servicios.forroLibro)} c/u)
           </label>
         )}
@@ -114,12 +114,12 @@ export default function Extras({ extras, onChange, conteo, servicios }: {
           <label className="block text-sm">
             <span className="mb-1 block font-semibold">Nombre en la etiqueta</span>
             <input value={extras.etiquetas.nombre} onChange={e => set({ etiquetas: { ...extras.etiquetas, nombre: e.target.value } })}
-              placeholder="Nombre y apellido del estudiante" className="w-full rounded-xl border border-linea px-3 py-2 focus:border-pizarra focus:outline-none" />
+              name="etiqueta-nombre" autoComplete="off" placeholder="Ej.: Lucía Quispe…" className="w-full rounded-xl border border-linea px-3 py-2 focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-semibold">Grado y sección</span>
             <input value={extras.etiquetas.grado} onChange={e => set({ etiquetas: { ...extras.etiquetas, grado: e.target.value } })}
-              placeholder="Ej.: 2.º B" className="w-full rounded-xl border border-linea px-3 py-2 focus:border-pizarra focus:outline-none" />
+              name="etiqueta-grado" autoComplete="off" placeholder="Ej.: 2.º B…" className="w-full rounded-xl border border-linea px-3 py-2 focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
           </label>
         </div>
         <p className="mb-2 mt-3 text-sm font-semibold">Diseño</p>
@@ -129,8 +129,8 @@ export default function Extras({ extras, onChange, conteo, servicios }: {
             const activo = extras.etiquetas.diseno === d;
             return (
               <button key={d} onClick={() => set({ etiquetas: { ...extras.etiquetas, diseno: d } })} aria-pressed={activo}
-                className={`flex flex-col items-center gap-1 rounded-xl border py-2 text-xs capitalize ${activo ? 'border-pizarra bg-pizarra-claro font-semibold' : 'border-linea hover:border-tenue'}`}>
-                <Icono className="h-5 w-5 text-coral-oscuro" aria-hidden="true" /> {d}
+                className={`flex flex-col items-center gap-1 rounded-xl border py-2 text-xs capitalize ${activo ? 'border-primario bg-primario-claro font-semibold' : 'border-linea hover:border-tenue'}`}>
+                <Icono className="h-5 w-5 text-acento-oscuro" aria-hidden="true" /> {d}
               </button>
             );
           })}
@@ -149,7 +149,7 @@ export default function Extras({ extras, onChange, conteo, servicios }: {
             return (
               <button key={c} aria-pressed={activo}
                 onClick={() => set({ caratulas: { ...extras.caratulas, cursos: activo ? extras.caratulas.cursos.filter(x => x !== c) : [...extras.caratulas.cursos, c] } })}
-                className={`rounded-full border px-3 py-1 text-sm ${activo ? 'border-pizarra bg-pizarra text-white' : 'border-linea hover:border-tenue'}`}>
+                className={`rounded-full border px-3 py-1 text-sm ${activo ? 'border-primario bg-primario text-white' : 'border-linea hover:border-tenue'}`}>
                 {c}
               </button>
             );
@@ -161,8 +161,8 @@ export default function Extras({ extras, onChange, conteo, servicios }: {
           if (c && !extras.caratulas.cursos.includes(c)) set({ caratulas: { ...extras.caratulas, cursos: [...extras.caratulas.cursos, c] } });
           setCursoNuevo('');
         }}>
-          <input value={cursoNuevo} onChange={e => setCursoNuevo(e.target.value)} placeholder="Otro curso"
-            className="min-w-0 flex-1 rounded-xl border border-linea px-3 py-2 text-sm focus:border-pizarra focus:outline-none" />
+          <input value={cursoNuevo} onChange={e => setCursoNuevo(e.target.value)} name="curso" autoComplete="off" aria-label="Otro curso" placeholder="Otro curso, ej.: Robótica…"
+            className="min-w-0 flex-1 rounded-xl border border-linea px-3 py-2 text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
           <button className="rounded-xl border border-linea px-3 text-sm font-semibold hover:border-tenue">Agregar</button>
         </form>
       </Tarjeta>
@@ -174,13 +174,13 @@ export default function Extras({ extras, onChange, conteo, servicios }: {
         <ul className="space-y-2">
           {extras.libros.map(l => (
             <li key={l.id} className="grid grid-cols-[1fr_auto] gap-2 sm:grid-cols-[1.4fr_1fr_auto_auto_auto] sm:items-center">
-              <input value={l.titulo} onChange={e => setLibro(l.id, { titulo: e.target.value, productoId: null, precio: null })} placeholder="Título del libro"
-                className="min-w-0 rounded-xl border border-linea px-3 py-2 text-sm focus:border-pizarra focus:outline-none" aria-label="Título del libro" />
+              <input value={l.titulo} onChange={e => setLibro(l.id, { titulo: e.target.value, productoId: null, precio: null })} name="libro-titulo" autoComplete="off" placeholder="Título del libro…"
+                className="min-w-0 rounded-xl border border-linea px-3 py-2 text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" aria-label="Título del libro" />
               <button onClick={() => set({ libros: extras.libros.filter(x => x.id !== l.id) })} className="rounded-lg p-2 text-tenue hover:text-profe sm:order-last" aria-label={`Quitar ${l.titulo || 'libro'}`}>
                 <Trash2 className="h-4 w-4" />
               </button>
-              <input value={l.editorial} onChange={e => setLibro(l.id, { editorial: e.target.value })} placeholder="Editorial o autor"
-                className="min-w-0 rounded-xl border border-linea px-3 py-2 text-sm focus:border-pizarra focus:outline-none" aria-label="Editorial" />
+              <input value={l.editorial} onChange={e => setLibro(l.id, { editorial: e.target.value })} name="libro-editorial" autoComplete="off" placeholder="Editorial o autor…"
+                className="min-w-0 rounded-xl border border-linea px-3 py-2 text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" aria-label="Editorial" />
               <div className="flex items-center justify-between gap-3 sm:contents">
                 <div className="flex items-center rounded-lg border border-linea" aria-label="Cantidad">
                   <button onClick={() => setLibro(l.id, { cantidad: Math.max(1, l.cantidad - 1) })} className="p-1.5" aria-label="Uno menos"><Minus className="h-3.5 w-3.5" /></button>
@@ -195,7 +195,7 @@ export default function Extras({ extras, onChange, conteo, servicios }: {
           ))}
         </ul>
         <button onClick={() => set({ libros: [...extras.libros, { id: `l-${Date.now()}`, titulo: '', editorial: '', cantidad: 1 }] })}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-tenue/50 px-3 py-2 text-sm font-semibold text-pizarra hover:border-pizarra">
+          className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-tenue/50 px-3 py-2 text-sm font-semibold text-primario hover:border-primario">
           <Plus className="h-4 w-4" aria-hidden="true" /> Agregar libro
         </button>
         {porCotizar > 0 && <p className="mt-2 text-sm text-tenue">Los libros por cotizar no se cobran ahora: te confirmamos el precio antes de enviar el pedido.</p>}

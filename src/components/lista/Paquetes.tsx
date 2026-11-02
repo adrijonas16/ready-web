@@ -6,9 +6,9 @@ import { SupplyItem } from '@/lib/types';
 import { Tier, TIERS, tierProduct } from '@/lib/lista';
 
 export const ESTILO_NIVEL: Record<Tier, { fondo: string; punto: string; anillo: string; boton: string }> = {
-  economico: { fondo: 'bg-sol-claro', punto: 'bg-sol', anillo: 'ring-sol', boton: 'bg-sol text-grafito hover:brightness-95' },
-  medio: { fondo: 'bg-pizarra-claro', punto: 'bg-pizarra', anillo: 'ring-pizarra', boton: 'bg-pizarra text-white hover:bg-pizarra-oscuro' },
-  premium: { fondo: 'bg-uva-claro', punto: 'bg-uva', anillo: 'ring-uva', boton: 'bg-uva text-white hover:brightness-110' },
+  economico: { fondo: 'bg-eco-claro', punto: 'bg-eco', anillo: 'ring-eco', boton: 'bg-eco text-grafito hover:brightness-95' },
+  medio: { fondo: 'bg-primario-claro', punto: 'bg-primario', anillo: 'ring-primario', boton: 'bg-primario text-white hover:bg-primario-oscuro' },
+  premium: { fondo: 'bg-premium-claro', punto: 'bg-premium', anillo: 'ring-premium', boton: 'bg-premium text-white hover:brightness-110' },
 };
 
 export function totalPaquete(items: SupplyItem[], tier: Tier, qty: (i: SupplyItem) => number) {

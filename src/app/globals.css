@@ -1,55 +1,77 @@
 @import "tailwindcss";
 
 :root {
-  --background: #F4F7F5;
-  --foreground: #17211D;
+  --background: var(--t-fondo);
+  --foreground: var(--t-texto);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /*
-  Sistema visual "pizarra y crayón": verde de pizarra, coral de crayón, amarillo sol
-  y la cuadrícula de 5 mm de un cuaderno escolar.
-  Además se reasignan blue / sky / amber de Tailwind para que todas las páginas existentes
-  (catálogo, carrito, admin…) hereden la misma paleta sin reescribirlas.
+  Tema: los colores y la letra salen de variables (--t-*), así el tema se cambia en un solo lugar. Tailwind genera las clases (bg-primario, text-acento…) a partir
+  de estas variables; blue / sky / amber se reasignan para que las páginas antiguas
+  (catálogo, carrito, admin) también tomen el tema.
 */
 @theme {
-  --font-sans: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--fuente-texto);
+  --font-display: var(--fuente-titulos);
   --font-mano: "Caveat", "Comic Sans MS", cursive;
 
-  /* Pizarra (verde de pizarra escolar) + coral de crayón + amarillo sol */
-  --color-pizarra: #18493D;
-  --color-pizarra-oscuro: #0F3329;
-  --color-pizarra-claro: #E2EFE9;
-  --color-coral: #FF6B4A;
-  --color-coral-oscuro: #EE5333;
-  --color-coral-claro: #FFE8E1;
-  --color-sol: #FFD54A;
-  --color-sol-claro: #FFF5D1;
-  --color-uva: #6B4FD8;
-  --color-uva-claro: #EEEAFD;
-  --color-profe: #C9352A;
-  --color-profe-claro: #FCEAE7;
-  --color-grafito: #17211D;
-  --color-tenue: #5D6A65;
+  --color-primario: var(--t-primario);
+  --color-primario-oscuro: var(--t-primario-oscuro);
+  --color-primario-claro: var(--t-primario-claro);
+  --color-acento: var(--t-acento);
+  --color-acento-oscuro: var(--t-acento-oscuro);
+  --color-acento-claro: var(--t-acento-claro);
+  --color-eco: var(--t-eco);
+  --color-eco-claro: var(--t-eco-claro);
+  --color-premium: var(--t-premium);
+  --color-premium-claro: var(--t-premium-claro);
+  --color-profe: var(--t-error);
+  --color-profe-claro: var(--t-error-claro);
+  --color-grafito: var(--t-texto);
+  --color-tenue: var(--t-tenue);
   --color-papel: #FFFFFF;
-  --color-fondo: #F4F7F5;
-  --color-cuadricula: #DFE9E3;
-  --color-linea: #D8E2DC;
+  --color-fondo: var(--t-fondo);
+  --color-cuadricula: var(--t-cuadricula);
+  --color-linea: var(--t-linea);
 
-  /* Las páginas existentes usan blue / sky / amber: se reasignan a la nueva paleta */
-  --color-blue-50: #F0F7F3;
-  --color-blue-100: #E2EFE9;
-  --color-blue-200: #C3DED1;
-  --color-blue-300: #94C2AD;
-  --color-blue-400: #3F7F68;
-  --color-blue-500: #18493D;
-  --color-blue-600: #133F34;
-  --color-blue-700: #0F3329;
-  --color-sky-100: #F4F7F5;
-  --color-amber-300: #FFD54A;
+  --color-blue-50: var(--t-primario-claro);
+  --color-blue-100: var(--t-primario-claro);
+  --color-blue-200: color-mix(in oklab, var(--t-primario) 30%, white);
+  --color-blue-300: color-mix(in oklab, var(--t-primario) 50%, white);
+  --color-blue-400: color-mix(in oklab, var(--t-primario) 80%, white);
+  --color-blue-500: var(--t-primario);
+  --color-blue-600: var(--t-primario-oscuro);
+  --color-blue-700: var(--t-primario-oscuro);
+  --color-sky-100: var(--t-fondo);
+  --color-amber-300: var(--t-eco);
 }
+
+/* Tema "Tienda familiar" (elegido con UI/UX Pro Max): Rubik + Nunito Sans, azul familia y ámbar. */
+:root {
+  --fuente-titulos: "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
+  --fuente-texto: "Nunito Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --t-primario: #1D4ED8;
+  --t-primario-oscuro: #1E3A8A;
+  --t-primario-claro: #E8EFFE;
+  --t-acento: #F59E0B;
+  --t-acento-oscuro: #D97706;
+  --t-acento-claro: #FEF3C7;
+  --t-eco: #059669;
+  --t-eco-claro: #DDF5EC;
+  --t-premium: #7C3AED;
+  --t-premium-claro: #EFE7FE;
+  --t-error: #B91C1C;
+  --t-error-claro: #FDECEC;
+  --t-texto: #0F172A;
+  --t-tenue: #475569;
+  --t-fondo: #F8FAFC;
+  --t-cuadricula: #E4ECFC;
+  --t-linea: #E2E8F0;
+}
+
 
 @theme inline {
   --color-background: var(--background);
@@ -65,15 +87,24 @@ body {
 
 h1, h2, h3 {
   text-wrap: balance;
+  font-family: var(--fuente-titulos);
+}
+
+.font-display {
+  font-family: var(--fuente-titulos);
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-coral);
+  outline: 3px solid var(--color-acento);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: var(--color-sol-claro);
+  background: var(--color-acento-claro);
+}
+
+a, button, [role="button"], input, select, textarea, label {
+  touch-action: manipulation;
 }
 
 input, textarea, select {
@@ -196,7 +227,7 @@ input::placeholder, textarea::placeholder {
 
 /* Skeleton loading shimmer */
 .skeleton {
-  background: linear-gradient(90deg, #E2EFE9 25%, #D3E5DC 50%, #E2EFE9 75%);
+  background: linear-gradient(90deg, var(--t-primario-claro) 25%, var(--t-cuadricula) 50%, var(--t-primario-claro) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 16px;

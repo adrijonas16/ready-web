@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRealtimeNotifications } from '@/lib/useNotifications';
 import { ShoppingBag, LogOut, Menu, X, Camera } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useCart } from '@/lib/cart-context';
@@ -10,7 +11,17 @@ import NotificationBell from './NotificationBell';
 import Logo from './Logo';
 
 export default function Header() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, addNotification } = useAuth();
+  // Avisos en vivo para el cliente (lista aprobada, estado del pedido) en la campanita
+  const { notifications: enVivo } = useRealtimeNotifications(isAdmin ? undefined : user?.role, isAdmin ? undefined : user?.id);
+  const vistos = useRef(new Set<string>());
+  useEffect(() => {
+    enVivo.forEach(n => {
+      if (vistos.current.has(n.id)) return;
+      vistos.current.add(n.id);
+      if (n.type === 'list_ready' || n.type === 'order_update') addNotification(n.message, 'success');
+    });
+  }, [enVivo, addNotification]);
   const { itemCount } = useCart();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -36,7 +47,7 @@ export default function Header() {
               href={item.href}
               aria-current={isActive(item.href) ? 'page' : undefined}
               className={`rounded-lg px-3 py-2 text-[0.95rem] font-medium transition-colors ${
-                isActive(item.href) ? 'text-pizarra bg-pizarra-claro' : 'text-tenue hover:text-grafito'
+                isActive(item.href) ? 'text-primario bg-primario-claro' : 'text-tenue hover:text-grafito'
               }`}
             >
               {item.label}
@@ -47,7 +58,7 @@ export default function Header() {
         <div className="ml-auto flex items-center gap-2">
           <Link
             href="/upload"
-            className="hidden sm:inline-flex items-center gap-2 rounded-xl bg-coral px-4 py-2 text-sm font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-coral-oscuro transition-colors"
+            className="hidden sm:inline-flex items-center gap-2 rounded-xl bg-acento px-4 py-2 text-sm font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro transition-colors"
           >
             <Camera className="h-4 w-4" aria-hidden="true" />
             Subir mi lista
@@ -58,7 +69,7 @@ export default function Header() {
           <Link href="/cart" className="relative rounded-xl p-2.5 text-grafito hover:bg-fondo" aria-label={`Carrito, ${itemCount} productos`}>
             <ShoppingBag className="h-5 w-5" />
             {itemCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-pizarra px-1 text-[11px] font-bold text-white ring-2 ring-papel animate-cart-bounce">
+              <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primario px-1 text-[11px] font-bold text-white ring-2 ring-papel animate-cart-bounce">
                 {itemCount}
               </span>
             )}
@@ -66,7 +77,7 @@ export default function Header() {
 
           {user ? (
             <div className="hidden md:flex items-center gap-1">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-pizarra-claro text-sm font-bold text-pizarra" title={user.name}>
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primario-claro text-sm font-bold text-primario" title={user.name}>
                 {user.name.charAt(0).toUpperCase()}
               </span>
               <button onClick={logout} className="rounded-xl p-2 text-tenue hover:text-profe" title="Cerrar sesión" aria-label="Cerrar sesión">
@@ -74,7 +85,7 @@ export default function Header() {
               </button>
             </div>
           ) : (
-            <Link href="/login" className="hidden md:inline-flex rounded-xl px-3 py-2 text-sm font-semibold text-pizarra hover:bg-pizarra-claro">
+            <Link href="/login" className="hidden md:inline-flex rounded-xl px-3 py-2 text-sm font-semibold text-primario hover:bg-primario-claro">
               Iniciar sesión
             </Link>
           )}
@@ -87,19 +98,19 @@ export default function Header() {
 
       <div className={`md:hidden overflow-hidden border-t border-linea transition-[max-height] duration-200 ${open ? 'max-h-96' : 'max-h-0 border-t-0'}`}>
         <div className="flex flex-col gap-1 px-4 py-3">
-          <Link href="/upload" onClick={() => setOpen(false)} className="mb-2 inline-flex items-center justify-center gap-2 rounded-xl bg-coral px-4 py-3 font-bold text-grafito">
+          <Link href="/upload" onClick={() => setOpen(false)} className="mb-2 inline-flex items-center justify-center gap-2 rounded-xl bg-acento px-4 py-3 font-bold text-grafito">
             <Camera className="h-4 w-4" aria-hidden="true" /> Subir mi lista
           </Link>
           {nav.map(item => (
             <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
-              className={`rounded-lg px-3 py-2.5 font-medium ${isActive(item.href) ? 'bg-pizarra-claro text-pizarra' : 'text-grafito'}`}>
+              className={`rounded-lg px-3 py-2.5 font-medium ${isActive(item.href) ? 'bg-primario-claro text-primario' : 'text-grafito'}`}>
               {item.label}
             </Link>
           ))}
           {user ? (
             <button onClick={() => { logout(); setOpen(false); }} className="rounded-lg px-3 py-2.5 text-left font-medium text-profe">Cerrar sesión</button>
           ) : (
-            <Link href="/login" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 font-medium text-pizarra">Iniciar sesión</Link>
+            <Link href="/login" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 font-medium text-primario">Iniciar sesión</Link>
           )}
         </div>
       </div>

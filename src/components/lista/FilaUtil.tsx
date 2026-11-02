@@ -33,9 +33,9 @@ export default function FilaUtil({ item, incluido, qty, onIncluir, onQty, onTier
 
   const stepper = (
     <div className="flex shrink-0 items-center rounded-lg border border-linea bg-papel" aria-label="Cantidad">
-      <button onClick={() => onQty(Math.max(1, qty - 1))} disabled={!incluido} className="p-1.5 hover:text-pizarra disabled:opacity-40" aria-label="Uno menos"><Minus className="h-3.5 w-3.5" /></button>
+      <button onClick={() => onQty(Math.max(1, qty - 1))} disabled={!incluido} className="p-1.5 hover:text-primario disabled:opacity-40" aria-label="Uno menos"><Minus className="h-3.5 w-3.5" /></button>
       <span className="w-6 text-center text-sm font-bold tabular-nums">{qty}</span>
-      <button onClick={() => onQty(Math.min(99, qty + 1))} disabled={!incluido} className="p-1.5 hover:text-pizarra disabled:opacity-40" aria-label="Uno más"><Plus className="h-3.5 w-3.5" /></button>
+      <button onClick={() => onQty(Math.min(99, qty + 1))} disabled={!incluido} className="p-1.5 hover:text-primario disabled:opacity-40" aria-label="Uno más"><Plus className="h-3.5 w-3.5" /></button>
     </div>
   );
 
@@ -43,11 +43,11 @@ export default function FilaUtil({ item, incluido, qty, onIncluir, onQty, onTier
     <li className={`flex items-start gap-3 py-3 ${incluido ? '' : 'opacity-55'}`}>
       <input type="checkbox" checked={incluido} onChange={e => onIncluir(e.target.checked)}
         aria-label={incluido ? `Ya tengo: ${item.nombreOriginal}` : `Volver a agregar: ${item.nombreOriginal}`}
-        className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded accent-pizarra sm:mt-3" />
+        className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded accent-primario sm:mt-3" />
 
       <div className="hidden h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-linea bg-fondo sm:block">
         {product?.imageUrl
-          ? <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+          ? <img src={product.imageUrl} alt="" width={44} height={44} loading="lazy" className="h-full w-full object-cover" />
           : <div className="flex h-full items-center justify-center"><Package className="h-4 w-4 text-tenue/50" aria-hidden="true" /></div>}
       </div>
 
@@ -82,19 +82,19 @@ export default function FilaUtil({ item, incluido, qty, onIncluir, onQty, onTier
                           <span className="block truncate text-xs text-tenue">{p ? p.name : 'No hay en este nivel'}</span>
                         </span>
                         {p && <span className="shrink-0 text-sm font-semibold tabular-nums text-grafito">{formatPrice(p.basePrice)}</span>}
-                        {tier === t.id && <Check className="h-4 w-4 shrink-0 text-pizarra" aria-hidden="true" />}
+                        {tier === t.id && <Check className="h-4 w-4 shrink-0 text-primario" aria-hidden="true" />}
                       </button>
                     );
                   })}
                   <button role="menuitem" onClick={() => { onBuscar(); setMenu(false); }}
-                    className="mt-1 flex w-full items-center gap-2 rounded-lg border-t border-linea px-2.5 py-2 text-left text-sm font-semibold text-pizarra hover:bg-fondo">
+                    className="mt-1 flex w-full items-center gap-2 rounded-lg border-t border-linea px-2.5 py-2 text-left text-sm font-semibold text-primario hover:bg-fondo">
                     <Search className="h-3.5 w-3.5" aria-hidden="true" /> Elegir otro producto
                   </button>
                 </div>
               )}
             </div>
           ) : (
-            <button onClick={onBuscar} className="shrink-0 rounded-full bg-coral-claro px-2 py-0.5 text-xs font-semibold text-profe">
+            <button onClick={onBuscar} className="shrink-0 rounded-full bg-acento-claro px-2 py-0.5 text-xs font-semibold text-profe">
               No lo tenemos, buscar
             </button>
           )}

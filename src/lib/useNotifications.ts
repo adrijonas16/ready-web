@@ -18,8 +18,14 @@ export function useRealtimeNotifications(role?: string, userId?: string) {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
   useEffect(() => {
+    if (!userId) return;
+    // El hub vive en el mismo servidor que la API: https://…/api → https://…/hub/notifications
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
+    const hubUrl = apiUrl.replace(/\/api\/?$/, '') + '/hub/notifications';
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl('http://localhost:5050/hub/notifications')
+      // Sin cookies: la API permite cualquier origen (AllowAnyOrigin), que no admite credenciales
+      .withUrl(hubUrl, { withCredentials: false })
+      .configureLogging(signalR.LogLevel.None)
       .withAutomaticReconnect()
       .build();
 
@@ -48,7 +54,7 @@ export function useRealtimeNotifications(role?: string, userId?: string) {
       setConnected(true);
       if (role === 'ADMIN') connection.invoke('JoinAdminGroup');
       if (userId) connection.invoke('JoinUserGroup', userId);
-    }).catch(err => console.error('SignalR connection error:', err));
+    }).catch(() => setConnected(false));
 
     return () => {
       connection.stop();

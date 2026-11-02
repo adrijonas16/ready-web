@@ -130,7 +130,7 @@ export default function CartPage() {
         </div>
 
         {notasPedido.length > 0 && (
-          <div className="mb-4 rounded-2xl border border-sol bg-sol-claro p-4 text-sm text-grafito">
+          <div className="mb-4 rounded-2xl border border-eco bg-eco-claro p-4 text-sm text-grafito">
             <p className="font-bold">Por cotizar</p>
             {notasPedido.map((n, i) => <p key={i} className="mt-1 whitespace-pre-line">{n}</p>)}
             <p className="mt-2 text-tenue">Te confirmamos el precio antes de enviar el pedido.</p>
