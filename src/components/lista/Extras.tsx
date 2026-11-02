@@ -4,7 +4,7 @@ import { useState, ReactNode } from 'react';
 import { BookOpen, Tag, NotebookPen, FileText, Plus, Trash2, Minus, Star, Flower2, Rocket, Trophy, Heart, Circle } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { ListBook, ListExtras, Product } from '@/lib/types';
-import { COLORES_FORRO, CURSOS, DISENOS_ETIQUETA } from '@/lib/lista';
+import { OpcionesServicios, buscarOpcion, precioServicio } from '@/lib/lista';
 
 export interface ConteoExtras {
   cuadernos: number;
@@ -56,20 +56,23 @@ function Tarjeta({ icono, titulo, detalle, monto, activo, onToggle, children }: 
 
 const precio = (p?: Product) => (p ? formatPrice(p.basePrice) : 'precio por confirmar');
 
-export default function Extras({ extras, onChange, conteo, servicios }: {
+export default function Extras({ extras, onChange, conteo, servicios, opciones }: {
   extras: ListExtras;
   onChange: (e: ListExtras) => void;
   conteo: ConteoExtras;
   servicios: PreciosServicios;
+  opciones: OpcionesServicios;
 }) {
   const [cursoNuevo, setCursoNuevo] = useState('');
   const set = (patch: Partial<ListExtras>) => onChange({ ...extras, ...patch });
   const setLibro = (id: string, patch: Partial<ListBook>) =>
     set({ libros: extras.libros.map(l => (l.id === id ? { ...l, ...patch } : l)) });
 
-  const montoForro = (servicios.forroCuaderno?.basePrice ?? 0) * conteo.cuadernos
+  const colorElegido = buscarOpcion(opciones.colores, extras.forro.color);
+  const disenoElegido = buscarOpcion(opciones.disenos, extras.etiquetas.diseno);
+  const montoForro = precioServicio(servicios.forroCuaderno, colorElegido) * conteo.cuadernos
     + (extras.forrarLibros ? (servicios.forroLibro?.basePrice ?? 0) * conteo.libros : 0);
-  const cursos = Array.from(new Set([...CURSOS, ...extras.caratulas.cursos]));
+  const cursos = Array.from(new Set([...opciones.cursos, ...extras.caratulas.cursos]));
   const librosConPrecio = extras.libros.reduce((s, l) => s + (l.precio ? l.precio * l.cantidad : 0), 0);
   const porCotizar = extras.libros.filter(l => !l.precio).length;
 
@@ -86,13 +89,15 @@ export default function Extras({ extras, onChange, conteo, servicios }: {
         monto={montoForro} activo={extras.forro.activo} onToggle={v => set({ forro: { ...extras.forro, activo: v } })}>
         <p className="mb-2 text-sm font-semibold">Color del forro</p>
         <div className="flex flex-wrap gap-2">
-          {COLORES_FORRO.map(c => {
-            const activo = (extras.forro.color ?? '').toLowerCase() === c.nombre.toLowerCase();
+          {opciones.colores.map(c => {
+            const activo = colorElegido?.nombre === c.nombre;
             return (
               <button key={c.nombre} onClick={() => set({ forro: { ...extras.forro, color: c.nombre } })} aria-pressed={activo}
-                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm ${activo ? 'border-grafito bg-fondo font-semibold' : 'border-linea hover:border-tenue'}`}>
-                <span className="h-4 w-4 rounded-full border border-black/10" style={{ background: c.hex === 'transparent' ? 'repeating-linear-gradient(45deg,#fff 0 3px,#DFE9E3 3px 6px)' : c.hex }} aria-hidden="true" />
-                {c.nombre}
+                className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm ${activo ? 'border-grafito bg-fondo font-semibold' : 'border-linea hover:border-tenue'}`}>
+                {c.imagen
+                  ? <img src={c.imagen} alt="" width={16} height={16} className="h-4 w-4 rounded-full object-cover" />
+                  : <span className="h-4 w-4 rounded-full border border-black/10" style={{ background: c.hex || 'repeating-linear-gradient(45deg,#fff 0 3px,#E4ECFC 3px 6px)' }} aria-hidden="true" />}
+                {c.nombre}{c.recargo > 0 && <span className="text-tenue">+{formatPrice(c.recargo)}</span>}
               </button>
             );
           })}
@@ -108,7 +113,7 @@ export default function Extras({ extras, onChange, conteo, servicios }: {
       {/* Etiquetas */}
       <Tarjeta icono={<Tag className="h-5 w-5" />} titulo="Etiquetas personalizadas"
         detalle={`${precio(servicios.etiqueta)} c/u, ${conteo.etiquetas} etiquetas para cuadernos y libros`}
-        monto={(servicios.etiqueta?.basePrice ?? 0) * conteo.etiquetas}
+        monto={precioServicio(servicios.etiqueta, disenoElegido) * conteo.etiquetas}
         activo={extras.etiquetas.activo} onToggle={v => set({ etiquetas: { ...extras.etiquetas, activo: v } })}>
         <div className="grid gap-3 sm:grid-cols-[1.5fr_1fr]">
           <label className="block text-sm">
@@ -124,13 +129,17 @@ export default function Extras({ extras, onChange, conteo, servicios }: {
         </div>
         <p className="mb-2 mt-3 text-sm font-semibold">Diseño</p>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {DISENOS_ETIQUETA.map(d => {
-            const Icono = ICONO_DISENO[d];
-            const activo = extras.etiquetas.diseno === d;
+          {opciones.disenos.map(d => {
+            const Icono = ICONO_DISENO[d.nombre.toLowerCase()] ?? Tag;
+            const activo = disenoElegido?.nombre === d.nombre;
             return (
-              <button key={d} onClick={() => set({ etiquetas: { ...extras.etiquetas, diseno: d } })} aria-pressed={activo}
-                className={`flex flex-col items-center gap-1 rounded-xl border py-2 text-xs capitalize ${activo ? 'border-primario bg-primario-claro font-semibold' : 'border-linea hover:border-tenue'}`}>
-                <Icono className="h-5 w-5 text-acento-oscuro" aria-hidden="true" /> {d}
+              <button key={d.nombre} onClick={() => set({ etiquetas: { ...extras.etiquetas, diseno: d.nombre } })} aria-pressed={activo}
+                className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border p-1.5 text-xs ${activo ? 'border-primario bg-primario-claro font-semibold' : 'border-linea hover:border-tenue'}`}>
+                {d.imagen
+                  ? <img src={d.imagen} alt="" width={64} height={40} className="h-10 w-full rounded-md object-cover" />
+                  : <span className="flex h-10 items-center"><Icono className="h-5 w-5 text-acento-oscuro" aria-hidden="true" /></span>}
+                <span className="w-full truncate text-center">{d.nombre}</span>
+                {d.recargo > 0 && <span className="text-tenue">+{formatPrice(d.recargo)}</span>}
               </button>
             );
           })}

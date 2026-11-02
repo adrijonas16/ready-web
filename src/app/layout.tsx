@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/nunito-sans";
 import "@fontsource-variable/rubik";
+import "@fontsource-variable/rubik/wght-italic.css";
 import "@fontsource/caveat/500.css";
 import "@fontsource/caveat/700.css";
 import "./globals.css";

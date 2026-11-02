@@ -87,7 +87,26 @@ export const CURSOS = [
   'Arte y Cultura', 'Educación Religiosa', 'Educación Física', 'Tutoría',
 ];
 
-export const DISENOS_ETIQUETA = ['lisa', 'estrellas', 'flores', 'espacio', 'deportes', 'corazones'] as const;
+export const DISENOS_ETIQUETA = ['Lisa', 'Estrellas', 'Flores', 'Espacio', 'Deportes', 'Corazones'];
+
+/** Opción de un servicio (color de forro, diseño de etiqueta, curso) */
+export interface OpcionServicio { nombre: string; hex?: string | null; imagen?: string | null; recargo: number }
+
+export interface OpcionesServicios {
+  colores: OpcionServicio[];
+  disenos: OpcionServicio[];
+  cursos: string[];
+}
+
+/** Valores por defecto si el servicio aún no tiene variantes cargadas en el admin */
+export const OPCIONES_POR_DEFECTO: OpcionesServicios = {
+  colores: COLORES_FORRO.map(c => ({ nombre: c.nombre, hex: c.hex === 'transparent' ? null : c.hex, recargo: 0 })),
+  disenos: DISENOS_ETIQUETA.map(d => ({ nombre: d, recargo: 0 })),
+  cursos: CURSOS,
+};
+
+const iguales = (a?: string | null, b?: string | null) => (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+export const buscarOpcion = (lista: OpcionServicio[], nombre?: string | null) => lista.find(o => iguales(o.nombre, nombre));
 
 /** Variantes elegidas para el producto actual del útil (si cambió de producto, ya no aplican). */
 export function variantesDe(item: SupplyItem, extras: ListExtras): ItemVariante[] {
@@ -100,3 +119,6 @@ export function precioUnitario(item: SupplyItem, extras: ListExtras): number {
   if (!item.matchedProduct) return 0;
   return item.matchedProduct.basePrice + variantesDe(item, extras).reduce((s, v) => s + (v.precio || 0), 0);
 }
+
+/** Precio unitario de un servicio con el recargo de la opción elegida (si el admin le puso uno). */
+export const precioServicio = (base?: Product, opcion?: OpcionServicio) => (base ? base.basePrice + (opcion?.recargo ?? 0) : 0);

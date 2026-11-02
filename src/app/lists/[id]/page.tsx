@@ -4,13 +4,13 @@ import { useState, useEffect, useRef, useCallback, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { listsApi, productsApi } from '@/services/api';
-import { ItemVariante, ListDetail, ListExtras, Product, SupplyItem } from '@/lib/types';
+import { ItemVariante, ListDetail, ListExtras, Product, ProductDetail, SupplyItem } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
 import { ArrowLeft, MessageSquare, Check, X, Loader2, ShoppingBag, RotateCcw, Info, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import Toast from '@/components/Toast';
-import { Tier, TIERS, SKU, esCuaderno, parseExtras, precioUnitario, tierProduct, variantesDe } from '@/lib/lista';
+import { Tier, TIERS, SKU, OPCIONES_POR_DEFECTO, OpcionesServicios, OpcionServicio, buscarOpcion, esCuaderno, parseExtras, precioServicio, precioUnitario, tierProduct, variantesDe } from '@/lib/lista';
 import { ElegirPaquete, CambiarPaquete } from '@/components/lista/Paquetes';
 import FilaUtil from '@/components/lista/FilaUtil';
 import Extras, { PreciosServicios } from '@/components/lista/Extras';
@@ -188,6 +188,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [localQty, setLocalQty] = useState<Record<string, number>>({});
   const [extras, setExtras] = useState<ListExtras>(parseExtras());
   const [servicios, setServicios] = useState<PreciosServicios>({});
+  const [opciones, setOpciones] = useState<OpcionesServicios>(OPCIONES_POR_DEFECTO);
   const [abierto, setAbierto] = useState<SupplyItem | null>(null);
   const [verFotos, setVerFotos] = useState(false);
   const [eligiendo, setEligiendo] = useState<Tier | null>(null);
@@ -228,9 +229,21 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   // Precios de los servicios (forrado, etiquetas, carátulas)
   useEffect(() => {
-    productsApi.getAll({ category: 'Servicios' }).then((ps: Product[]) => {
+    productsApi.getAll({ category: 'Servicios' }).then(async (ps: Product[]) => {
       const bySku = (sku: string) => ps.find(p => p.sku === sku);
-      setServicios({ forroCuaderno: bySku(SKU.forroCuaderno), forroLibro: bySku(SKU.forroLibro), etiqueta: bySku(SKU.etiqueta), caratula: bySku(SKU.caratula) });
+      const s = { forroCuaderno: bySku(SKU.forroCuaderno), forroLibro: bySku(SKU.forroLibro), etiqueta: bySku(SKU.etiqueta), caratula: bySku(SKU.caratula) };
+      setServicios(s);
+      // Colores, diseños y cursos salen de las variantes de cada servicio (editables en el admin)
+      const [forro, etiqueta, caratula] = await Promise.all(
+        [s.forroCuaderno, s.etiqueta, s.caratula].map(p => p ? productsApi.getById(p.id).catch(() => null) : null)) as (ProductDetail | null)[];
+      const valores = (d: ProductDetail | null): OpcionServicio[] => (d?.variants?.[0]?.values ?? [])
+        .filter(v => v.is_active !== false)
+        .map(v => ({ nombre: v.value, hex: v.color_hex, imagen: v.image_url, recargo: Number(v.price_modifier) || 0 }));
+      setOpciones({
+        colores: valores(forro).length ? valores(forro) : OPCIONES_POR_DEFECTO.colores,
+        disenos: valores(etiqueta).length ? valores(etiqueta) : OPCIONES_POR_DEFECTO.disenos,
+        cursos: valores(caratula).length ? valores(caratula).map(v => v.nombre) : OPCIONES_POR_DEFECTO.cursos,
+      });
     }).catch(() => {});
   }, []);
 
@@ -367,10 +380,12 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     caratulas: extras.caratulas.activo ? extras.caratulas.cursos.length : 0,
   };
   const precioDe = (p?: Product) => p?.basePrice ?? 0;
+  const colorForro = buscarOpcion(opciones.colores, extras.forro.color);
+  const disenoEtiqueta = buscarOpcion(opciones.disenos, extras.etiquetas.diseno);
   const lineasExtras = [
-    { label: `Forrado (${cuadernos} cuadernos)`, monto: extras.forro.activo ? precioDe(servicios.forroCuaderno) * cuadernos : 0 },
+    { label: `Forrado (${cuadernos} cuadernos)`, monto: extras.forro.activo ? precioServicio(servicios.forroCuaderno, colorForro) * cuadernos : 0 },
     { label: `Forrado (${libros} libros)`, monto: extras.forro.activo && extras.forrarLibros ? precioDe(servicios.forroLibro) * libros : 0 },
-    { label: `Etiquetas (${conteo.etiquetas})`, monto: extras.etiquetas.activo ? precioDe(servicios.etiqueta) * conteo.etiquetas : 0 },
+    { label: `Etiquetas (${conteo.etiquetas})`, monto: extras.etiquetas.activo ? precioServicio(servicios.etiqueta, disenoEtiqueta) * conteo.etiquetas : 0 },
     { label: `Carátulas (${conteo.caratulas})`, monto: precioDe(servicios.caratula) * conteo.caratulas },
     { label: 'Libros', monto: extras.libros.reduce((s, l) => s + (l.precio ? l.precio * l.cantidad : 0), 0) },
   ].filter(l => l.monto > 0);
@@ -389,9 +404,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         addItem({ ...i.matchedProduct!, basePrice: precioUnitario(i, extras) }, getQty(i), nota || undefined, i);
       });
       const s = servicios;
-      if (extras.forro.activo && s.forroCuaderno && cuadernos > 0) addItem(s.forroCuaderno, cuadernos, `Color: ${extras.forro.color || 'a elegir'} (${origen})`);
+      if (extras.forro.activo && s.forroCuaderno && cuadernos > 0) addItem({ ...s.forroCuaderno, basePrice: precioServicio(s.forroCuaderno, colorForro) }, cuadernos, `Color: ${extras.forro.color || 'a elegir'} (${origen})`);
       if (extras.forro.activo && extras.forrarLibros && s.forroLibro && libros > 0) addItem(s.forroLibro, libros, `(${origen})`);
-      if (extras.etiquetas.activo && s.etiqueta && conteo.etiquetas > 0) addItem(s.etiqueta, conteo.etiquetas, `${etiquetaNota} (${origen})`);
+      if (extras.etiquetas.activo && s.etiqueta && conteo.etiquetas > 0) addItem({ ...s.etiqueta, basePrice: precioServicio(s.etiqueta, disenoEtiqueta) }, conteo.etiquetas, `${etiquetaNota} (${origen})`);
       if (s.caratula && conteo.caratulas > 0) addItem(s.caratula, conteo.caratulas, `Cursos: ${extras.caratulas.cursos.join(', ')}${extras.etiquetas.nombre ? ` | Nombre: ${extras.etiquetas.nombre}` : ''}`);
       // Libros del catálogo: se piden en paralelo (react-best-practices: async-parallel)
       const conPrecio = extras.libros.filter(x => x.precio && x.productoId);
@@ -470,7 +485,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 </ul>
               </section>
 
-              <Extras extras={extras} onChange={cambiarExtras} conteo={conteo} servicios={servicios} />
+              <Extras extras={extras} onChange={cambiarExtras} conteo={conteo} servicios={servicios} opciones={opciones} />
 
               <ObservationBox listId={id} existing={data.list.userObservaciones} onSaved={() => loadList()} />
             </div>

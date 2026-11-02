@@ -14,8 +14,9 @@ export default function Logo({ light = false }: { light?: boolean }) {
   return (
     <Link href="/" className="flex items-center gap-2 rounded-lg" aria-label="Ready, ir al inicio">
       <LogoMark />
-      <span className={`text-[1.4rem] font-extrabold tracking-[-0.03em] ${light ? 'text-white' : 'text-grafito'}`}>
-        ready
+      <span translate="no"
+        className={`font-display text-[1.55rem] font-black italic uppercase leading-none tracking-[0.01em] ${light ? 'text-white' : 'text-grafito'}`}>
+        Ready
       </span>
     </Link>
   );
