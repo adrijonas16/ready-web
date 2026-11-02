@@ -4,120 +4,17 @@ import { useState, useEffect, useRef, useCallback, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { listsApi, productsApi } from '@/services/api';
-import { ListDetail, ListExtras, Product, SupplyItem } from '@/lib/types';
+import { ItemVariante, ListDetail, ListExtras, Product, SupplyItem } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, MessageSquare, Check, X, Search, Package, Loader2, ShoppingBag, RotateCcw, Info, Star, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Check, X, Loader2, ShoppingBag, RotateCcw, Info, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import Toast from '@/components/Toast';
-import { Tier, TIERS, SKU, esCuaderno, parseExtras, tierProduct } from '@/lib/lista';
+import { Tier, TIERS, SKU, esCuaderno, parseExtras, precioUnitario, tierProduct, variantesDe } from '@/lib/lista';
 import { ElegirPaquete, CambiarPaquete } from '@/components/lista/Paquetes';
 import FilaUtil from '@/components/lista/FilaUtil';
 import Extras, { PreciosServicios } from '@/components/lista/Extras';
-
-// ── Product Search Modal ──
-function ProductModal({ item, onSave, onClose }: { item: SupplyItem; onSave: (productId: string, quantity: number) => void; onClose: () => void }) {
-  const [query, setQuery] = useState(item.nombreDetectado || item.nombreOriginal);
-  const [results, setResults] = useState<Product[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(item.matchedProductId || null);
-  const [quantity, setQuantity] = useState(item.userCustomQuantity || item.matchedQuantity || item.cantidad);
-  const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { inputRef.current?.focus(); }, []);
-
-  useEffect(() => {
-    const search = async () => {
-      setLoading(true);
-      try { const res = await productsApi.search(query); setResults(res); }
-      catch {} finally { setLoading(false); }
-    };
-    const t = setTimeout(search, 300);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  const selected = results.find(p => p.id === selectedId);
-
-  return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 overscroll-contain" onClick={onClose} onKeyDown={e => e.key === 'Escape' && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label="Elegir otro producto" className="bg-white rounded-[20px] max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-scale-in" onClick={e => e.stopPropagation()}>
-        <div className="p-5 border-b border-slate-100">
-          <div className="flex justify-between items-start mb-3">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Seleccionar Producto</h2>
-              <p className="text-xs text-neutral-400">Para: {item.nombreOriginal}</p>
-            </div>
-            <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-xl" aria-label="Cerrar"><X className="h-4 w-4" /></button>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-            <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)}
-              placeholder="Buscar producto, ej.: colores x24…" aria-label="Buscar producto" name="buscar" autoComplete="off"
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
-            {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 animate-spin" />}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5">
-          {results.length === 0 && query && !loading ? (
-            <div className="text-center py-8">
-              <Package className="h-10 w-10 text-neutral-300 mx-auto mb-2" />
-              <p className="text-xs text-neutral-400">Sin resultados</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {results.map(p => (
-                <button key={p.id} onClick={() => setSelectedId(selectedId === p.id ? null : p.id)}
-                  className={`text-left rounded-[16px] border-2 overflow-hidden transition-[border-color,box-shadow] ${selectedId === p.id ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-100 hover:border-slate-300'}`}>
-                  <div className="aspect-square bg-slate-50 relative flex items-center justify-center">
-                    {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <Package className="h-8 w-8 text-neutral-300" />}
-                    {selectedId === p.id && <div className="absolute top-2 right-2 p-0.5 bg-blue-500 rounded-full"><Check className="h-3 w-3 text-white" /></div>}
-                    {p.tier && (
-                      <span className={`absolute top-2 left-2 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                        p.tier === 'premium' ? 'bg-amber-100 text-amber-700' : p.tier === 'economico' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                      }`}>{p.tier}</span>
-                    )}
-                  </div>
-                  <div className="p-2.5">
-                    <p className="text-xs font-medium text-slate-900 line-clamp-2">{p.name}</p>
-                    <p className="text-[10px] text-neutral-400">{p.brand}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-sm font-bold text-slate-900">{formatPrice(p.basePrice)}</p>
-                      <div className="flex items-center gap-0.5">
-                        <Star className="h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />
-                        <span className="text-[10px] text-neutral-400">{p.rating?.toFixed(1)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="p-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {selected && (
-              <>
-                <span className="text-xs text-neutral-400">Cantidad:</span>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-6 h-6 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center text-xs">-</button>
-                  <span className="w-5 text-center text-sm font-bold">{quantity}</span>
-                  <button onClick={() => setQuantity(quantity + 1)} className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">+</button>
-                </div>
-                <span className="text-sm font-bold text-slate-900">{formatPrice(selected.basePrice * quantity)}</span>
-              </>
-            )}
-          </div>
-          <button onClick={() => selectedId && onSave(selectedId, quantity)} disabled={!selectedId}
-            className="bg-blue-500 text-white px-5 py-2 rounded-xl font-bold text-sm disabled:opacity-40 flex items-center gap-1.5 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-            <Check className="h-3.5 w-3.5" /> Guardar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+import SelectorProducto from '@/components/lista/SelectorProducto';
 
 // ── Observations Box ──
 function ObservationBox({ listId, existing, onSaved }: { listId: string; existing?: string; onSaved: () => void }) {
@@ -291,7 +188,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [localQty, setLocalQty] = useState<Record<string, number>>({});
   const [extras, setExtras] = useState<ListExtras>(parseExtras());
   const [servicios, setServicios] = useState<PreciosServicios>({});
-  const [editingItem, setEditingItem] = useState<SupplyItem | null>(null);
+  const [abierto, setAbierto] = useState<SupplyItem | null>(null);
   const [verFotos, setVerFotos] = useState(false);
   const [eligiendo, setEligiendo] = useState<Tier | null>(null);
   const [agregando, setAgregando] = useState(false);
@@ -377,13 +274,17 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }, 800);
   };
 
-  const elegirNivel = async (item: SupplyItem, tier: Tier) => {
-    const p = tierProduct(item, tier, true);
-    if (!p) return;
+  const elegirProducto = async (item: SupplyItem, p: Product, valores: ItemVariante[]) => {
     const antes = { matchedProductId: item.matchedProductId, matchedProduct: item.matchedProduct, priceAtMatch: item.priceAtMatch };
     patchItem(item.id, { matchedProductId: p.id, matchedProduct: p, priceAtMatch: p.basePrice });
+    const variantes = { ...(extras.variantes ?? {}) };
+    if (valores.length) variantes[item.id] = { productId: p.id, valores };
+    else delete variantes[item.id];
+    cambiarExtras({ ...extras, variantes });
+    setAbierto(null);
     try {
       await listsApi.updateItem(id, item.id, { productId: p.id });
+      showToast('Producto cambiado');
     } catch {
       patchItem(item.id, antes);
       showToast('No se pudo cambiar el producto', 'error');
@@ -412,16 +313,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  const handleSaveProduct = async (productId: string, quantity: number) => {
-    if (!editingItem) return;
-    try {
-      await listsApi.updateItem(id, editingItem.id, { productId, userCustomQuantity: quantity });
-      setLocalQty(prev => ({ ...prev, [editingItem.id]: quantity }));
-      await loadList();
-      setEditingItem(null);
-      showToast('Producto cambiado');
-    } catch { showToast('No se pudo guardar', 'error'); }
-  };
+  const cerrarSelector = useCallback(() => setAbierto(null), []);
 
   const reintentar = async () => {
     setRetrying(true);
@@ -465,7 +357,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   // Totales
   const conProducto = incluidos.filter(i => i.matchedProduct);
-  const totalUtiles = conProducto.reduce((s, i) => s + i.matchedProduct!.basePrice * getQty(i), 0);
+  const totalUtiles = conProducto.reduce((s, i) => s + precioUnitario(i, extras) * getQty(i), 0);
   const cuadernos = incluidos.filter(esCuaderno).reduce((s, i) => s + getQty(i), 0);
   const libros = extras.libros.filter(l => l.titulo.trim()).reduce((s, l) => s + l.cantidad, 0);
   const conteo = {
@@ -491,7 +383,11 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     const etiquetaNota = [extras.etiquetas.nombre && `Nombre: ${extras.etiquetas.nombre}`, extras.etiquetas.grado && `Grado: ${extras.etiquetas.grado}`, `Diseño: ${extras.etiquetas.diseno}`].filter(Boolean).join(' | ');
     const origen = `${data.list.schoolName}, ${data.list.gradeName}`;
     try {
-      conProducto.forEach(i => addItem(i.matchedProduct!, getQty(i), i.userNotas || i.notas, i));
+      conProducto.forEach(i => {
+        const vs = variantesDe(i, extras);
+        const nota = [vs.map(v => `${v.tipo}: ${v.valor}`).join(', '), i.userNotas || i.notas].filter(Boolean).join(' | ');
+        addItem({ ...i.matchedProduct!, basePrice: precioUnitario(i, extras) }, getQty(i), nota || undefined, i);
+      });
       const s = servicios;
       if (extras.forro.activo && s.forroCuaderno && cuadernos > 0) addItem(s.forroCuaderno, cuadernos, `Color: ${extras.forro.color || 'a elegir'} (${origen})`);
       if (extras.forro.activo && extras.forrarLibros && s.forroLibro && libros > 0) addItem(s.forroLibro, libros, `(${origen})`);
@@ -561,15 +457,15 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="mb-3 flex items-end justify-between gap-4">
                   <div>
                     <h1 id="utiles" className="text-3xl font-extrabold tracking-[-0.03em]">Tu lista</h1>
-                    <p className="text-tenue">Desmarca lo que ya tienes. Toca el nivel de un útil para cambiarlo.</p>
+                    <p className="text-tenue">Toca un útil para ver su foto, marca y todas las opciones. Desmarca lo que ya tienes.</p>
                   </div>
                 </div>
                 {hayNiveles && <div className="mb-3"><CambiarPaquete items={incluidos} qty={getQty} actual={plan} onElegir={elegirPaquete} /></div>}
                 <ul className="divide-y divide-linea rounded-2xl border border-linea bg-papel px-3 sm:px-4">
                   {items.map(item => (
                     <FilaUtil key={item.id} item={item} incluido={!excluidos.has(item.id)} qty={getQty(item)}
-                      onIncluir={v => incluir(item, v)} onQty={q => setQty(item, q)}
-                      onTier={t => elegirNivel(item, t)} onBuscar={() => setEditingItem(item)} />
+                      precio={precioUnitario(item, extras)} variantes={variantesDe(item, extras)}
+                      onIncluir={v => incluir(item, v)} onQty={q => setQty(item, q)} onAbrir={() => setAbierto(item)} />
                   ))}
                 </ul>
               </section>
@@ -623,7 +519,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       )}
 
       {verFotos && <FotosLista urls={imagenes} onClose={() => setVerFotos(false)} />}
-      {editingItem && <ProductModal item={editingItem} onSave={handleSaveProduct} onClose={() => setEditingItem(null)} />}
+      {abierto && (
+        <SelectorProducto item={abierto} variantesActuales={variantesDe(abierto, extras)}
+          onElegir={(p, valores) => elegirProducto(abierto, p, valores)} onClose={cerrarSelector} />
+      )}
     </div>
   );
 }

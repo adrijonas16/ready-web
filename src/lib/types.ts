@@ -91,6 +91,37 @@ export interface ListExtras {
   libros: ListBook[];
   /** Útiles que el cliente ya tiene */
   excluidos?: string[];
+  /** Diseño, color u otra variante elegida por útil (itemId → producto y valores) */
+  variantes?: Record<string, { productId: string; valores: ItemVariante[] }>;
+}
+
+export interface ItemVariante {
+  tipo: string;
+  valor: string;
+  valueId: string;
+  precio: number;
+  imagen?: string | null;
+}
+
+export interface VariantValue {
+  id: string;
+  value: string;
+  image_url?: string | null;
+  price_modifier: number;
+  stock: number;
+  is_active: boolean;
+  color_hex?: string | null;
+}
+
+export interface VariantType {
+  id: string;
+  name: string;
+  values: VariantValue[];
+}
+
+export interface ProductDetail extends Product {
+  variants?: VariantType[];
+  images?: { id: string; image_url: string; alt_text?: string | null }[];
 }
 
 export interface SupplyItem {

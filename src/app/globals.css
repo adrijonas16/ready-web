@@ -137,6 +137,15 @@ input::placeholder, textarea::placeholder {
   box-shadow: 0 1px 0 var(--color-linea), 0 18px 40px -20px rgba(20, 27, 45, 0.28);
 }
 
+@keyframes entrar-derecha {
+  from { transform: translateX(24px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.animate-entrar {
+  animation: entrar-derecha 0.22s var(--ease-out) both;
+}
+
 @keyframes escaneo {
   0%   { top: 0%; }
   100% { top: calc(100% - 4px); }

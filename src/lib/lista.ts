@@ -1,4 +1,4 @@
-import { ListExtras, Product, SupplyItem } from '@/lib/types';
+import { ItemVariante, ListExtras, Product, SupplyItem } from '@/lib/types';
 
 export type Tier = 'economico' | 'medio' | 'premium';
 
@@ -40,6 +40,7 @@ export const extrasVacios = (): ListExtras => ({
   forrarLibros: false,
   libros: [],
   excluidos: [],
+  variantes: {},
 });
 
 export function parseExtras(json?: string | null): ListExtras {
@@ -54,6 +55,7 @@ export function parseExtras(json?: string | null): ListExtras {
       forrarLibros: !!e.forrarLibros,
       libros: Array.isArray(e.libros) ? e.libros : [],
       excluidos: Array.isArray(e.excluidos) ? e.excluidos : [],
+      variantes: e.variantes && typeof e.variantes === 'object' ? e.variantes : {},
     };
   } catch {
     return base;
@@ -86,3 +88,15 @@ export const CURSOS = [
 ];
 
 export const DISENOS_ETIQUETA = ['lisa', 'estrellas', 'flores', 'espacio', 'deportes', 'corazones'] as const;
+
+/** Variantes elegidas para el producto actual del útil (si cambió de producto, ya no aplican). */
+export function variantesDe(item: SupplyItem, extras: ListExtras): ItemVariante[] {
+  const v = extras.variantes?.[item.id];
+  return v && v.productId === item.matchedProductId ? v.valores : [];
+}
+
+/** Precio unitario del útil, con el recargo de su diseño o color. */
+export function precioUnitario(item: SupplyItem, extras: ListExtras): number {
+  if (!item.matchedProduct) return 0;
+  return item.matchedProduct.basePrice + variantesDe(item, extras).reduce((s, v) => s + (v.precio || 0), 0);
+}
