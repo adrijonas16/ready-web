@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #F3F6FB;
-  --foreground: #141B2D;
+  --background: #F4F7F5;
+  --foreground: #17211D;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /*
-  Sistema visual "cuaderno": tinta azul de lapicero, amarillo lápiz, rojo de corrección
+  Sistema visual "pizarra y crayón": verde de pizarra, coral de crayón, amarillo sol
   y la cuadrícula de 5 mm de un cuaderno escolar.
   Además se reasignan blue / sky / amber de Tailwind para que todas las páginas existentes
   (catálogo, carrito, admin…) hereden la misma paleta sin reescribirlas.
@@ -18,31 +18,37 @@
   --font-sans: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mano: "Caveat", "Comic Sans MS", cursive;
 
-  --color-tinta: #1F3FBF;
-  --color-tinta-oscuro: #162E8C;
-  --color-tinta-claro: #E8EDFC;
-  --color-lapiz: #FFC629;
-  --color-lapiz-oscuro: #E5A900;
-  --color-lapiz-claro: #FFF4CF;
-  --color-profe: #D93A26;
+  /* Pizarra (verde de pizarra escolar) + coral de crayón + amarillo sol */
+  --color-pizarra: #18493D;
+  --color-pizarra-oscuro: #0F3329;
+  --color-pizarra-claro: #E2EFE9;
+  --color-coral: #FF6B4A;
+  --color-coral-oscuro: #EE5333;
+  --color-coral-claro: #FFE8E1;
+  --color-sol: #FFD54A;
+  --color-sol-claro: #FFF5D1;
+  --color-uva: #6B4FD8;
+  --color-uva-claro: #EEEAFD;
+  --color-profe: #C9352A;
   --color-profe-claro: #FCEAE7;
-  --color-grafito: #141B2D;
-  --color-tenue: #5B6579;
+  --color-grafito: #17211D;
+  --color-tenue: #5D6A65;
   --color-papel: #FFFFFF;
-  --color-fondo: #F3F6FB;
-  --color-cuadricula: #DCE5F2;
-  --color-linea: #D3DCEA;
+  --color-fondo: #F4F7F5;
+  --color-cuadricula: #DFE9E3;
+  --color-linea: #D8E2DC;
 
-  --color-blue-50: #F2F5FE;
-  --color-blue-100: #E8EDFC;
-  --color-blue-200: #C9D4F7;
-  --color-blue-300: #9DB0EE;
-  --color-blue-400: #4F6AD6;
-  --color-blue-500: #1F3FBF;
-  --color-blue-600: #1A36A8;
-  --color-blue-700: #162E8C;
-  --color-sky-100: #F3F6FB;
-  --color-amber-300: #FFC629;
+  /* Las páginas existentes usan blue / sky / amber: se reasignan a la nueva paleta */
+  --color-blue-50: #F0F7F3;
+  --color-blue-100: #E2EFE9;
+  --color-blue-200: #C3DED1;
+  --color-blue-300: #94C2AD;
+  --color-blue-400: #3F7F68;
+  --color-blue-500: #18493D;
+  --color-blue-600: #133F34;
+  --color-blue-700: #0F3329;
+  --color-sky-100: #F4F7F5;
+  --color-amber-300: #FFD54A;
 }
 
 @theme inline {
@@ -62,12 +68,12 @@ h1, h2, h3 {
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-lapiz);
+  outline: 3px solid var(--color-coral);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: var(--color-lapiz-claro);
+  background: var(--color-sol-claro);
 }
 
 input, textarea, select {
@@ -92,7 +98,7 @@ input::placeholder, textarea::placeholder {
 .papel-rayado {
   background-color: #FFFFFF;
   background-image:
-    linear-gradient(90deg, transparent 39px, #F2B8B0 39px, #F2B8B0 41px, transparent 41px),
+    linear-gradient(90deg, transparent 39px, #F5B5A6 39px, #F5B5A6 41px, transparent 41px),
     repeating-linear-gradient(#FFFFFF 0 51px, var(--color-cuadricula) 51px 52px);
 }
 
@@ -190,7 +196,7 @@ input::placeholder, textarea::placeholder {
 
 /* Skeleton loading shimmer */
 .skeleton {
-  background: linear-gradient(90deg, #E8EDFC 25%, #DCE5F2 50%, #E8EDFC 75%);
+  background: linear-gradient(90deg, #E2EFE9 25%, #D3E5DC 50%, #E2EFE9 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 16px;

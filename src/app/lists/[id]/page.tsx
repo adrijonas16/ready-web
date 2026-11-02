@@ -1,163 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, use } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { listsApi, productsApi } from '@/services/api';
-import { ListDetail, Product, SupplyItem } from '@/lib/types';
+import { ListDetail, ListExtras, Product, SupplyItem } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
-import StatusBadge from '@/components/StatusBadge';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, MessageSquare, Check, X, Search, Package, Loader2, ShoppingBag, Minus, Plus, RotateCcw, Settings2, Repeat, Info, Star } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Check, X, Search, Package, Loader2, ShoppingBag, RotateCcw, Info, Star, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import Toast from '@/components/Toast';
-
-type Tier = 'economico' | 'medio' | 'premium';
-
-const TIERS: { id: Tier; label: string; hint: string }[] = [
-  { id: 'economico', label: 'Económico', hint: 'Cumple la lista al menor precio' },
-  { id: 'medio', label: 'Estándar', hint: 'La calidad que piden la mayoría de colegios' },
-  { id: 'premium', label: 'Premium', hint: 'Marcas que duran todo el año' },
-];
-
-function tierProduct(item: SupplyItem, tier: Tier): Product | undefined {
-  if (tier === 'economico') return item.productEconomico;
-  if (tier === 'premium') return item.productPremium;
-  return item.productMedio;
-}
-
-function currentTier(item: SupplyItem): Tier | null {
-  const id = item.matchedProductId;
-  if (!id) return null;
-  if (item.productEconomicoId === id) return 'economico';
-  if (item.productMedioId === id) return 'medio';
-  if (item.productPremiumId === id) return 'premium';
-  return null;
-}
-
-// ── Customization Panel ──
-function CustomizePanel({ item, onUpdate, onClose }: {
-  item: SupplyItem;
-  onUpdate: (data: any) => void;
-  onClose: () => void;
-}) {
-  const [forro, setForro] = useState(item.forro || false);
-  const [forroColor, setForroColor] = useState(item.forroColor || '');
-  const [etiqueta, setEtiqueta] = useState(item.etiqueta || '');
-  const [etiquetaDibujo, setEtiquetaDibujo] = useState(item.etiquetaDibujo || false);
-  const [caratula, setCaratula] = useState(item.caratula || false);
-  const [caratulaCurso, setCaratulaCurso] = useState(item.caratulaCurso || '');
-  const [datosEstudiante, setDatosEstudiante] = useState(item.datosEstudiante || '');
-  const [notas, setNotas] = useState(item.userNotas || item.notas || '');
-
-  const colors = ['Rojo', 'Azul', 'Verde', 'Amarillo', 'Rosado', 'Celeste', 'Morado', 'Naranja', 'Transparente'];
-
-  const handleSave = () => {
-    onUpdate({ forro, forroColor: forro ? forroColor : null, etiqueta, etiquetaDibujo, caratula, caratulaCurso: caratula ? caratulaCurso : null, datosEstudiante, userNotas: notas });
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-[20px] max-w-md w-full max-h-[85vh] overflow-y-auto animate-scale-in" onClick={e => e.stopPropagation()}>
-        <div className="p-5 border-b border-slate-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Personalizar</h3>
-              <p className="text-xs text-neutral-400">{item.nombreOriginal}</p>
-            </div>
-            <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-xl"><X className="h-4 w-4" /></button>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-5">
-          {/* Forro */}
-          <div>
-            <label className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-900">Forro</span>
-              <button onClick={() => setForro(!forro)}
-                className={`w-10 h-6 rounded-full transition-colors duration-200 ${forro ? 'bg-blue-500' : 'bg-slate-200'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ml-1 ${forro ? 'translate-x-4' : ''}`} />
-              </button>
-            </label>
-            {forro && (
-              <div className="mt-3">
-                <p className="text-xs text-neutral-400 mb-2">Color del forro</p>
-                <div className="flex flex-wrap gap-2">
-                  {colors.map(c => (
-                    <button key={c} onClick={() => setForroColor(c)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${forroColor === c ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Etiqueta */}
-          <div>
-            <p className="text-sm font-medium text-slate-900 mb-2">Etiqueta</p>
-            <div className="flex gap-2">
-              {['Sin etiqueta', 'Con nombre', 'Con dibujo'].map(opt => (
-                <button key={opt} onClick={() => {
-                  setEtiqueta(opt === 'Sin etiqueta' ? '' : opt);
-                  setEtiquetaDibujo(opt === 'Con dibujo');
-                }}
-                  className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${
-                    (opt === 'Sin etiqueta' && !etiqueta) || etiqueta === opt
-                      ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}>
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Caratula */}
-          <div>
-            <label className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-900">Caratula</span>
-              <button onClick={() => setCaratula(!caratula)}
-                className={`w-10 h-6 rounded-full transition-colors duration-200 ${caratula ? 'bg-blue-500' : 'bg-slate-200'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ml-1 ${caratula ? 'translate-x-4' : ''}`} />
-              </button>
-            </label>
-            {caratula && (
-              <input type="text" value={caratulaCurso} onChange={e => setCaratulaCurso(e.target.value)}
-                placeholder="Nombre del curso (ej: Matematicas)"
-                className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
-            )}
-          </div>
-
-          {/* Datos del estudiante */}
-          <div>
-            <p className="text-sm font-medium text-slate-900 mb-2">Datos del estudiante</p>
-            <textarea value={datosEstudiante} onChange={e => setDatosEstudiante(e.target.value)}
-              placeholder="Nombre completo, grado, seccion..."
-              rows={2}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
-          </div>
-
-          {/* Notas */}
-          <div>
-            <p className="text-sm font-medium text-slate-900 mb-2">Observaciones</p>
-            <textarea value={notas} onChange={e => setNotas(e.target.value)}
-              placeholder="Alguna indicacion especial..."
-              rows={2}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
-          </div>
-        </div>
-
-        <div className="p-5 border-t border-slate-100">
-          <button onClick={handleSave}
-            className="w-full bg-blue-500 text-white py-3 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-blue-500/25 transition-shadow flex items-center justify-center gap-2">
-            <Check className="h-4 w-4" /> Guardar personalizacion
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { Tier, TIERS, SKU, esCuaderno, parseExtras, tierProduct } from '@/lib/lista';
+import { ElegirPaquete, CambiarPaquete } from '@/components/lista/Paquetes';
+import FilaUtil from '@/components/lista/FilaUtil';
+import Extras, { PreciosServicios } from '@/components/lista/Extras';
 
 // ── Product Search Modal ──
 function ProductModal({ item, onSave, onClose }: { item: SupplyItem; onSave: (productId: string, quantity: number) => void; onClose: () => void }) {
@@ -317,14 +173,14 @@ function LeyendoLista({ imageUrl, startedAt, onTimeout }: { imageUrl?: string; s
         {primera
           ? <img src={primera} alt="Tu lista de útiles" className="max-h-[520px] w-full object-contain" />
           : <div className="papel-rayado h-[420px]" />}
-        <div aria-hidden="true" className="animate-escaneo absolute inset-x-0 h-1 bg-lapiz shadow-[0_0_24px_6px_rgba(255,198,41,0.55)]" />
+        <div aria-hidden="true" className="animate-escaneo absolute inset-x-0 h-1 bg-coral shadow-[0_0_24px_6px_rgba(255,198,41,0.55)]" />
       </div>
       <div aria-live="polite" className="order-1 md:order-2">
         <h1 className="text-4xl font-extrabold tracking-[-0.03em]">Estamos leyendo tu lista</h1>
         <p className="mt-3 text-lg text-tenue">{onTimeout ? 'Está tardando más de lo normal. Recarga la página en un momento.' : paso}</p>
         <p className="mt-6 max-w-md text-sm text-tenue">
           Suele tomar menos de un minuto. Puedes cerrar esta página: la lista queda guardada en{' '}
-          <Link href="/my-lists" className="font-semibold text-tinta underline underline-offset-2">Mis listas</Link>.
+          <Link href="/my-lists" className="font-semibold text-pizarra underline underline-offset-2">Mis listas</Link>.
         </p>
       </div>
     </div>
@@ -336,7 +192,7 @@ function SinLectura({ estado, mensaje, onRetry, retrying }: { estado?: string | 
   const error = estado === 'ERROR';
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
-      <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${error ? 'bg-profe-claro text-profe' : 'bg-tinta-claro text-tinta'}`}>
+      <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${error ? 'bg-profe-claro text-profe' : 'bg-pizarra-claro text-pizarra'}`}>
         <Info className="h-7 w-7" aria-hidden="true" />
       </div>
       <h1 className="mt-5 text-3xl font-extrabold tracking-tight">{error ? 'No pudimos leer la lista' : 'Tu lista está en revisión'}</h1>
@@ -344,7 +200,7 @@ function SinLectura({ estado, mensaje, onRetry, retrying }: { estado?: string | 
       <div className="mt-8 flex flex-col justify-center gap-2 sm:flex-row">
         {error && (
           <button onClick={onRetry} disabled={retrying}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-tinta px-5 py-3 font-bold text-white hover:bg-tinta-oscuro disabled:opacity-50">
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-pizarra px-5 py-3 font-bold text-white hover:bg-pizarra-oscuro disabled:opacity-50">
             <RotateCcw className="h-4 w-4" aria-hidden="true" /> Intentar de nuevo
           </button>
         )}
@@ -354,92 +210,23 @@ function SinLectura({ estado, mensaje, onRetry, retrying }: { estado?: string | 
   );
 }
 
-// ── Un útil de la lista ──
-function FilaUtil({ item, qty, onQty, onTier, onExclude, onChange, onCustomize }: {
-  item: SupplyItem;
-  qty: number;
-  onQty: (q: number) => void;
-  onTier: (t: Tier) => void;
-  onExclude: () => void;
-  onChange: () => void;
-  onCustomize: () => void;
-}) {
-  const product = item.matchedProduct;
-  const tier = currentTier(item);
-  const opciones = TIERS.map(t => ({ ...t, product: tierProduct(item, t.id) }));
-  const hayOpciones = opciones.some(o => o.product);
-  const personalizado = item.forro || item.etiqueta || item.caratula;
-  const nota = item.userNotas || item.notas;
 
+// ── Fotos de la lista original ──
+function FotosLista({ urls, onClose }: { urls: string[]; onClose: () => void }) {
   return (
-    <li className="grid grid-cols-[28px_1fr] gap-x-3 border-b border-linea py-5 last:border-b-0">
-      <button onClick={onExclude} aria-label={`Ya tengo: ${item.nombreOriginal}`} title="Ya lo tengo"
-        className="mt-1 flex h-6 w-6 items-center justify-center rounded-md border-2 border-tinta bg-tinta text-white hover:bg-tinta-oscuro">
-        <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
-      </button>
-
-      <div className="min-w-0">
-        <p className="font-mano text-[1.6rem] leading-tight text-tinta">{item.nombreOriginal}</p>
-        {nota && <p className="mt-0.5 text-sm text-tenue">{nota}</p>}
-
-        {hayOpciones ? (
-          <div role="radiogroup" aria-label={`Nivel para ${item.nombreOriginal}`} className="mt-3 grid grid-cols-3 gap-1.5 sm:max-w-md">
-            {opciones.map(o => {
-              const activo = tier === o.id;
-              return (
-                <button key={o.id} role="radio" aria-checked={activo} disabled={!o.product} onClick={() => onTier(o.id)}
-                  className={`rounded-lg border-2 px-2 py-1.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
-                    activo ? 'border-tinta bg-tinta-claro' : 'border-linea bg-papel hover:border-tenue'
-                  }`}>
-                  <span className={`block text-xs font-semibold ${activo ? 'text-tinta' : 'text-tenue'}`}>{o.label}</span>
-                  <span className="block text-sm font-bold tabular-nums">{o.product ? formatPrice(o.product.basePrice) : 'No hay'}</span>
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-
-        {product ? (
-          <div className="mt-3 flex items-center gap-3">
-            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-linea bg-papel">
-              {product.imageUrl
-                ? <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
-                : <div className="flex h-full w-full items-center justify-center"><Package className="h-5 w-5 text-linea" aria-hidden="true" /></div>}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[0.95rem] font-semibold">{product.name}</p>
-              <p className="truncate text-sm text-tenue">{[product.brand, tier ? null : 'Elegido por ti'].filter(Boolean).join(', ')}</p>
-            </div>
-          </div>
-        ) : (
-          <p className="mt-3 rounded-lg bg-lapiz-claro px-3 py-2 text-sm text-grafito">
-            Aún no tenemos este útil. <button onClick={onChange} className="font-semibold text-tinta underline underline-offset-2">Buscar en el catálogo</button>
-          </p>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="flex items-center rounded-lg border border-linea bg-papel" aria-label="Cantidad">
-            <button onClick={() => onQty(Math.max(1, qty - 1))} className="p-2 text-grafito hover:text-tinta" aria-label="Uno menos"><Minus className="h-4 w-4" /></button>
-            <span className="w-8 text-center font-bold tabular-nums">{qty}</span>
-            <button onClick={() => onQty(Math.min(99, qty + 1))} className="p-2 text-grafito hover:text-tinta" aria-label="Uno más"><Plus className="h-4 w-4" /></button>
-          </div>
-          <button onClick={onChange} className="inline-flex items-center gap-1.5 text-sm font-semibold text-tinta hover:underline">
-            <Repeat className="h-3.5 w-3.5" aria-hidden="true" /> Cambiar producto
-          </button>
-          <button onClick={onCustomize} className="inline-flex items-center gap-1.5 text-sm font-semibold text-tinta hover:underline">
-            <Settings2 className="h-3.5 w-3.5" aria-hidden="true" /> Forro y etiqueta
-          </button>
-          <span className="ml-auto text-lg font-extrabold tabular-nums">{product ? formatPrice(product.basePrice * qty) : ''}</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-papel p-4" onClick={e => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-bold">Lista original</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-fondo" aria-label="Cerrar"><X className="h-4 w-4" /></button>
         </div>
-
-        {personalizado && (
-          <p className="mt-2 text-sm text-tenue">
-            {[item.forro && `Forro ${item.forroColor?.toLowerCase() || ''}`.trim(), item.etiqueta && `Etiqueta ${item.etiqueta.toLowerCase()}`, item.caratula && `Carátula ${item.caratulaCurso || ''}`.trim()]
-              .filter(Boolean).join('. ')}
-          </p>
-        )}
+        <div className="space-y-3">
+          {urls.map((u, i) => /\.(pdf|docx?)(\?|$)/i.test(u)
+            ? <a key={u} href={u} target="_blank" rel="noreferrer" className="block rounded-xl border border-linea p-4 font-semibold text-pizarra">Abrir archivo {i + 1}</a>
+            : <img key={u} src={u} alt={`Hoja ${i + 1}`} className="w-full rounded-xl border border-linea" />)}
+        </div>
       </div>
-    </li>
+    </div>
   );
 }
 
@@ -447,21 +234,24 @@ function FilaUtil({ item, qty, onQty, onTier, onExclude, onChange, onCustomize }
 export default function ListDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { addItem } = useCart();
+  const { addItem, setNotasPedido, setListaId, notasPedido } = useCart();
   const { user } = useAuth();
   const [data, setData] = useState<ListDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [localQty, setLocalQty] = useState<Record<string, number>>({});
-  const [excluidos, setExcluidos] = useState<Set<string>>(new Set());
+  const [extras, setExtras] = useState<ListExtras>(parseExtras());
+  const [servicios, setServicios] = useState<PreciosServicios>({});
   const [editingItem, setEditingItem] = useState<SupplyItem | null>(null);
-  const [customizingItem, setCustomizingItem] = useState<SupplyItem | null>(null);
-  const [studentName, setStudentName] = useState('');
-  const [studentGrade, setStudentGrade] = useState('');
+  const [verFotos, setVerFotos] = useState(false);
+  const [eligiendo, setEligiendo] = useState<Tier | null>(null);
+  const [agregando, setAgregando] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [savingPlan, setSavingPlan] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [pollStart] = useState(() => Date.now());
+  const [agotado, setAgotado] = useState(false);
   const qtyTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const extrasTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const extrasCargados = useRef(false);
 
   const loadList = useCallback(async () => {
     try {
@@ -472,8 +262,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         result.items.forEach(i => { next[i.id] = prev[i.id] ?? (i.userCustomQuantity || i.matchedQuantity || i.cantidad); });
         return next;
       });
-      setStudentName(n => n || result.list.estudianteNombre || '');
-      setStudentGrade(g => g || result.list.estudianteGrado || '');
+      if (!extrasCargados.current && result.list.iaEstado !== 'PROCESANDO') {
+        const e = parseExtras(result.list.extras);
+        if (!e.etiquetas.nombre && result.list.estudianteNombre) e.etiquetas.nombre = result.list.estudianteNombre;
+        if (!e.etiquetas.grado && result.list.estudianteGrado) e.etiquetas.grado = result.list.estudianteGrado;
+        setExtras(e);
+        extrasCargados.current = true;
+      }
       return result;
     } catch {
       return null;
@@ -484,9 +279,16 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   useEffect(() => { loadList(); }, [loadList]);
 
+  // Precios de los servicios (forrado, etiquetas, carátulas)
+  useEffect(() => {
+    productsApi.getAll({ category: 'Servicios' }).then((ps: Product[]) => {
+      const bySku = (sku: string) => ps.find(p => p.sku === sku);
+      setServicios({ forroCuaderno: bySku(SKU.forroCuaderno), forroLibro: bySku(SKU.forroLibro), etiqueta: bySku(SKU.etiqueta), caratula: bySku(SKU.caratula) });
+    }).catch(() => {});
+  }, []);
+
   // Mientras la IA lee la lista, consultar cada 3 s (hasta 4 minutos)
   const procesando = data?.list.iaEstado === 'PROCESANDO';
-  const [agotado, setAgotado] = useState(false);
   useEffect(() => {
     if (!procesando || agotado) return;
     const t = setInterval(() => { loadList(); }, 3000);
@@ -499,7 +301,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const patchItem = (itemId: string, patch: Partial<SupplyItem>) =>
     setData(d => d ? { ...d, items: d.items.map(i => i.id === itemId ? { ...i, ...patch } : i) } : d);
 
-  const getQty = (item: SupplyItem) => localQty[item.id] ?? (item.userCustomQuantity || item.matchedQuantity || item.cantidad);
+  const getQty = useCallback((item: SupplyItem) => localQty[item.id] ?? (item.userCustomQuantity || item.matchedQuantity || item.cantidad), [localQty]);
 
   const setQty = (item: SupplyItem, q: number) => {
     setLocalQty(prev => ({ ...prev, [item.id]: q }));
@@ -509,8 +311,16 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }, 700);
   };
 
+  const cambiarExtras = (e: ListExtras) => {
+    setExtras(e);
+    clearTimeout(extrasTimer.current);
+    extrasTimer.current = setTimeout(() => {
+      listsApi.updateExtras(id, e).catch(() => showToast('No se pudieron guardar los extras', 'error'));
+    }, 800);
+  };
+
   const elegirNivel = async (item: SupplyItem, tier: Tier) => {
-    const p = tierProduct(item, tier);
+    const p = tierProduct(item, tier, true);
     if (!p) return;
     const antes = { matchedProductId: item.matchedProductId, matchedProduct: item.matchedProduct, priceAtMatch: item.priceAtMatch };
     patchItem(item.id, { matchedProductId: p.id, matchedProduct: p, priceAtMatch: p.basePrice });
@@ -522,8 +332,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  const elegirNivelTodo = async (tier: Tier) => {
+  const elegirPaquete = async (tier: Tier) => {
     if (!data) return;
+    setEligiendo(tier);
+    const anterior = data;
     setData({
       ...data,
       list: { ...data.list, plan: tier },
@@ -532,13 +344,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         return p ? { ...i, matchedProductId: p.id, matchedProduct: p, priceAtMatch: p.basePrice } : i;
       }),
     });
-    setSavingPlan(true);
     try {
-      await listsApi.updatePlan(id, { plan: tier, estudianteNombre: studentName, estudianteGrado: studentGrade, aplicarATodos: true });
+      await listsApi.updatePlan(id, { plan: tier, estudianteNombre: extras.etiquetas.nombre, estudianteGrado: extras.etiquetas.grado, aplicarATodos: true });
     } catch {
-      showToast('No se pudo guardar el nivel', 'error');
+      setData(anterior);
+      showToast('No se pudo elegir la opción', 'error');
     } finally {
-      setSavingPlan(false);
+      setEligiendo(null);
     }
   };
 
@@ -553,199 +365,190 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     } catch { showToast('No se pudo guardar', 'error'); }
   };
 
-  const handleSaveCustomization = async (itemData: Partial<SupplyItem>) => {
-    if (!customizingItem) return;
-    try {
-      await listsApi.updateItem(id, customizingItem.id, itemData);
-      patchItem(customizingItem.id, itemData);
-      setCustomizingItem(null);
-      showToast('Forro y etiqueta guardados');
-    } catch { showToast('No se pudo guardar', 'error'); }
-  };
-
   const reintentar = async () => {
     setRetrying(true);
-    try {
-      await listsApi.reprocess(id);
-      await loadList();
-    } catch { showToast('No se pudo reintentar', 'error'); }
+    try { await listsApi.reprocess(id); await loadList(); }
+    catch { showToast('No se pudo reintentar', 'error'); }
     finally { setRetrying(false); }
   };
 
-  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-tinta" /></div>;
-  if (!data) return <div className="py-20 text-center"><h1 className="text-2xl font-bold">No encontramos esta lista</h1><Link href="/my-lists" className="mt-4 inline-block font-semibold text-tinta">Ver mis listas</Link></div>;
+  const excluidos = useMemo(() => new Set(extras.excluidos ?? []), [extras.excluidos]);
+  const incluir = (item: SupplyItem, v: boolean) => {
+    const set = new Set(excluidos);
+    if (v) set.delete(item.id); else set.add(item.id);
+    cambiarExtras({ ...extras, excluidos: [...set] });
+  };
+
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-pizarra" /></div>;
+  if (!data) return <div className="py-20 text-center"><h1 className="text-2xl font-bold">No encontramos esta lista</h1><Link href="/my-lists" className="mt-4 inline-block font-semibold text-pizarra">Ver mis listas</Link></div>;
 
   const isOwner = !!user && data.list.userId === user.id;
   const isApproved = data.list.estado === 'VALIDADA' || data.list.estado === 'PROCESADA';
   if (!isApproved && !isOwner && user?.role !== 'ADMIN') {
-    return (
-      <div className="py-20 text-center">
-        <h1 className="text-2xl font-bold">Lista en revisión</h1>
-        <p className="mt-2 text-tenue">Esta lista todavía no fue aprobada.</p>
-      </div>
-    );
+    return <div className="py-20 text-center"><h1 className="text-2xl font-bold">Lista en revisión</h1><p className="mt-2 text-tenue">Esta lista todavía no fue aprobada.</p></div>;
   }
 
   if (procesando) return <LeyendoLista imageUrl={data.list.imageUrl} startedAt={pollStart} onTimeout={agotado} />;
-  if (data.items.length === 0 && (data.list.iaEstado === 'ERROR' || data.list.iaEstado === 'MANUAL')) {
+  if (data.items.length === 0 && extras.libros.length === 0 && (data.list.iaEstado === 'ERROR' || data.list.iaEstado === 'MANUAL')) {
     return <SinLectura estado={data.list.iaEstado} mensaje={data.list.iaMensaje} onRetry={reintentar} retrying={retrying} />;
   }
 
-  const incluidos = data.items.filter(i => !excluidos.has(i.id));
-  const quitados = data.items.filter(i => excluidos.has(i.id));
-  const conProducto = incluidos.filter(i => i.matchedProduct);
-  const total = conProducto.reduce((s, i) => s + i.matchedProduct!.basePrice * getQty(i), 0);
-  const totalNivel = (tier: Tier) => incluidos.reduce((s, i) => {
-    const p = tierProduct(i, tier) ?? i.matchedProduct;
-    return s + (p ? p.basePrice * getQty(i) : 0);
-  }, 0);
-  const hayNiveles = data.items.some(i => i.productEconomicoId || i.productMedioId || i.productPremiumId);
-  const nivelGlobal = (TIERS.find(t => incluidos.length > 0 && incluidos.every(i => !tierProduct(i, t.id) || currentTier(i) === t.id))?.id) ?? null;
+  const items = data.items;
+  const incluidos = items.filter(i => !excluidos.has(i.id));
+  const hayNiveles = items.some(i => i.productEconomicoId || i.productMedioId || i.productPremiumId);
+  const plan = (TIERS.some(t => t.id === data.list.plan) ? data.list.plan : null) as Tier | null;
   const imagenes = (data.list.imageUrl || '').split('|').filter(Boolean);
 
-  const agregarAlCarrito = () => {
-    if (conProducto.length === 0) { showToast('No hay útiles con producto para agregar', 'error'); return; }
-    conProducto.forEach(i => addItem(i.matchedProduct!, getQty(i), i.userNotas || i.notas, i));
-    router.push('/cart');
+  // Totales
+  const conProducto = incluidos.filter(i => i.matchedProduct);
+  const totalUtiles = conProducto.reduce((s, i) => s + i.matchedProduct!.basePrice * getQty(i), 0);
+  const cuadernos = incluidos.filter(esCuaderno).reduce((s, i) => s + getQty(i), 0);
+  const libros = extras.libros.filter(l => l.titulo.trim()).reduce((s, l) => s + l.cantidad, 0);
+  const conteo = {
+    cuadernos,
+    libros,
+    etiquetas: cuadernos + libros,
+    caratulas: extras.caratulas.activo ? extras.caratulas.cursos.length : 0,
+  };
+  const precioDe = (p?: Product) => p?.basePrice ?? 0;
+  const lineasExtras = [
+    { label: `Forrado (${cuadernos} cuadernos)`, monto: extras.forro.activo ? precioDe(servicios.forroCuaderno) * cuadernos : 0 },
+    { label: `Forrado (${libros} libros)`, monto: extras.forro.activo && extras.forrarLibros ? precioDe(servicios.forroLibro) * libros : 0 },
+    { label: `Etiquetas (${conteo.etiquetas})`, monto: extras.etiquetas.activo ? precioDe(servicios.etiqueta) * conteo.etiquetas : 0 },
+    { label: `Carátulas (${conteo.caratulas})`, monto: precioDe(servicios.caratula) * conteo.caratulas },
+    { label: 'Libros', monto: extras.libros.reduce((s, l) => s + (l.precio ? l.precio * l.cantidad : 0), 0) },
+  ].filter(l => l.monto > 0);
+  const librosPorCotizar = extras.libros.filter(l => l.titulo.trim() && !l.precio);
+  const total = totalUtiles + lineasExtras.reduce((s, l) => s + l.monto, 0);
+
+  const agregarAlCarrito = async () => {
+    if (conProducto.length === 0 && lineasExtras.length === 0) { showToast('No hay nada para agregar', 'error'); return; }
+    setAgregando(true);
+    const etiquetaNota = [extras.etiquetas.nombre && `Nombre: ${extras.etiquetas.nombre}`, extras.etiquetas.grado && `Grado: ${extras.etiquetas.grado}`, `Diseño: ${extras.etiquetas.diseno}`].filter(Boolean).join(' | ');
+    const origen = `${data.list.schoolName}, ${data.list.gradeName}`;
+    try {
+      conProducto.forEach(i => addItem(i.matchedProduct!, getQty(i), i.userNotas || i.notas, i));
+      const s = servicios;
+      if (extras.forro.activo && s.forroCuaderno && cuadernos > 0) addItem(s.forroCuaderno, cuadernos, `Color: ${extras.forro.color || 'a elegir'} (${origen})`);
+      if (extras.forro.activo && extras.forrarLibros && s.forroLibro && libros > 0) addItem(s.forroLibro, libros, `(${origen})`);
+      if (extras.etiquetas.activo && s.etiqueta && conteo.etiquetas > 0) addItem(s.etiqueta, conteo.etiquetas, `${etiquetaNota} (${origen})`);
+      if (s.caratula && conteo.caratulas > 0) addItem(s.caratula, conteo.caratulas, `Cursos: ${extras.caratulas.cursos.join(', ')}${extras.etiquetas.nombre ? ` | Nombre: ${extras.etiquetas.nombre}` : ''}`);
+      for (const l of extras.libros.filter(x => x.precio && x.productoId)) {
+        try { addItem(await productsApi.getById(l.productoId!), l.cantidad, `Libro: ${l.titulo}`); } catch { librosPorCotizar.push(l); }
+      }
+      // Servicios elegidos cuyo precio aún no está configurado en la tienda
+      const sinPrecio = [
+        extras.forro.activo && !s.forroCuaderno && cuadernos > 0 && `Forrado de ${cuadernos} cuadernos, color ${extras.forro.color || 'a elegir'}`,
+        extras.etiquetas.activo && !s.etiqueta && conteo.etiquetas > 0 && `${conteo.etiquetas} etiquetas (${etiquetaNota})`,
+        conteo.caratulas > 0 && !s.caratula && `Carátulas: ${extras.caratulas.cursos.join(', ')}`,
+      ].filter(Boolean) as string[];
+      const pendientes = librosPorCotizar.map(l => `${l.titulo}${l.editorial ? ` (${l.editorial})` : ''} x${l.cantidad}`);
+      const otras = notasPedido.filter(n => !n.includes(origen));
+      setNotasPedido([
+        ...otras,
+        ...(pendientes.length ? [`Libros por cotizar, ${origen}: ${pendientes.join('; ')}`] : []),
+        ...(sinPrecio.length ? [`Servicios por confirmar, ${origen}: ${sinPrecio.join('; ')}`] : []),
+      ]);
+      setListaId(id);
+      router.push('/cart');
+    } finally {
+      setAgregando(false);
+    }
   };
 
   return (
-    <div className="pb-32">
+    <div className="pb-28 lg:pb-12">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[320px_1fr]">
-        {/* La lista original, para comparar */}
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <button onClick={() => router.back()} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-tenue hover:text-grafito">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button onClick={() => router.back()} className="inline-flex items-center gap-1 text-sm font-medium text-tenue hover:text-grafito">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver
           </button>
-          <h1 className="text-2xl font-extrabold tracking-tight">{data.list.schoolName}</h1>
-          <p className="text-tenue">{data.list.gradeName}, {data.list.year}</p>
-          <div className="mt-2"><StatusBadge status={data.list.estado} size="sm" /></div>
-
+          <p className="text-sm text-tenue"><span className="font-semibold text-grafito">{data.list.schoolName}</span>, {data.list.gradeName} {data.list.year}</p>
           {imagenes.length > 0 && (
-            <div className="mt-5 flex gap-2 overflow-x-auto lg:flex-col">
-              {imagenes.map((url, i) => (
-                <a key={url} href={url} target="_blank" rel="noreferrer"
-                  className="block shrink-0 overflow-hidden rounded-xl border border-linea bg-papel sombra-hoja">
-                  {/\.(pdf|docx?)(\?|$)/i.test(url)
-                    ? <span className="flex h-24 w-40 items-center justify-center text-sm font-semibold text-tinta">Archivo {i + 1}</span>
-                    : <img src={url} alt={`Hoja ${i + 1} de la lista original`} className="max-h-72 w-40 object-contain lg:max-h-[420px] lg:w-full" />}
-                </a>
-              ))}
-            </div>
+            <button onClick={() => setVerFotos(true)} className="inline-flex items-center gap-1.5 text-sm font-semibold text-pizarra hover:underline">
+              <ImageIcon className="h-4 w-4" aria-hidden="true" /> Ver lista original
+            </button>
           )}
+        </div>
 
-          {data.list.iaMensaje && (
-            <p className={`mt-4 rounded-xl px-4 py-3 text-sm ${data.list.iaEstado === 'DEMO' ? 'bg-lapiz-claro text-grafito' : 'bg-tinta-claro text-tinta'}`}>
-              {data.list.iaMensaje}
-            </p>
-          )}
-        </aside>
+        {data.list.iaMensaje && (
+          <p className={`mb-5 rounded-xl px-4 py-3 text-sm ${data.list.iaEstado === 'DEMO' ? 'bg-sol-claro' : 'bg-pizarra-claro text-pizarra-oscuro'}`}>{data.list.iaMensaje}</p>
+        )}
 
-        <div>
-          {/* Nivel para toda la lista */}
-          {hayNiveles && (
-            <section aria-labelledby="nivel" className="rounded-2xl border border-linea bg-papel p-4 sm:p-5">
-              <div className="flex items-center justify-between">
-                <h2 id="nivel" className="font-bold">Lleva toda la lista en</h2>
-                {savingPlan && <Loader2 className="h-4 w-4 animate-spin text-tinta" aria-label="Guardando" />}
-              </div>
-              <div role="radiogroup" aria-labelledby="nivel" className="mt-3 grid grid-cols-3 gap-2">
-                {TIERS.map(t => {
-                  const activo = nivelGlobal === t.id;
-                  return (
-                    <button key={t.id} role="radio" aria-checked={activo} onClick={() => elegirNivelTodo(t.id)} title={t.hint}
-                      className={`rounded-xl border-2 p-3 text-left transition-colors ${activo ? 'border-tinta bg-tinta text-white' : 'border-linea hover:border-tenue'}`}>
-                      <span className={`block text-sm font-semibold ${activo ? 'text-white/85' : 'text-tenue'}`}>{t.label}</span>
-                      <span className="block text-lg font-extrabold tabular-nums sm:text-xl">{formatPrice(totalNivel(t.id))}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="mt-2 text-sm text-tenue">También puedes elegir el nivel útil por útil.</p>
-            </section>
-          )}
-
-          {/* Útiles */}
-          <section aria-labelledby="utiles" className="mt-6">
-            <div className="flex items-baseline justify-between">
-              <h2 id="utiles" className="text-2xl font-extrabold tracking-tight">Tu lista</h2>
-              <p className="text-sm text-tenue">Desmarca lo que ya tienes</p>
-            </div>
-            <ul className="mt-2 rounded-2xl border border-linea bg-papel px-4 sm:px-5">
-              {incluidos.map(item => (
-                <FilaUtil key={item.id} item={item} qty={getQty(item)}
-                  onQty={q => setQty(item, q)}
-                  onTier={t => elegirNivel(item, t)}
-                  onExclude={() => setExcluidos(prev => new Set(prev).add(item.id))}
-                  onChange={() => setEditingItem(item)}
-                  onCustomize={() => setCustomizingItem(item)} />
-              ))}
-              {incluidos.length === 0 && <li className="py-8 text-center text-tenue">Quitaste todos los útiles de la lista.</li>}
-            </ul>
-
-            {quitados.length > 0 && (
-              <div className="mt-4 rounded-2xl border border-dashed border-linea p-4 sm:p-5">
-                <h3 className="font-bold">Ya los tengo ({quitados.length})</h3>
-                <ul className="mt-2 divide-y divide-linea">
-                  {quitados.map(item => (
-                    <li key={item.id} className="flex items-center gap-3 py-2">
-                      <span className="flex-1 truncate font-mano text-xl text-tenue line-through decoration-profe/60">{item.nombreOriginal}</span>
-                      <button onClick={() => setExcluidos(prev => { const n = new Set(prev); n.delete(item.id); return n; })}
-                        className="shrink-0 text-sm font-semibold text-tinta hover:underline">Volver a agregar</button>
-                    </li>
+        {!plan && hayNiveles ? (
+          <ElegirPaquete items={items} qty={getQty} onElegir={elegirPaquete} eligiendo={eligiendo} />
+        ) : (
+          <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
+            <div className="min-w-0 space-y-8">
+              <section aria-labelledby="utiles">
+                <div className="mb-3 flex items-end justify-between gap-4">
+                  <div>
+                    <h1 id="utiles" className="text-3xl font-extrabold tracking-[-0.03em]">Tu lista</h1>
+                    <p className="text-tenue">Desmarca lo que ya tienes. Toca el nivel de un útil para cambiarlo.</p>
+                  </div>
+                </div>
+                {hayNiveles && <div className="mb-3"><CambiarPaquete items={incluidos} qty={getQty} actual={plan} onElegir={elegirPaquete} /></div>}
+                <ul className="divide-y divide-linea rounded-2xl border border-linea bg-papel px-3 sm:px-4">
+                  {items.map(item => (
+                    <FilaUtil key={item.id} item={item} incluido={!excluidos.has(item.id)} qty={getQty(item)}
+                      onIncluir={v => incluir(item, v)} onQty={q => setQty(item, q)}
+                      onTier={t => elegirNivel(item, t)} onBuscar={() => setEditingItem(item)} />
                   ))}
                 </ul>
-              </div>
-            )}
-          </section>
+              </section>
 
-          {/* Datos para etiquetas */}
-          <section aria-labelledby="estudiante" className="mt-6 rounded-2xl border border-linea bg-papel p-4 sm:p-5">
-            <h2 id="estudiante" className="font-bold">Datos para las etiquetas</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-1 block text-sm text-tenue">Nombre del estudiante</span>
-                <input type="text" value={studentName} onChange={e => setStudentName(e.target.value)}
-                  onBlur={() => listsApi.updatePlan(id, { plan: data.list.plan || nivelGlobal || 'medio', estudianteNombre: studentName, estudianteGrado: studentGrade, aplicarATodos: false }).catch(() => {})}
-                  placeholder="Nombre y apellidos"
-                  className="w-full rounded-xl border border-linea px-3 py-2.5 focus:border-tinta focus:outline-none" />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-sm text-tenue">Grado y sección</span>
-                <input type="text" value={studentGrade} onChange={e => setStudentGrade(e.target.value)}
-                  onBlur={() => listsApi.updatePlan(id, { plan: data.list.plan || nivelGlobal || 'medio', estudianteNombre: studentName, estudianteGrado: studentGrade, aplicarATodos: false }).catch(() => {})}
-                  placeholder="Ej.: 3.º B"
-                  className="w-full rounded-xl border border-linea px-3 py-2.5 focus:border-tinta focus:outline-none" />
-              </label>
+              <Extras extras={extras} onChange={cambiarExtras} conteo={conteo} servicios={servicios} />
+
+              <ObservationBox listId={id} existing={data.list.userObservaciones} onSaved={() => loadList()} />
             </div>
-          </section>
 
-          <div className="mt-6">
-            <ObservationBox listId={id} existing={data.list.userObservaciones} onSaved={() => loadList()} />
+            {/* Resumen */}
+            <aside className="lg:sticky lg:top-24 lg:self-start">
+              <div className="rounded-3xl border border-linea bg-papel p-5">
+                <h2 className="text-lg font-extrabold">Resumen</h2>
+                <dl className="mt-3 space-y-2 text-sm">
+                  <div className="flex justify-between"><dt>Útiles ({conProducto.length})</dt><dd className="font-semibold tabular-nums">{formatPrice(totalUtiles)}</dd></div>
+                  {lineasExtras.map(l => (
+                    <div key={l.label} className="flex justify-between"><dt>{l.label}</dt><dd className="font-semibold tabular-nums">{formatPrice(l.monto)}</dd></div>
+                  ))}
+                  {librosPorCotizar.length > 0 && (
+                    <div className="flex justify-between text-tenue"><dt>Libros por cotizar ({librosPorCotizar.length})</dt><dd>Te avisamos</dd></div>
+                  )}
+                </dl>
+                <div className="mt-4 flex items-baseline justify-between border-t border-linea pt-4">
+                  <span className="font-semibold">Total</span>
+                  <span className="text-3xl font-extrabold tracking-tight tabular-nums">{formatPrice(total)}</span>
+                </div>
+                <button onClick={agregarAlCarrito} disabled={agregando}
+                  className="mt-4 hidden w-full items-center justify-center gap-2 rounded-xl bg-coral py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-coral-oscuro disabled:opacity-50 lg:flex">
+                  <ShoppingBag className="h-5 w-5" aria-hidden="true" /> {agregando ? 'Agregando…' : 'Agregar al carrito'}
+                </button>
+              </div>
+            </aside>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Total */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-linea bg-papel/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6">
-          <div className="min-w-0">
-            <p className="text-sm text-tenue">
-              {conProducto.length} de {data.items.length} útiles{quitados.length > 0 ? `, ${quitados.length} ya los tienes` : ''}
-            </p>
-            <p className="text-2xl font-extrabold tabular-nums">{formatPrice(total)}</p>
+      {/* Barra fija en celular */}
+      {(plan || !hayNiveles) && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-linea bg-papel/95 backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+            <div>
+              <p className="text-xs text-tenue">Total</p>
+              <p className="text-2xl font-extrabold tabular-nums">{formatPrice(total)}</p>
+            </div>
+            <button onClick={agregarAlCarrito} disabled={agregando}
+              className="ml-auto inline-flex items-center gap-2 rounded-xl bg-coral px-5 py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-coral-oscuro disabled:opacity-50">
+              <ShoppingBag className="h-5 w-5" aria-hidden="true" /> Agregar al carrito
+            </button>
           </div>
-          <button onClick={agregarAlCarrito} disabled={conProducto.length === 0}
-            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-lapiz px-5 py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-lapiz-oscuro disabled:opacity-40 sm:px-7">
-            <ShoppingBag className="h-5 w-5" aria-hidden="true" /> Agregar al carrito
-          </button>
         </div>
-      </div>
+      )}
 
+      {verFotos && <FotosLista urls={imagenes} onClose={() => setVerFotos(false)} />}
       {editingItem && <ProductModal item={editingItem} onSave={handleSaveProduct} onClose={() => setEditingItem(null)} />}
-      {customizingItem && <CustomizePanel item={customizingItem} onUpdate={handleSaveCustomization} onClose={() => setCustomizingItem(null)} />}
     </div>
   );
 }

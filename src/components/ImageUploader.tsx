@@ -79,7 +79,7 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
         onClick={() => previews.length < maxFiles && fileInputRef.current?.click()}
         onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && previews.length < maxFiles) { e.preventDefault(); fileInputRef.current?.click(); } }}
         className={`papel-cuadriculado relative cursor-pointer rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors
-          ${isDragging ? 'border-tinta bg-tinta-claro' : 'border-linea hover:border-tinta'}
+          ${isDragging ? 'border-pizarra bg-pizarra-claro' : 'border-linea hover:border-pizarra'}
           ${previews.length >= maxFiles ? 'cursor-not-allowed opacity-50' : ''}`}
       >
         <input
@@ -92,7 +92,7 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
           }}
           className="hidden"
         />
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-lapiz shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)]">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-coral shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)]">
           {isValidating
             ? <div className="h-6 w-6 animate-spin rounded-full border-2 border-grafito border-t-transparent" />
             : <Camera className="h-6 w-6 text-grafito" aria-hidden="true" />}
@@ -113,7 +113,7 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
                 <img src={p.url} alt={`Hoja ${i + 1}`} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full flex-col items-center justify-center p-2 text-center">
-                  <FileText className="mb-1 h-7 w-7 text-tinta" aria-hidden="true" />
+                  <FileText className="mb-1 h-7 w-7 text-pizarra" aria-hidden="true" />
                   <p className="max-w-full truncate text-[11px] text-tenue">{p.file.name}</p>
                 </div>
               )}

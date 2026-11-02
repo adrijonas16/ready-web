@@ -10,6 +10,12 @@ interface CartContextType {
   updateQuantity: (productId: string, quantity: number) => void;
   updateNotes: (productId: string, notes: string) => void;
   clearCart: () => void;
+  /** Pendientes del pedido que no tienen precio (p. ej. libros por cotizar) */
+  notasPedido: string[];
+  setNotasPedido: (notas: string[]) => void;
+  /** Lista de útiles de la que viene el carrito */
+  listaId: string | null;
+  setListaId: (id: string | null) => void;
   total: number;
   itemCount: number;
 }
@@ -18,17 +24,29 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [notasPedido, setNotasPedido] = useState<string[]>([]);
+  const [listaId, setListaId] = useState<string | null>(null);
+  const [cargado, setCargado] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem('cart');
-    if (stored) {
-      setItems(JSON.parse(stored));
-    }
+    try {
+      const stored = localStorage.getItem('cart');
+      if (stored) setItems(JSON.parse(stored));
+      const extra = localStorage.getItem('cart_extra');
+      if (extra) {
+        const e = JSON.parse(extra);
+        setNotasPedido(Array.isArray(e.notasPedido) ? e.notasPedido : []);
+        setListaId(e.listaId ?? null);
+      }
+    } catch { /* carrito dañado: se empieza vacío */ }
+    setCargado(true);
   }, []);
 
   useEffect(() => {
+    if (!cargado) return;
     localStorage.setItem('cart', JSON.stringify(items));
-  }, [items]);
+    localStorage.setItem('cart_extra', JSON.stringify({ notasPedido, listaId }));
+  }, [items, notasPedido, listaId, cargado]);
 
   const addItem = (product: Product, quantity = 1, notes?: string, originalItem?: SupplyItem) => {
     setItems((prev) => {
@@ -70,6 +88,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => {
     setItems([]);
+    setNotasPedido([]);
+    setListaId(null);
   };
 
   const total = items.reduce((sum, item) => sum + item.product.basePrice * item.quantity, 0);
@@ -84,6 +104,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateQuantity,
         updateNotes,
         clearCart,
+        notasPedido,
+        setNotasPedido,
+        listaId,
+        setListaId,
         total,
         itemCount,
       }}

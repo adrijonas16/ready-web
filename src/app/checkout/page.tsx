@@ -90,7 +90,7 @@ function CreditCardVisual({ number, name, expiry, flipped }: { number: string; n
 export default function CheckoutPage() {
   const router = useRouter();
   const { user, addNotification } = useAuth();
-  const { items, total, clearCart } = useCart();
+  const { items, total, clearCart, notasPedido, listaId } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [orderComplete, setOrderComplete] = useState(false);
@@ -142,6 +142,7 @@ export default function CheckoutPage() {
     try {
       const orderData = {
         userId: user.id,
+        supplyListId: listaId || undefined,
         items: items.map(item => ({ productId: item.product.id, quantity: item.quantity, notes: item.notes })),
         shippingAddress: address,
         shippingPhone: phone,
@@ -151,6 +152,7 @@ export default function CheckoutPage() {
           `Pago: ${paymentMethod}`,
           coords ? `GPS: ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}` : '',
           observations,
+          ...notasPedido,
         ].filter(Boolean).join('\n') || undefined,
       };
       const result = await ordersApi.create(orderData);

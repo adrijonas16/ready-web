@@ -69,7 +69,28 @@ export interface SupplyList {
   /** Lectura automática: PROCESANDO, LISTO, ERROR, MANUAL (sin IA) o DEMO (lector de prueba). */
   iaEstado?: 'PROCESANDO' | 'LISTO' | 'ERROR' | 'MANUAL' | 'DEMO' | null;
   iaMensaje?: string;
+  /** JSON de ListExtras guardado en la lista */
+  extras?: string;
   createdAt: string;
+}
+
+export interface ListBook {
+  id: string;
+  titulo: string;
+  editorial: string;
+  cantidad: number;
+  productoId?: string | null;
+  precio?: number | null;
+}
+
+export interface ListExtras {
+  forro: { activo: boolean; color?: string | null };
+  etiquetas: { activo: boolean; nombre: string; grado: string; diseno: string };
+  caratulas: { activo: boolean; cursos: string[] };
+  forrarLibros: boolean;
+  libros: ListBook[];
+  /** Útiles que el cliente ya tiene */
+  excluidos?: string[];
 }
 
 export interface SupplyItem {

@@ -66,11 +66,11 @@ export default function UploadPage() {
     return (
       <div className="papel-cuadriculado flex min-h-[calc(100vh-64px)] items-center justify-center px-4 py-12">
         <div className="sombra-hoja max-w-md rounded-2xl bg-papel p-8 text-center">
-          <Lock className="mx-auto h-8 w-8 text-tinta" aria-hidden="true" />
+          <Lock className="mx-auto h-8 w-8 text-pizarra" aria-hidden="true" />
           <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Inicia sesión para subir tu lista</h1>
           <p className="mt-2 text-tenue">Así guardamos tu lista y te avisamos cuando esté armada.</p>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <Link href="/login" className="rounded-xl bg-tinta px-5 py-3 font-bold text-white hover:bg-tinta-oscuro">Iniciar sesión</Link>
+            <Link href="/login" className="rounded-xl bg-pizarra px-5 py-3 font-bold text-white hover:bg-pizarra-oscuro">Iniciar sesión</Link>
             <Link href="/register" className="rounded-xl border-2 border-grafito px-5 py-3 font-bold text-grafito hover:bg-fondo">Crear cuenta</Link>
           </div>
         </div>
@@ -89,7 +89,7 @@ export default function UploadPage() {
       <div className="mt-8 space-y-8">
         <section aria-labelledby="paso-colegio">
           <h2 id="paso-colegio" className="flex items-baseline gap-2 text-lg font-bold">
-            <span className="font-mano text-3xl leading-none text-tinta">1.</span> ¿De qué colegio y grado es?
+            <span className="font-mano text-3xl leading-none text-pizarra">1.</span> ¿De qué colegio y grado es?
           </h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-[1.6fr_1.2fr_0.7fr]">
             <div>
@@ -112,7 +112,7 @@ export default function UploadPage() {
 
         <section aria-labelledby="paso-foto">
           <h2 id="paso-foto" className="flex items-baseline gap-2 text-lg font-bold">
-            <span className="font-mano text-3xl leading-none text-tinta">2.</span> Sube la lista
+            <span className="font-mano text-3xl leading-none text-pizarra">2.</span> Sube la lista
           </h2>
           <p className="mb-3 mt-1 text-sm text-tenue">Que se vea toda la hoja, de frente y con buena luz.</p>
           <ImageUploader
@@ -127,7 +127,7 @@ export default function UploadPage() {
         )}
 
         <button onClick={handleUpload} disabled={!listo || uploading}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-tinta py-4 text-base font-bold text-white transition-colors hover:bg-tinta-oscuro disabled:cursor-not-allowed disabled:opacity-40">
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-pizarra py-4 text-base font-bold text-white transition-colors hover:bg-pizarra-oscuro disabled:cursor-not-allowed disabled:opacity-40">
           {uploading
             ? <><span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> Subiendo…</>
             : <><Camera className="h-5 w-5" aria-hidden="true" /> Leer mi lista</>}

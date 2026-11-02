@@ -52,15 +52,15 @@ export default function RootLayout({
                 </div>
                 <nav aria-label="Comprar" className="flex flex-col gap-2 text-sm">
                   <p className="font-semibold text-grafito">Comprar</p>
-                  <Link href="/upload" className="text-tenue hover:text-tinta">Subir mi lista</Link>
-                  <Link href="/lists" className="text-tenue hover:text-tinta">Listas de colegios</Link>
-                  <Link href="/catalog" className="text-tenue hover:text-tinta">Catálogo</Link>
+                  <Link href="/upload" className="text-tenue hover:text-pizarra">Subir mi lista</Link>
+                  <Link href="/lists" className="text-tenue hover:text-pizarra">Listas de colegios</Link>
+                  <Link href="/catalog" className="text-tenue hover:text-pizarra">Catálogo</Link>
                 </nav>
                 <nav aria-label="Mi cuenta" className="flex flex-col gap-2 text-sm">
                   <p className="font-semibold text-grafito">Mi cuenta</p>
-                  <Link href="/my-lists" className="text-tenue hover:text-tinta">Mis listas</Link>
-                  <Link href="/cart" className="text-tenue hover:text-tinta">Carrito</Link>
-                  <Link href="/login" className="text-tenue hover:text-tinta">Iniciar sesión</Link>
+                  <Link href="/my-lists" className="text-tenue hover:text-pizarra">Mis listas</Link>
+                  <Link href="/cart" className="text-tenue hover:text-pizarra">Carrito</Link>
+                  <Link href="/login" className="text-tenue hover:text-pizarra">Iniciar sesión</Link>
                 </nav>
               </div>
               <p className="border-t border-linea py-4 text-center text-xs text-tenue">© 2026 Ready, Arequipa (Perú)</p>

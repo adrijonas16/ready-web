@@ -4,8 +4,8 @@ import Link from 'next/link';
 export function LogoMark({ className = 'h-8 w-8' }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
-      <rect x="2" y="4" width="24" height="24" rx="6" fill="#1F3FBF" />
-      <path d="M8.5 16.5l5 5L29 6" fill="none" stroke="#FFC629" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="2" y="4" width="24" height="24" rx="6" fill="#18493D" />
+      <path d="M8.5 16.5l5 5L29 6" fill="none" stroke="#FF6B4A" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

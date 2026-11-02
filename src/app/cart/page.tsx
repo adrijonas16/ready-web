@@ -8,7 +8,7 @@ import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Package, MessageSquare, C
 import { useAuth } from '@/lib/auth-context';
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, updateNotes, total, clearCart } = useCart();
+  const { items, removeItem, updateQuantity, updateNotes, total, clearCart, notasPedido } = useCart();
   const { user } = useAuth();
   const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -128,6 +128,14 @@ export default function CartPage() {
             </div>
           ))}
         </div>
+
+        {notasPedido.length > 0 && (
+          <div className="mb-4 rounded-2xl border border-sol bg-sol-claro p-4 text-sm text-grafito">
+            <p className="font-bold">Por cotizar</p>
+            {notasPedido.map((n, i) => <p key={i} className="mt-1 whitespace-pre-line">{n}</p>)}
+            <p className="mt-2 text-tenue">Te confirmamos el precio antes de enviar el pedido.</p>
+          </div>
+        )}
 
         {/* Promo + Summary */}
         <div className="bg-white rounded-[30px] shadow-[0px_4px_24px_0px_rgba(0,0,0,0.08)] p-6">
