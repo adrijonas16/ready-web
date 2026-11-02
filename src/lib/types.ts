@@ -66,6 +66,9 @@ export interface SupplyList {
   fechaSubida?: string;
   fechaInicioRevision?: string;
   fechaValidacion?: string;
+  /** Lectura automática: PROCESANDO, LISTO, ERROR, MANUAL (sin IA) o DEMO (lector de prueba). */
+  iaEstado?: 'PROCESANDO' | 'LISTO' | 'ERROR' | 'MANUAL' | 'DEMO' | null;
+  iaMensaje?: string;
   createdAt: string;
 }
 

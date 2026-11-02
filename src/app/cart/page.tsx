@@ -64,7 +64,7 @@ export default function CartPage() {
         )}
 
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-slate-900 text-2xl font-bold tracking-tight">Shopping Bag</h1>
+          <h1 className="text-slate-900 text-2xl font-bold tracking-tight">Tu carrito</h1>
           {items.length > 0 && (
             <button onClick={() => setShowClearConfirm(true)} className="text-red-500 hover:text-red-600 flex items-center gap-1.5 text-sm font-medium">
               <Trash2 className="h-3.5 w-3.5" /> Limpiar
@@ -154,7 +154,7 @@ export default function CartPage() {
           {user ? (
             <Link href="/checkout"
               className="w-full bg-blue-500 text-white py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-              Proceder al Checkout
+              Ir a pagar
               <ArrowRight className="h-4 w-4" />
             </Link>
           ) : (

@@ -1,43 +1,38 @@
 'use client';
 
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, useEffect, useRef, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { listsApi, productsApi } from '@/services/api';
 import { ListDetail, Product, SupplyItem } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
 import StatusBadge from '@/components/StatusBadge';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, Edit2, MessageSquare, Check, X, Search, Package, Loader2, ChevronRight, Star, ShoppingCart, Minus, Plus, Sparkles, Crown, Coins, Settings2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Check, X, Search, Package, Loader2, ShoppingBag, Minus, Plus, RotateCcw, Settings2, Repeat, Info, Star } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import Toast from '@/components/Toast';
 
-// ── Plan Selector ──
-function PlanSelector({ currentPlan, onSelect }: { currentPlan: string; onSelect: (plan: string) => void }) {
-  const plans = [
-    { id: 'economico', label: 'Economico', icon: Coins, desc: 'Productos basicos, mejor precio', color: 'border-green-500 bg-green-50', active: 'border-green-500 bg-green-500 text-white', badge: '$' },
-    { id: 'medio', label: 'Estandar', icon: Star, desc: 'Buena calidad, precio justo', color: 'border-blue-500 bg-blue-50', active: 'border-blue-500 bg-blue-500 text-white', badge: '$$' },
-    { id: 'premium', label: 'Premium', icon: Crown, desc: 'Las mejores marcas', color: 'border-amber-500 bg-amber-50', active: 'border-amber-500 bg-amber-500 text-white', badge: '$$$' },
-  ];
+type Tier = 'economico' | 'medio' | 'premium';
 
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      {plans.map(p => {
-        const Icon = p.icon;
-        const selected = currentPlan === p.id;
-        return (
-          <button key={p.id} onClick={() => onSelect(p.id)}
-            className={`p-4 rounded-[20px] border-2 text-left transition-all duration-200 ${selected ? p.active : `${p.color} border-slate-200 hover:${p.color}`}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <Icon className={`h-5 w-5 ${selected ? 'text-white' : ''}`} />
-              <span className={`text-sm font-bold ${selected ? 'text-white' : 'text-slate-900'}`}>{p.label}</span>
-            </div>
-            <p className={`text-xs ${selected ? 'text-white/80' : 'text-neutral-400'}`}>{p.desc}</p>
-            <p className={`text-lg font-bold mt-1 ${selected ? 'text-white' : 'text-slate-900'}`}>{p.badge}</p>
-          </button>
-        );
-      })}
-    </div>
-  );
+const TIERS: { id: Tier; label: string; hint: string }[] = [
+  { id: 'economico', label: 'Económico', hint: 'Cumple la lista al menor precio' },
+  { id: 'medio', label: 'Estándar', hint: 'La calidad que piden la mayoría de colegios' },
+  { id: 'premium', label: 'Premium', hint: 'Marcas que duran todo el año' },
+];
+
+function tierProduct(item: SupplyItem, tier: Tier): Product | undefined {
+  if (tier === 'economico') return item.productEconomico;
+  if (tier === 'premium') return item.productPremium;
+  return item.productMedio;
+}
+
+function currentTier(item: SupplyItem): Tier | null {
+  const id = item.matchedProductId;
+  if (!id) return null;
+  if (item.productEconomicoId === id) return 'economico';
+  if (item.productMedioId === id) return 'medio';
+  if (item.productPremiumId === id) return 'premium';
+  return null;
 }
 
 // ── Customization Panel ──
@@ -308,7 +303,147 @@ function ObservationBox({ listId, existing, onSaved }: { listId: string; existin
   );
 }
 
-// ── Main Page ──
+// ── Mientras la IA lee la lista ──
+function LeyendoLista({ imageUrl, startedAt, onTimeout }: { imageUrl?: string; startedAt: number; onTimeout: boolean }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const seg = Math.floor((now - startedAt) / 1000);
+  const paso = seg < 12 ? 'Leyendo cada línea de la lista…' : seg < 35 ? 'Buscando cada útil en nuestro catálogo…' : 'Calculando las opciones económica, estándar y premium…';
+  const primera = imageUrl?.split('|').find(u => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
+
+  return (
+    <div className="mx-auto grid max-w-5xl items-center gap-8 px-4 py-10 md:grid-cols-[minmax(0,380px)_1fr] md:gap-10 md:py-12">
+      <div className="relative order-2 mx-auto w-full max-w-[380px] overflow-hidden rounded-xl border border-linea bg-papel sombra-hoja md:order-1">
+        {primera
+          ? <img src={primera} alt="Tu lista de útiles" className="max-h-[520px] w-full object-contain" />
+          : <div className="papel-rayado h-[420px]" />}
+        <div aria-hidden="true" className="animate-escaneo absolute inset-x-0 h-1 bg-lapiz shadow-[0_0_24px_6px_rgba(255,198,41,0.55)]" />
+      </div>
+      <div aria-live="polite" className="order-1 md:order-2">
+        <h1 className="text-4xl font-extrabold tracking-[-0.03em]">Estamos leyendo tu lista</h1>
+        <p className="mt-3 text-lg text-tenue">{onTimeout ? 'Está tardando más de lo normal. Recarga la página en un momento.' : paso}</p>
+        <p className="mt-6 max-w-md text-sm text-tenue">
+          Suele tomar menos de un minuto. Puedes cerrar esta página: la lista queda guardada en{' '}
+          <Link href="/my-lists" className="font-semibold text-tinta underline underline-offset-2">Mis listas</Link>.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── La lectura falló o se hará a mano ──
+function SinLectura({ estado, mensaje, onRetry, retrying }: { estado?: string | null; mensaje?: string; onRetry: () => void; retrying: boolean }) {
+  const error = estado === 'ERROR';
+  return (
+    <div className="mx-auto max-w-xl px-4 py-16 text-center">
+      <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${error ? 'bg-profe-claro text-profe' : 'bg-tinta-claro text-tinta'}`}>
+        <Info className="h-7 w-7" aria-hidden="true" />
+      </div>
+      <h1 className="mt-5 text-3xl font-extrabold tracking-tight">{error ? 'No pudimos leer la lista' : 'Tu lista está en revisión'}</h1>
+      <p className="mt-3 text-tenue">{mensaje || 'Nuestro equipo la revisará y te avisaremos cuando esté armada.'}</p>
+      <div className="mt-8 flex flex-col justify-center gap-2 sm:flex-row">
+        {error && (
+          <button onClick={onRetry} disabled={retrying}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-tinta px-5 py-3 font-bold text-white hover:bg-tinta-oscuro disabled:opacity-50">
+            <RotateCcw className="h-4 w-4" aria-hidden="true" /> Intentar de nuevo
+          </button>
+        )}
+        <Link href="/upload" className="rounded-xl border-2 border-grafito px-5 py-3 font-bold hover:bg-fondo">Subir otra foto</Link>
+      </div>
+    </div>
+  );
+}
+
+// ── Un útil de la lista ──
+function FilaUtil({ item, qty, onQty, onTier, onExclude, onChange, onCustomize }: {
+  item: SupplyItem;
+  qty: number;
+  onQty: (q: number) => void;
+  onTier: (t: Tier) => void;
+  onExclude: () => void;
+  onChange: () => void;
+  onCustomize: () => void;
+}) {
+  const product = item.matchedProduct;
+  const tier = currentTier(item);
+  const opciones = TIERS.map(t => ({ ...t, product: tierProduct(item, t.id) }));
+  const hayOpciones = opciones.some(o => o.product);
+  const personalizado = item.forro || item.etiqueta || item.caratula;
+  const nota = item.userNotas || item.notas;
+
+  return (
+    <li className="grid grid-cols-[28px_1fr] gap-x-3 border-b border-linea py-5 last:border-b-0">
+      <button onClick={onExclude} aria-label={`Ya tengo: ${item.nombreOriginal}`} title="Ya lo tengo"
+        className="mt-1 flex h-6 w-6 items-center justify-center rounded-md border-2 border-tinta bg-tinta text-white hover:bg-tinta-oscuro">
+        <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
+      </button>
+
+      <div className="min-w-0">
+        <p className="font-mano text-[1.6rem] leading-tight text-tinta">{item.nombreOriginal}</p>
+        {nota && <p className="mt-0.5 text-sm text-tenue">{nota}</p>}
+
+        {hayOpciones ? (
+          <div role="radiogroup" aria-label={`Nivel para ${item.nombreOriginal}`} className="mt-3 grid grid-cols-3 gap-1.5 sm:max-w-md">
+            {opciones.map(o => {
+              const activo = tier === o.id;
+              return (
+                <button key={o.id} role="radio" aria-checked={activo} disabled={!o.product} onClick={() => onTier(o.id)}
+                  className={`rounded-lg border-2 px-2 py-1.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
+                    activo ? 'border-tinta bg-tinta-claro' : 'border-linea bg-papel hover:border-tenue'
+                  }`}>
+                  <span className={`block text-xs font-semibold ${activo ? 'text-tinta' : 'text-tenue'}`}>{o.label}</span>
+                  <span className="block text-sm font-bold tabular-nums">{o.product ? formatPrice(o.product.basePrice) : 'No hay'}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {product ? (
+          <div className="mt-3 flex items-center gap-3">
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-linea bg-papel">
+              {product.imageUrl
+                ? <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+                : <div className="flex h-full w-full items-center justify-center"><Package className="h-5 w-5 text-linea" aria-hidden="true" /></div>}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[0.95rem] font-semibold">{product.name}</p>
+              <p className="truncate text-sm text-tenue">{[product.brand, tier ? null : 'Elegido por ti'].filter(Boolean).join(', ')}</p>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 rounded-lg bg-lapiz-claro px-3 py-2 text-sm text-grafito">
+            Aún no tenemos este útil. <button onClick={onChange} className="font-semibold text-tinta underline underline-offset-2">Buscar en el catálogo</button>
+          </p>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex items-center rounded-lg border border-linea bg-papel" aria-label="Cantidad">
+            <button onClick={() => onQty(Math.max(1, qty - 1))} className="p-2 text-grafito hover:text-tinta" aria-label="Uno menos"><Minus className="h-4 w-4" /></button>
+            <span className="w-8 text-center font-bold tabular-nums">{qty}</span>
+            <button onClick={() => onQty(Math.min(99, qty + 1))} className="p-2 text-grafito hover:text-tinta" aria-label="Uno más"><Plus className="h-4 w-4" /></button>
+          </div>
+          <button onClick={onChange} className="inline-flex items-center gap-1.5 text-sm font-semibold text-tinta hover:underline">
+            <Repeat className="h-3.5 w-3.5" aria-hidden="true" /> Cambiar producto
+          </button>
+          <button onClick={onCustomize} className="inline-flex items-center gap-1.5 text-sm font-semibold text-tinta hover:underline">
+            <Settings2 className="h-3.5 w-3.5" aria-hidden="true" /> Forro y etiqueta
+          </button>
+          <span className="ml-auto text-lg font-extrabold tabular-nums">{product ? formatPrice(product.basePrice * qty) : ''}</span>
+        </div>
+
+        {personalizado && (
+          <p className="mt-2 text-sm text-tenue">
+            {[item.forro && `Forro ${item.forroColor?.toLowerCase() || ''}`.trim(), item.etiqueta && `Etiqueta ${item.etiqueta.toLowerCase()}`, item.caratula && `Carátula ${item.caratulaCurso || ''}`.trim()]
+              .filter(Boolean).join('. ')}
+          </p>
+        )}
+      </div>
+    </li>
+  );
+}
+
+// ── Página ──
 export default function ListDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -317,304 +452,298 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [data, setData] = useState<ListDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [localQty, setLocalQty] = useState<Record<string, number>>({});
-  const [hiddenItems, setHiddenItems] = useState<Set<string>>(new Set());
+  const [excluidos, setExcluidos] = useState<Set<string>>(new Set());
   const [editingItem, setEditingItem] = useState<SupplyItem | null>(null);
   const [customizingItem, setCustomizingItem] = useState<SupplyItem | null>(null);
-  const [plan, setPlan] = useState('medio');
   const [studentName, setStudentName] = useState('');
   const [studentGrade, setStudentGrade] = useState('');
-  const [showPlanSelector, setShowPlanSelector] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [pollStart] = useState(() => Date.now());
+  const qtyTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  useEffect(() => { loadList(); }, [id]);
-
-  const loadList = async () => {
+  const loadList = useCallback(async () => {
     try {
-      const result = await listsApi.getById(id);
+      const result: ListDetail = await listsApi.getById(id);
       setData(result);
-      const qtys: Record<string, number> = {};
-      result.items.forEach((i: SupplyItem) => { qtys[i.id] = i.userCustomQuantity || i.matchedQuantity || i.cantidad; });
-      setLocalQty(qtys);
-      if (result.list.plan) setPlan(result.list.plan);
-      if (result.list.estudianteNombre) setStudentName(result.list.estudianteNombre);
-      if (result.list.estudianteGrado) setStudentGrade(result.list.estudianteGrado);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      setLocalQty(prev => {
+        const next: Record<string, number> = {};
+        result.items.forEach(i => { next[i.id] = prev[i.id] ?? (i.userCustomQuantity || i.matchedQuantity || i.cantidad); });
+        return next;
+      });
+      setStudentName(n => n || result.list.estudianteNombre || '');
+      setStudentGrade(g => g || result.list.estudianteGrado || '');
+      return result;
+    } catch {
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { loadList(); }, [loadList]);
+
+  // Mientras la IA lee la lista, consultar cada 3 s (hasta 4 minutos)
+  const procesando = data?.list.iaEstado === 'PROCESANDO';
+  const [agotado, setAgotado] = useState(false);
+  useEffect(() => {
+    if (!procesando || agotado) return;
+    const t = setInterval(() => { loadList(); }, 3000);
+    const limite = setTimeout(() => setAgotado(true), 4 * 60 * 1000);
+    return () => { clearInterval(t); clearTimeout(limite); };
+  }, [procesando, agotado, loadList]);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
+
+  const patchItem = (itemId: string, patch: Partial<SupplyItem>) =>
+    setData(d => d ? { ...d, items: d.items.map(i => i.id === itemId ? { ...i, ...patch } : i) } : d);
+
+  const getQty = (item: SupplyItem) => localQty[item.id] ?? (item.userCustomQuantity || item.matchedQuantity || item.cantidad);
+
+  const setQty = (item: SupplyItem, q: number) => {
+    setLocalQty(prev => ({ ...prev, [item.id]: q }));
+    clearTimeout(qtyTimers.current[item.id]);
+    qtyTimers.current[item.id] = setTimeout(() => {
+      listsApi.updateItem(id, item.id, { userCustomQuantity: q }).catch(() => {});
+    }, 700);
   };
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const handlePlanChange = async (newPlan: string) => {
-    setPlan(newPlan);
-    setSaving(true);
+  const elegirNivel = async (item: SupplyItem, tier: Tier) => {
+    const p = tierProduct(item, tier);
+    if (!p) return;
+    const antes = { matchedProductId: item.matchedProductId, matchedProduct: item.matchedProduct, priceAtMatch: item.priceAtMatch };
+    patchItem(item.id, { matchedProductId: p.id, matchedProduct: p, priceAtMatch: p.basePrice });
     try {
-      await listsApi.updatePlan(id, { plan: newPlan, estudianteNombre: studentName, estudianteGrado: studentGrade });
-      await loadList();
-      showToast(`Plan cambiado a ${newPlan}`, 'success');
-    } catch { showToast('Error al cambiar plan', 'error'); }
-    finally { setSaving(false); }
+      await listsApi.updateItem(id, item.id, { productId: p.id });
+    } catch {
+      patchItem(item.id, antes);
+      showToast('No se pudo cambiar el producto', 'error');
+    }
+  };
+
+  const elegirNivelTodo = async (tier: Tier) => {
+    if (!data) return;
+    setData({
+      ...data,
+      list: { ...data.list, plan: tier },
+      items: data.items.map(i => {
+        const p = tierProduct(i, tier);
+        return p ? { ...i, matchedProductId: p.id, matchedProduct: p, priceAtMatch: p.basePrice } : i;
+      }),
+    });
+    setSavingPlan(true);
+    try {
+      await listsApi.updatePlan(id, { plan: tier, estudianteNombre: studentName, estudianteGrado: studentGrade, aplicarATodos: true });
+    } catch {
+      showToast('No se pudo guardar el nivel', 'error');
+    } finally {
+      setSavingPlan(false);
+    }
   };
 
   const handleSaveProduct = async (productId: string, quantity: number) => {
     if (!editingItem) return;
     try {
-      await listsApi.updateItem(id, editingItem.id, { productId, cantidad: quantity, userCustomQuantity: quantity });
+      await listsApi.updateItem(id, editingItem.id, { productId, userCustomQuantity: quantity });
+      setLocalQty(prev => ({ ...prev, [editingItem.id]: quantity }));
       await loadList();
       setEditingItem(null);
-      showToast('Producto actualizado', 'success');
-    } catch { showToast('Error al guardar', 'error'); }
+      showToast('Producto cambiado');
+    } catch { showToast('No se pudo guardar', 'error'); }
   };
 
-  const handleSaveCustomization = async (itemData: any) => {
+  const handleSaveCustomization = async (itemData: Partial<SupplyItem>) => {
     if (!customizingItem) return;
     try {
       await listsApi.updateItem(id, customizingItem.id, itemData);
-      await loadList();
+      patchItem(customizingItem.id, itemData);
       setCustomizingItem(null);
-      showToast('Personalizacion guardada', 'success');
-    } catch { showToast('Error al guardar', 'error'); }
+      showToast('Forro y etiqueta guardados');
+    } catch { showToast('No se pudo guardar', 'error'); }
   };
 
-  const getQty = (item: SupplyItem) => localQty[item.id] || item.userCustomQuantity || item.matchedQuantity || item.cantidad;
-
-  const addAllToCart = () => {
-    if (!data) return;
-    const assigned = visibleItems.filter(i => i.matchedProduct);
-    if (assigned.length === 0) { showToast('No hay productos', 'error'); return; }
-    assigned.forEach(item => addItem(item.matchedProduct!, getQty(item), item.userNotas || item.notas, item));
-    router.push('/cart');
+  const reintentar = async () => {
+    setRetrying(true);
+    try {
+      await listsApi.reprocess(id);
+      await loadList();
+    } catch { showToast('No se pudo reintentar', 'error'); }
+    finally { setRetrying(false); }
   };
 
-  const addOneToCart = (item: SupplyItem) => {
-    if (!item.matchedProduct) return;
-    addItem(item.matchedProduct, getQty(item), item.userNotas || item.notas, item);
-    showToast(`${item.matchedProduct.name} agregado`, 'success');
-  };
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-tinta" /></div>;
+  if (!data) return <div className="py-20 text-center"><h1 className="text-2xl font-bold">No encontramos esta lista</h1><Link href="/my-lists" className="mt-4 inline-block font-semibold text-tinta">Ver mis listas</Link></div>;
 
-  if (loading) return <div className="flex justify-center items-center min-h-[60vh]"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
-  if (!data) return <div className="text-center py-12"><h2 className="text-lg font-bold text-slate-900">Lista no encontrada</h2></div>;
-
-  // Block access if list is not approved (unless it's the owner viewing their own pending list)
-  const isOwner = user && data.list.userId === user.id;
+  const isOwner = !!user && data.list.userId === user.id;
   const isApproved = data.list.estado === 'VALIDADA' || data.list.estado === 'PROCESADA';
   if (!isApproved && !isOwner && user?.role !== 'ADMIN') {
     return (
-      <div className="min-h-screen bg-sky-100 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-lg font-bold text-slate-900 mb-2">Lista en revision</h2>
-          <p className="text-neutral-400 text-sm">Esta lista aun no ha sido aprobada.</p>
-        </div>
+      <div className="py-20 text-center">
+        <h1 className="text-2xl font-bold">Lista en revisión</h1>
+        <p className="mt-2 text-tenue">Esta lista todavía no fue aprobada.</p>
       </div>
     );
   }
 
-  const visibleItems = data.items.filter(i => !hiddenItems.has(i.id));
-  const totalEstimado = visibleItems.reduce((s, i) => s + ((i.priceAtMatch || 0) * getQty(i)), 0);
-  const matchedCount = visibleItems.filter(i => i.matchedProduct).length;
-  const hasCustomizations = visibleItems.some(i => i.forro || i.etiqueta || i.caratula);
+  if (procesando) return <LeyendoLista imageUrl={data.list.imageUrl} startedAt={pollStart} onTimeout={agotado} />;
+  if (data.items.length === 0 && (data.list.iaEstado === 'ERROR' || data.list.iaEstado === 'MANUAL')) {
+    return <SinLectura estado={data.list.iaEstado} mensaje={data.list.iaMensaje} onRetry={reintentar} retrying={retrying} />;
+  }
+
+  const incluidos = data.items.filter(i => !excluidos.has(i.id));
+  const quitados = data.items.filter(i => excluidos.has(i.id));
+  const conProducto = incluidos.filter(i => i.matchedProduct);
+  const total = conProducto.reduce((s, i) => s + i.matchedProduct!.basePrice * getQty(i), 0);
+  const totalNivel = (tier: Tier) => incluidos.reduce((s, i) => {
+    const p = tierProduct(i, tier) ?? i.matchedProduct;
+    return s + (p ? p.basePrice * getQty(i) : 0);
+  }, 0);
+  const hayNiveles = data.items.some(i => i.productEconomicoId || i.productMedioId || i.productPremiumId);
+  const nivelGlobal = (TIERS.find(t => incluidos.length > 0 && incluidos.every(i => !tierProduct(i, t.id) || currentTier(i) === t.id))?.id) ?? null;
+  const imagenes = (data.list.imageUrl || '').split('|').filter(Boolean);
+
+  const agregarAlCarrito = () => {
+    if (conProducto.length === 0) { showToast('No hay útiles con producto para agregar', 'error'); return; }
+    conProducto.forEach(i => addItem(i.matchedProduct!, getQty(i), i.userNotas || i.notas, i));
+    router.push('/cart');
+  };
 
   return (
-    <div className="min-h-screen bg-sky-100">
-      <div className="max-w-4xl mx-auto py-6 px-4">
-        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    <div className="pb-32">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-        <button onClick={() => router.back()} className="flex items-center gap-1.5 text-neutral-400 hover:text-slate-700 mb-4 text-sm">
-          <ArrowLeft className="h-4 w-4" /> Volver
-        </button>
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[320px_1fr]">
+        {/* La lista original, para comparar */}
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <button onClick={() => router.back()} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-tenue hover:text-grafito">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver
+          </button>
+          <h1 className="text-2xl font-extrabold tracking-tight">{data.list.schoolName}</h1>
+          <p className="text-tenue">{data.list.gradeName}, {data.list.year}</p>
+          <div className="mt-2"><StatusBadge status={data.list.estado} size="sm" /></div>
 
-        {/* Header */}
-        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 mb-4">
-          {data.list.imageUrl && (
-            <div className="mb-4 flex gap-2 overflow-x-auto">
-              {data.list.imageUrl.split('|').map((url: string, i: number) => (
-                <div key={i} className="rounded-xl overflow-hidden bg-slate-50 max-h-64 flex-shrink-0">
-                  <img src={url} alt={`Foto ${i + 1}`} className="max-h-64 object-contain" />
-                </div>
+          {imagenes.length > 0 && (
+            <div className="mt-5 flex gap-2 overflow-x-auto lg:flex-col">
+              {imagenes.map((url, i) => (
+                <a key={url} href={url} target="_blank" rel="noreferrer"
+                  className="block shrink-0 overflow-hidden rounded-xl border border-linea bg-papel sombra-hoja">
+                  {/\.(pdf|docx?)(\?|$)/i.test(url)
+                    ? <span className="flex h-24 w-40 items-center justify-center text-sm font-semibold text-tinta">Archivo {i + 1}</span>
+                    : <img src={url} alt={`Hoja ${i + 1} de la lista original`} className="max-h-72 w-40 object-contain lg:max-h-[420px] lg:w-full" />}
+                </a>
               ))}
             </div>
           )}
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">{data.list.schoolName}</h1>
-              <p className="text-sm text-neutral-400">{data.list.gradeName} - {data.list.year}</p>
-            </div>
-            <StatusBadge status={data.list.estado} size="lg" />
-          </div>
-        </div>
 
-        {/* Plan Selector */}
-        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-blue-500" />
-              <h2 className="text-sm font-bold text-slate-900">Elige tu plan</h2>
-            </div>
-            {saving && <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />}
-          </div>
-          <PlanSelector currentPlan={plan} onSelect={handlePlanChange} />
-
-          {/* Student info */}
-          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-neutral-400 mb-1">Nombre del estudiante</label>
-              <input type="text" value={studentName} onChange={e => setStudentName(e.target.value)}
-                onBlur={() => listsApi.updatePlan(id, { plan, estudianteNombre: studentName, estudianteGrado: studentGrade })}
-                placeholder="Nombre completo"
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
-            </div>
-            <div>
-              <label className="block text-xs text-neutral-400 mb-1">Grado / Seccion</label>
-              <input type="text" value={studentGrade} onChange={e => setStudentGrade(e.target.value)}
-                onBlur={() => listsApi.updatePlan(id, { plan, estudianteNombre: studentName, estudianteGrado: studentGrade })}
-                placeholder="Ej: 3ro B"
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
-            </div>
-          </div>
-        </div>
-
-        {/* Items */}
-        <div className="space-y-3 mb-4">
-          {data.items.filter(item => !hiddenItems.has(item.id)).map((item) => {
-            const customized = item.forro || item.etiqueta || item.caratula;
-            return (
-              <div key={item.id} className={`bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden ${
-                item.matchedProduct ? 'border-l-[3px] border-l-green-500' : 'border-l-[3px] border-l-orange-400'
-              }`}>
-                <div className="p-4">
-                  <div className="flex gap-3">
-                    {/* Product image */}
-                    <div className="w-14 h-14 bg-slate-50 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => setEditingItem(item)}>
-                      {item.matchedProduct?.imageUrl ? (
-                        <img src={item.matchedProduct.imageUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center"><Package className="h-5 w-5 text-neutral-300" /></div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div className="min-w-0">
-                          <p className="text-xs text-neutral-400">{item.nombreOriginal}</p>
-                          {item.matchedProduct ? (
-                            <p className="text-sm font-medium text-slate-900 truncate">{item.matchedProduct.name}</p>
-                          ) : (
-                            <button onClick={() => setEditingItem(item)} className="text-sm text-blue-500 font-medium flex items-center gap-1">
-                              <Search className="h-3 w-3" /> Buscar producto
-                            </button>
-                          )}
-                          {item.matchedProduct && (
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] text-neutral-400">{item.matchedProduct.brand}</span>
-                              {item.matchedProduct.tier && (
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                                  item.matchedProduct.tier === 'premium' ? 'bg-amber-100 text-amber-700' :
-                                  item.matchedProduct.tier === 'economico' ? 'bg-green-100 text-green-700' :
-                                  'bg-blue-100 text-blue-700'
-                                }`}>{item.matchedProduct.tier}</span>
-                              )}
-                              {item.matchedProduct.rating && (
-                                <span className="flex items-center gap-0.5 text-[10px] text-neutral-400">
-                                  <Star className="h-2.5 w-2.5 text-yellow-400 fill-yellow-400" /> {item.matchedProduct.rating.toFixed(1)}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        {/* Price + quantity always visible */}
-                        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => setLocalQty(prev => ({ ...prev, [item.id]: Math.max(1, getQty(item) - 1) }))}
-                              className="w-7 h-7 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center text-xs hover:bg-blue-50">
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="w-6 text-center text-sm font-bold">{getQty(item)}</span>
-                            <button onClick={() => setLocalQty(prev => ({ ...prev, [item.id]: getQty(item) + 1 }))}
-                              className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs hover:shadow-md">
-                              <Plus className="h-3 w-3" />
-                            </button>
-                          </div>
-                          <p className="text-sm font-bold text-slate-900 min-w-[60px] text-right">
-                            {item.priceAtMatch ? formatPrice(item.priceAtMatch * getQty(item)) : '-'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Customization badges */}
-                      {customized && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {item.forro && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Forro {item.forroColor}</span>}
-                          {item.etiqueta && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-pink-100 text-pink-700 font-medium">{item.etiqueta}</span>}
-                          {item.caratula && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">Caratula {item.caratulaCurso}</span>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-50">
-                    <button onClick={() => setEditingItem(item)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-medium hover:bg-blue-100 transition-colors border border-blue-100">
-                      <Edit2 className="h-3 w-3" /> Cambiar
-                    </button>
-                    <button onClick={() => setCustomizingItem(item)}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors border ${
-                        customized ? 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-slate-100'
-                      }`}>
-                      <Settings2 className="h-3 w-3" /> Personalizar
-                    </button>
-                    <button onClick={() => setHiddenItems(prev => new Set([...prev, item.id]))}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-400 rounded-xl text-xs font-medium hover:bg-red-100 transition-colors border border-red-100">
-                      <X className="h-3 w-3" /> Quitar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Hidden items restore */}
-        {hiddenItems.size > 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-[20px] p-4 mb-4 flex items-center justify-between">
-            <p className="text-sm text-orange-700">{hiddenItems.size} producto{hiddenItems.size > 1 ? 's' : ''} quitado{hiddenItems.size > 1 ? 's' : ''} de tu lista</p>
-            <button onClick={() => setHiddenItems(new Set())}
-              className="text-xs font-medium text-orange-600 hover:text-orange-800 px-3 py-1.5 bg-white rounded-lg border border-orange-200">
-              Restaurar todos
-            </button>
-          </div>
-        )}
-
-        {/* Observations */}
-        <ObservationBox listId={id} existing={data.list.userObservaciones} onSaved={() => loadList()} />
-
-        {/* Bottom Summary */}
-        <div className="bg-white rounded-[30px] shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)] p-4 md:p-6 sticky bottom-4">
-          <div className="text-center mb-3">
-            <p className="text-xs text-neutral-400">
-              {matchedCount}/{visibleItems.length} productos
-              {hiddenItems.size > 0 && <span className="text-orange-500"> ({hiddenItems.size} quitados)</span>}
-            </p>
-            <p className="text-2xl font-bold text-slate-900">{formatPrice(totalEstimado)}</p>
-          </div>
-          <button onClick={addAllToCart} disabled={matchedCount === 0}
-            className="w-full bg-blue-500 text-white px-6 py-3.5 rounded-xl font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-            <ShoppingCart className="h-4 w-4" /> Agregar todo al carrito
-          </button>
-          {studentName && (
-            <p className="text-xs text-neutral-400 border-t border-slate-100 pt-3">
-              Estudiante: <span className="text-slate-700 font-medium">{studentName}</span>
-              {studentGrade && <> - {studentGrade}</>}
-              {' '} | Plan: <span className="text-blue-500 font-medium capitalize">{plan}</span>
+          {data.list.iaMensaje && (
+            <p className={`mt-4 rounded-xl px-4 py-3 text-sm ${data.list.iaEstado === 'DEMO' ? 'bg-lapiz-claro text-grafito' : 'bg-tinta-claro text-tinta'}`}>
+              {data.list.iaMensaje}
             </p>
           )}
+        </aside>
+
+        <div>
+          {/* Nivel para toda la lista */}
+          {hayNiveles && (
+            <section aria-labelledby="nivel" className="rounded-2xl border border-linea bg-papel p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <h2 id="nivel" className="font-bold">Lleva toda la lista en</h2>
+                {savingPlan && <Loader2 className="h-4 w-4 animate-spin text-tinta" aria-label="Guardando" />}
+              </div>
+              <div role="radiogroup" aria-labelledby="nivel" className="mt-3 grid grid-cols-3 gap-2">
+                {TIERS.map(t => {
+                  const activo = nivelGlobal === t.id;
+                  return (
+                    <button key={t.id} role="radio" aria-checked={activo} onClick={() => elegirNivelTodo(t.id)} title={t.hint}
+                      className={`rounded-xl border-2 p-3 text-left transition-colors ${activo ? 'border-tinta bg-tinta text-white' : 'border-linea hover:border-tenue'}`}>
+                      <span className={`block text-sm font-semibold ${activo ? 'text-white/85' : 'text-tenue'}`}>{t.label}</span>
+                      <span className="block text-lg font-extrabold tabular-nums sm:text-xl">{formatPrice(totalNivel(t.id))}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-sm text-tenue">También puedes elegir el nivel útil por útil.</p>
+            </section>
+          )}
+
+          {/* Útiles */}
+          <section aria-labelledby="utiles" className="mt-6">
+            <div className="flex items-baseline justify-between">
+              <h2 id="utiles" className="text-2xl font-extrabold tracking-tight">Tu lista</h2>
+              <p className="text-sm text-tenue">Desmarca lo que ya tienes</p>
+            </div>
+            <ul className="mt-2 rounded-2xl border border-linea bg-papel px-4 sm:px-5">
+              {incluidos.map(item => (
+                <FilaUtil key={item.id} item={item} qty={getQty(item)}
+                  onQty={q => setQty(item, q)}
+                  onTier={t => elegirNivel(item, t)}
+                  onExclude={() => setExcluidos(prev => new Set(prev).add(item.id))}
+                  onChange={() => setEditingItem(item)}
+                  onCustomize={() => setCustomizingItem(item)} />
+              ))}
+              {incluidos.length === 0 && <li className="py-8 text-center text-tenue">Quitaste todos los útiles de la lista.</li>}
+            </ul>
+
+            {quitados.length > 0 && (
+              <div className="mt-4 rounded-2xl border border-dashed border-linea p-4 sm:p-5">
+                <h3 className="font-bold">Ya los tengo ({quitados.length})</h3>
+                <ul className="mt-2 divide-y divide-linea">
+                  {quitados.map(item => (
+                    <li key={item.id} className="flex items-center gap-3 py-2">
+                      <span className="flex-1 truncate font-mano text-xl text-tenue line-through decoration-profe/60">{item.nombreOriginal}</span>
+                      <button onClick={() => setExcluidos(prev => { const n = new Set(prev); n.delete(item.id); return n; })}
+                        className="shrink-0 text-sm font-semibold text-tinta hover:underline">Volver a agregar</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+
+          {/* Datos para etiquetas */}
+          <section aria-labelledby="estudiante" className="mt-6 rounded-2xl border border-linea bg-papel p-4 sm:p-5">
+            <h2 id="estudiante" className="font-bold">Datos para las etiquetas</h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm text-tenue">Nombre del estudiante</span>
+                <input type="text" value={studentName} onChange={e => setStudentName(e.target.value)}
+                  onBlur={() => listsApi.updatePlan(id, { plan: data.list.plan || nivelGlobal || 'medio', estudianteNombre: studentName, estudianteGrado: studentGrade, aplicarATodos: false }).catch(() => {})}
+                  placeholder="Nombre y apellidos"
+                  className="w-full rounded-xl border border-linea px-3 py-2.5 focus:border-tinta focus:outline-none" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm text-tenue">Grado y sección</span>
+                <input type="text" value={studentGrade} onChange={e => setStudentGrade(e.target.value)}
+                  onBlur={() => listsApi.updatePlan(id, { plan: data.list.plan || nivelGlobal || 'medio', estudianteNombre: studentName, estudianteGrado: studentGrade, aplicarATodos: false }).catch(() => {})}
+                  placeholder="Ej.: 3.º B"
+                  className="w-full rounded-xl border border-linea px-3 py-2.5 focus:border-tinta focus:outline-none" />
+              </label>
+            </div>
+          </section>
+
+          <div className="mt-6">
+            <ObservationBox listId={id} existing={data.list.userObservaciones} onSaved={() => loadList()} />
+          </div>
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Total */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-linea bg-papel/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6">
+          <div className="min-w-0">
+            <p className="text-sm text-tenue">
+              {conProducto.length} de {data.items.length} útiles{quitados.length > 0 ? `, ${quitados.length} ya los tienes` : ''}
+            </p>
+            <p className="text-2xl font-extrabold tabular-nums">{formatPrice(total)}</p>
+          </div>
+          <button onClick={agregarAlCarrito} disabled={conProducto.length === 0}
+            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-lapiz px-5 py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-lapiz-oscuro disabled:opacity-40 sm:px-7">
+            <ShoppingBag className="h-5 w-5" aria-hidden="true" /> Agregar al carrito
+          </button>
+        </div>
+      </div>
+
       {editingItem && <ProductModal item={editingItem} onSave={handleSaveProduct} onClose={() => setEditingItem(null)} />}
       {customizingItem && <CustomizePanel item={customizingItem} onUpdate={handleSaveCustomization} onClose={() => setCustomizingItem(null)} />}
     </div>

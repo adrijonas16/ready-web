@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Camera, Lock } from 'lucide-react';
 import ImageUploader from '@/components/ImageUploader';
+import SearchSelect from '@/components/SearchSelect';
 import { useAuth } from '@/lib/auth-context';
 import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
 import { School, Section } from '@/lib/types';
-import { groupSections } from '@/lib/constants';
-import { CheckCircle, List, Upload } from 'lucide-react';
-import SearchSelect from '@/components/SearchSelect';
-import Link from 'next/link';
 
 export default function UploadPage() {
   const { user } = useAuth();
@@ -20,165 +19,119 @@ export default function UploadPage() {
   const [schoolSections, setSchoolSections] = useState<Section[]>([]);
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedGradeName, setSelectedGradeName] = useState('');
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [year, setYear] = useState(new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0));
+  const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [uploadComplete, setUploadComplete] = useState(false);
-  const [uploadedListId, setUploadedListId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => { loadSchools(); loadAllSections(); }, []);
+  useEffect(() => {
+    schoolsApi.getAll().then(setSchools).catch(() => setError('No pudimos cargar los colegios. Recarga la página.'));
+    sectionsApi.getAll().then(setAllSections).catch(() => {});
+  }, []);
 
   useEffect(() => {
-    if (selectedSchool) { loadSchoolSections(selectedSchool); }
-    else { setSchoolSections([]); setSelectedGradeName(''); }
+    if (!selectedSchool) { setSchoolSections([]); setSelectedGradeName(''); return; }
+    schoolsApi.getSchoolSections(selectedSchool).then(setSchoolSections).catch(() => setSchoolSections([]));
   }, [selectedSchool]);
 
-  const loadSchools = async () => {
-    try { const data = await schoolsApi.getAll(); setSchools(data); }
-    catch (err) { console.error('Error loading schools:', err); }
-  };
-
-  const loadAllSections = async () => {
-    try { const data = await sectionsApi.getAll(); setAllSections(data); }
-    catch (err) { console.error('Error loading sections:', err); }
-  };
-
-  const loadSchoolSections = async (schoolId: string) => {
-    try {
-      const data = await schoolsApi.getSchoolSections(schoolId);
-      setSchoolSections(data);
-    } catch (err) { console.error('Error loading school sections:', err); }
-  };
+  const listo = files.length > 0 && !!selectedSchool && !!selectedGradeName;
 
   const handleUpload = async () => {
-    if (imageFiles.length === 0 || !selectedSchool || !selectedGradeName) {
-      setError('Completa todos los campos y sube al menos una imagen');
+    if (!listo) {
+      setError('Elige el colegio, el grado y sube al menos una foto de la lista.');
       return;
     }
-
     setUploading(true);
     setError('');
-
     try {
       const newGrade = await schoolsApi.createGrade(selectedSchool, selectedGradeName, year);
       const gradeId = typeof newGrade === 'string' ? newGrade : newGrade.id || newGrade;
 
       const formData = new FormData();
-      imageFiles.forEach(f => formData.append('files', f));
+      files.forEach(f => formData.append('files', f));
       formData.append('userId', user?.id || '');
       formData.append('schoolId', selectedSchool);
       formData.append('gradeId', gradeId);
       formData.append('year', year.toString());
 
       const result = await listsApi.upload(formData);
-      setUploadedListId(result.id);
-      setUploadComplete(true);
-    } catch (err: any) {
-      setError(err.message || 'Error al subir la lista');
-    } finally {
+      router.push(result?.id ? `/lists/${result.id}` : '/my-lists');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'No pudimos subir la lista. Inténtalo de nuevo.');
       setUploading(false);
     }
   };
 
   if (!user) {
     return (
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 bg-sky-100">
-        <div className="text-center">
-          <Upload className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Inicia sesion para subir tu lista</h2>
-          <p className="text-neutral-400 text-sm mb-6">Necesitas estar registrado para subir listas.</p>
-          <Link href="/login" className="bg-blue-500 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-            Iniciar Sesion
-          </Link>
+      <div className="papel-cuadriculado flex min-h-[calc(100vh-64px)] items-center justify-center px-4 py-12">
+        <div className="sombra-hoja max-w-md rounded-2xl bg-papel p-8 text-center">
+          <Lock className="mx-auto h-8 w-8 text-tinta" aria-hidden="true" />
+          <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Inicia sesión para subir tu lista</h1>
+          <p className="mt-2 text-tenue">Así guardamos tu lista y te avisamos cuando esté armada.</p>
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <Link href="/login" className="rounded-xl bg-tinta px-5 py-3 font-bold text-white hover:bg-tinta-oscuro">Iniciar sesión</Link>
+            <Link href="/register" className="rounded-xl border-2 border-grafito px-5 py-3 font-bold text-grafito hover:bg-fondo">Crear cuenta</Link>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (uploadComplete && uploadedListId) {
-    return (
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 bg-sky-100">
-        <div className="max-w-md w-full text-center animate-scale-in">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
-            <CheckCircle className="h-8 w-8 text-green-600" />
-          </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Lista subida</h2>
-          <p className="text-neutral-400 text-sm mb-6">
-            Tu lista esta siendo procesada. Te notificaremos cuando este lista.
-          </p>
-          <div className="flex flex-col gap-3">
-            <button onClick={() => router.push('/my-lists')}
-              className="w-full bg-blue-500 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-              <List className="h-4 w-4" /> Ver mis listas
-            </button>
-            <button onClick={() => { setUploadComplete(false); setImageFiles([]); setSelectedSchool(''); setSelectedGradeName(''); }}
-              className="w-full bg-white text-slate-700 py-3 rounded-xl font-medium text-sm shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] hover:shadow-md transition-shadow">
-              Subir otra lista
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const gradeOptions = (schoolSections.length > 0 ? schoolSections : allSections)
+    .map(s => ({ value: s.name, label: s.name, group: s.groupName }));
 
   return (
-    <div className="min-h-screen bg-sky-100">
-      <div className="max-w-3xl mx-auto py-6 px-4">
-        <h1 className="text-slate-900 text-2xl font-bold tracking-tight mb-1">Enviar Lista de Utiles</h1>
-        <p className="text-neutral-400 text-sm mb-6">Sube fotos, PDF o Word de tu lista (hasta 5 archivos). La revisaremos y te notificaremos.</p>
+    <div className="mx-auto max-w-3xl px-4 py-10">
+      <h1 className="text-4xl font-extrabold tracking-[-0.03em]">Sube tu lista de útiles</h1>
+      <p className="mt-2 text-lg text-tenue">La leemos y en alrededor de un minuto la ves armada, con precios.</p>
 
-        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 space-y-5 animate-slide-up">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="mt-8 space-y-8">
+        <section aria-labelledby="paso-colegio">
+          <h2 id="paso-colegio" className="flex items-baseline gap-2 text-lg font-bold">
+            <span className="font-mano text-3xl leading-none text-tinta">1.</span> ¿De qué colegio y grado es?
+          </h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-[1.6fr_1.2fr_0.7fr]">
             <div>
-              <label className="block text-xs text-neutral-400 mb-1">Colegio</label>
-              <SearchSelect
-                value={selectedSchool}
-                onChange={setSelectedSchool}
-                placeholder="Seleccionar colegio"
-                options={schools.map(s => ({ value: s.id, label: s.name }))}
-              />
+              <label className="mb-1 block text-sm font-medium text-tenue">Colegio</label>
+              <SearchSelect value={selectedSchool} onChange={setSelectedSchool} placeholder="Busca tu colegio"
+                options={schools.map(s => ({ value: s.id, label: s.name }))} />
             </div>
             <div>
-              <label className="block text-xs text-neutral-400 mb-1">Grado</label>
-              <SearchSelect
-                value={selectedGradeName}
-                onChange={setSelectedGradeName}
-                disabled={!selectedSchool}
-                placeholder={!selectedSchool ? 'Primero selecciona colegio' : 'Seleccionar grado'}
-                options={(schoolSections.length > 0 ? schoolSections : allSections).map(s => ({ value: s.name, label: s.name, group: s.groupName }))}
-              />
+              <label className="mb-1 block text-sm font-medium text-tenue">Grado</label>
+              <SearchSelect value={selectedGradeName} onChange={setSelectedGradeName} disabled={!selectedSchool}
+                placeholder={selectedSchool ? 'Elige el grado' : 'Primero el colegio'} options={gradeOptions} />
             </div>
             <div>
-              <label className="block text-xs text-neutral-400 mb-1">Ano</label>
-              <SearchSelect
-                value={String(year)}
-                onChange={v => setYear(parseInt(v))}
-                options={[2024, 2025, 2026, 2027].map(y => ({ value: String(y), label: String(y) }))}
-              />
+              <label className="mb-1 block text-sm font-medium text-tenue">Año escolar</label>
+              <SearchSelect value={String(year)} onChange={v => setYear(parseInt(v))}
+                options={[2025, 2026, 2027].map(y => ({ value: String(y), label: String(y) }))} />
             </div>
           </div>
+        </section>
 
+        <section aria-labelledby="paso-foto">
+          <h2 id="paso-foto" className="flex items-baseline gap-2 text-lg font-bold">
+            <span className="font-mano text-3xl leading-none text-tinta">2.</span> Sube la lista
+          </h2>
+          <p className="mb-3 mt-1 text-sm text-tenue">Que se vea toda la hoja, de frente y con buena luz.</p>
           <ImageUploader
-            onImagesSelected={(files) => { setImageFiles(files); setError(''); }}
-            onValidationError={(errors) => setError(errors.join(', '))}
+            onImagesSelected={(f) => { setFiles(f); setError(''); }}
+            onValidationError={(errors) => setError(errors.join('. '))}
             maxFiles={5}
           />
+        </section>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">{error}</div>
-          )}
+        {error && (
+          <p role="alert" className="rounded-xl border border-profe/30 bg-profe-claro px-4 py-3 text-sm text-profe">{error}</p>
+        )}
 
-          <button onClick={handleUpload}
-            disabled={imageFiles.length === 0 || !selectedSchool || !selectedGradeName || uploading}
-            className="w-full bg-blue-500 text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-            {uploading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <><Upload className="h-4 w-4" /> Subir Lista ({imageFiles.length} foto{imageFiles.length !== 1 ? 's' : ''})</>
-            )}
-          </button>
-        </div>
+        <button onClick={handleUpload} disabled={!listo || uploading}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-tinta py-4 text-base font-bold text-white transition-colors hover:bg-tinta-oscuro disabled:cursor-not-allowed disabled:opacity-40">
+          {uploading
+            ? <><span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> Subiendo…</>
+            : <><Camera className="h-5 w-5" aria-hidden="true" /> Leer mi lista</>}
+        </button>
       </div>
     </div>
   );

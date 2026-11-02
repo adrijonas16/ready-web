@@ -1,32 +1,112 @@
 @import "tailwindcss";
 
 :root {
-  --background: #e0f2fe;
-  --foreground: #0f172a;
+  --background: #F3F6FB;
+  --foreground: #141B2D;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/*
+  Sistema visual "cuaderno": tinta azul de lapicero, amarillo lápiz, rojo de corrección
+  y la cuadrícula de 5 mm de un cuaderno escolar.
+  Además se reasignan blue / sky / amber de Tailwind para que todas las páginas existentes
+  (catálogo, carrito, admin…) hereden la misma paleta sin reescribirlas.
+*/
+@theme {
+  --font-sans: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mano: "Caveat", "Comic Sans MS", cursive;
+
+  --color-tinta: #1F3FBF;
+  --color-tinta-oscuro: #162E8C;
+  --color-tinta-claro: #E8EDFC;
+  --color-lapiz: #FFC629;
+  --color-lapiz-oscuro: #E5A900;
+  --color-lapiz-claro: #FFF4CF;
+  --color-profe: #D93A26;
+  --color-profe-claro: #FCEAE7;
+  --color-grafito: #141B2D;
+  --color-tenue: #5B6579;
+  --color-papel: #FFFFFF;
+  --color-fondo: #F3F6FB;
+  --color-cuadricula: #DCE5F2;
+  --color-linea: #D3DCEA;
+
+  --color-blue-50: #F2F5FE;
+  --color-blue-100: #E8EDFC;
+  --color-blue-200: #C9D4F7;
+  --color-blue-300: #9DB0EE;
+  --color-blue-400: #4F6AD6;
+  --color-blue-500: #1F3FBF;
+  --color-blue-600: #1A36A8;
+  --color-blue-700: #162E8C;
+  --color-sky-100: #F3F6FB;
+  --color-amber-300: #FFC629;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
+}
+
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-lapiz);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-lapiz-claro);
 }
 
 input, textarea, select {
-  color: #0f172a;
+  color: #141B2D;
 }
 
 input::placeholder, textarea::placeholder {
-  color: #a1a1aa;
+  color: #8A93A6;
+}
+
+/* Hoja cuadriculada de 5 mm */
+.papel-cuadriculado {
+  background-color: #FFFFFF;
+  background-image:
+    linear-gradient(var(--color-cuadricula) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-cuadricula) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-position: -1px -1px;
+}
+
+/* Hoja rayada con margen rojo: aquí va lo que escribió el colegio */
+.papel-rayado {
+  background-color: #FFFFFF;
+  background-image:
+    linear-gradient(90deg, transparent 39px, #F2B8B0 39px, #F2B8B0 41px, transparent 41px),
+    repeating-linear-gradient(#FFFFFF 0 51px, var(--color-cuadricula) 51px 52px);
+}
+
+.sombra-hoja {
+  box-shadow: 0 1px 0 var(--color-linea), 0 18px 40px -20px rgba(20, 27, 45, 0.28);
+}
+
+@keyframes escaneo {
+  0%   { top: 0%; }
+  100% { top: calc(100% - 4px); }
+}
+
+.animate-escaneo {
+  animation: escaneo 1.6s var(--ease-in-out) infinite alternate;
 }
 
 /* ── Custom Animations ── */
@@ -110,7 +190,7 @@ input::placeholder, textarea::placeholder {
 
 /* Skeleton loading shimmer */
 .skeleton {
-  background: linear-gradient(90deg, #e0e7ff 25%, #c7d2fe 50%, #e0e7ff 75%);
+  background: linear-gradient(90deg, #E8EDFC 25%, #DCE5F2 50%, #E8EDFC 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 16px;
@@ -147,4 +227,12 @@ img {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
