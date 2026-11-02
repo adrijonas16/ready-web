@@ -28,7 +28,7 @@ export default function Header() {
 
   const nav = [
     { href: '/lists', label: 'Listas de colegios' },
-    { href: '/catalog', label: 'Catálogo' },
+    { href: '/catalog', label: 'Productos' },
     ...(user ? [{ href: '/my-lists', label: 'Mis listas' }] : []),
     ...(isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
   ];

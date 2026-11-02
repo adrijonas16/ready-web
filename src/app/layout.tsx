@@ -60,7 +60,7 @@ export default function RootLayout({
                   <p className="font-semibold text-grafito">Comprar</p>
                   <Link href="/upload" className="text-tenue hover:text-primario">Subir mi lista</Link>
                   <Link href="/lists" className="text-tenue hover:text-primario">Listas de colegios</Link>
-                  <Link href="/catalog" className="text-tenue hover:text-primario">Catálogo</Link>
+                  <Link href="/catalog" className="text-tenue hover:text-primario">Arma tu pedido</Link>
                 </nav>
                 <nav aria-label="Mi cuenta" className="flex flex-col gap-2 text-sm">
                   <p className="font-semibold text-grafito">Mi cuenta</p>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Camera, Search } from 'lucide-react';
+import { Camera, Search, ShoppingBag, ChevronRight } from 'lucide-react';
+import Vitrina from '@/components/Vitrina';
 import NewsCarousel from '@/components/NewsCarousel';
 
 export const metadata: Metadata = {
@@ -80,15 +81,41 @@ export default function HomePage() {
                 <Search className="h-5 w-5" aria-hidden="true" /> Buscar la lista de mi colegio
               </Link>
             </div>
-            <p className="mt-5 text-sm text-tenue">Funciona con fotos, PDF o Word. Revisamos cada lista antes de que la elijas.</p>
+            <p className="mt-5 text-sm text-tenue">
+              ¿Prefieres elegir tú?{' '}
+              <Link href="/catalog" className="font-semibold text-primario underline underline-offset-2">Arma tu pedido producto por producto</Link>.
+            </p>
           </div>
           <ListaYPaquetes />
         </div>
       </section>
 
+      {/* Tres formas de comprar */}
+      <section aria-labelledby="formas" className="mx-auto max-w-6xl px-4 pt-14 sm:px-6">
+        <h2 id="formas" className="text-3xl font-extrabold tracking-[-0.02em]">¿Cómo quieres comprar?</h2>
+        <ul className="mt-6 grid gap-4 md:grid-cols-3">
+          {[
+            { href: '/upload', icono: Camera, titulo: 'Sube la foto de tu lista', texto: 'La leemos, la revisamos y te la damos armada en Económico, Normal o Premium.', boton: 'Subir mi lista', fondo: 'bg-acento-claro', color: 'text-acento-oscuro' },
+            { href: '/lists', icono: Search, titulo: 'Busca la lista de tu colegio', texto: 'Si otro padre ya la subió y la aprobamos, la eliges y compras al momento.', boton: 'Buscar mi colegio', fondo: 'bg-primario-claro', color: 'text-primario' },
+            { href: '/catalog', icono: ShoppingBag, titulo: 'Arma tu pedido', texto: 'Elige útil por útil, por categoría o marca, como en cualquier tienda.', boton: 'Ver productos', fondo: 'bg-eco-claro', color: 'text-eco' },
+          ].map(f => (
+            <li key={f.href}>
+              <Link href={f.href} className="group flex h-full flex-col rounded-2xl border border-linea bg-papel p-5 transition-[border-color,box-shadow] hover:border-primario/40 hover:shadow-[0_12px_32px_-20px_rgba(15,23,42,0.5)]">
+                <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${f.fondo} ${f.color}`}><f.icono className="h-6 w-6" aria-hidden="true" /></span>
+                <h3 className="mt-4 text-xl font-bold">{f.titulo}</h3>
+                <p className="mt-1 flex-1 text-tenue">{f.texto}</p>
+                <span className="mt-4 inline-flex items-center gap-0.5 font-semibold text-primario">
+                  {f.boton} <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       {/* Cómo funciona */}
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <h2 className="text-3xl font-extrabold tracking-[-0.025em]">Cómo funciona</h2>
+        <h2 className="text-3xl font-extrabold tracking-[-0.025em]">Cómo funciona con tu lista</h2>
         <ol className="mt-8 grid gap-8 md:grid-cols-3">
           {[
             { t: 'Toma la foto de la lista', d: 'Elige el colegio y el grado, y sube la foto, el PDF o el Word que te dio el colegio. Puedes subir varias hojas.' },
@@ -104,6 +131,8 @@ export default function HomePage() {
         </ol>
       </section>
 
+      <Vitrina />
+
       {/* Promociones */}
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
         <NewsCarousel />
@@ -114,7 +143,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-14 sm:px-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-3xl font-extrabold tracking-[-0.025em]">¿Tienes la lista a la mano?</h2>
-            <p className="mt-2 max-w-xl text-white/80">Tómale una foto ahora y en un minuto ves cuánto cuesta completa, en el nivel que prefieras.</p>
+            <p className="mt-2 max-w-xl text-white/80">Tómale una foto ahora. La revisamos y te avisamos cuando puedas elegirla en Económico, Normal o Premium.</p>
           </div>
           <Link href="/upload"
             className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-acento px-6 py-4 font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.15)] hover:bg-acento-oscuro">

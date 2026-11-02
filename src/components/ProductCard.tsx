@@ -1,13 +1,14 @@
 'use client';
 
+import Link from 'next/link';
+import { useState } from 'react';
+import { Check, Package, Plus } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
-import { ShoppingCart, Check, Star } from 'lucide-react';
-import Link from 'next/link';
 import { formatPrice } from '@/lib/utils';
-import { useState } from 'react';
+import { TIERS } from '@/lib/lista';
 
-const bgColors = ['bg-yellow-50', 'bg-green-100', 'bg-orange-200', 'bg-violet-100', 'bg-blue-50', 'bg-pink-50'];
+const PUNTO_NIVEL: Record<string, string> = { economico: 'bg-eco', medio: 'bg-primario', premium: 'bg-premium' };
 
 interface ProductCardProps {
   product: Product;
@@ -16,86 +17,57 @@ interface ProductCardProps {
   index?: number;
 }
 
-export default function ProductCard({ product, showAddToCart = true, onClick, index = 0 }: ProductCardProps) {
+/** Tarjeta de producto de tienda: foto, marca, nivel, precio y botón para agregar al carrito. */
+export default function ProductCard({ product, showAddToCart = true, onClick }: ProductCardProps) {
   const { addItem, items } = useCart();
   const [added, setAdded] = useState(false);
+  const enCarrito = items.find(i => i.product.id === product.id)?.quantity ?? 0;
+  const agotado = product.stock <= 0;
+  const nivel = TIERS.find(t => t.id === product.tier);
+  const href = `/products/${product.id}`;
 
-  const isInCart = items.some((item) => item.product.id === product.id);
-  const bgColor = bgColors[index % bgColors.length];
-
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const agregar = () => {
     addItem(product, 1);
     setAdded(true);
-    setTimeout(() => setAdded(false), 1500);
+    setTimeout(() => setAdded(false), 1400);
   };
 
+  const Contenido = (
+    <>
+      <div className="relative aspect-square overflow-hidden rounded-xl bg-fondo">
+        {product.imageUrl
+          ? <img src={product.imageUrl} alt={product.name} width={300} height={300} loading="lazy"
+              className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.03]" />
+          : <div className="flex h-full items-center justify-center"><Package className="h-10 w-10 text-tenue/40" aria-hidden="true" /></div>}
+        {agotado && <span className="absolute left-2 top-2 rounded-full bg-grafito px-2 py-0.5 text-xs font-semibold text-white">Agotado</span>}
+        {!agotado && product.stock < 10 && <span className="absolute left-2 top-2 rounded-full bg-acento-claro px-2 py-0.5 text-xs font-semibold text-grafito">Quedan {product.stock}</span>}
+      </div>
+      <div className="mt-2.5 flex items-center gap-1.5 text-xs">
+        {nivel && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PUNTO_NIVEL[nivel.id]}`} aria-hidden="true" />}
+        <span className="truncate font-semibold text-primario">{product.brand || nivel?.label}</span>
+        {nivel && product.brand && <span className="shrink-0 text-tenue">{nivel.label}</span>}
+      </div>
+      <h3 className="mt-0.5 line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-grafito">{product.name}</h3>
+    </>
+  );
+
   return (
-    <Link
-      href={onClick ? '#' : `/products/${product.id}`}
-      onClick={onClick ? (e) => { e.preventDefault(); onClick(); } : undefined}
-      className="group bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.12)] overflow-hidden transition-[transform,box-shadow] duration-200 ease-[var(--ease-out)] cursor-pointer hover:shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)] hover:-translate-y-1 block"
-    >
-      <div className={`m-3 rounded-2xl ${bgColor} aspect-square relative overflow-hidden`}>
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-300 ease-[var(--ease-out)] group-hover:scale-105"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-300">
-            <svg className="w-14 h-14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-        )}
-        {product.stock < 10 && product.stock > 0 && (
-          <span className="absolute top-2.5 right-2.5 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-            Solo {product.stock}
-          </span>
-        )}
-        {product.stock === 0 && (
-          <span className="absolute top-2.5 right-2.5 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-            Agotado
-          </span>
+    <article className="group flex flex-col rounded-2xl border border-linea bg-papel p-3 transition-[border-color,box-shadow] hover:border-primario/40 hover:shadow-[0_10px_30px_-18px_rgba(15,23,42,0.45)]">
+      {onClick
+        ? <button onClick={onClick} className="cursor-pointer text-left">{Contenido}</button>
+        : <Link href={href} className="block">{Contenido}</Link>}
+      <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        <span className="min-w-0 truncate text-base font-bold tabular-nums sm:text-lg">{formatPrice(product.basePrice)}</span>
+        {showAddToCart && (
+          <button onClick={agregar} disabled={agotado} aria-label={`Agregar ${product.name} al carrito`}
+            className={`inline-flex h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-2.5 sm:px-3 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              added ? 'bg-eco text-white' : 'bg-acento text-grafito hover:bg-acento-oscuro'}`}>
+            {added
+              ? <><Check className="h-4 w-4 animate-check-pop" aria-hidden="true" /><span className="hidden sm:inline">Listo</span></>
+              : <><Plus className="h-4 w-4" aria-hidden="true" />{enCarrito > 0 ? enCarrito : <span className="hidden sm:inline">Agregar</span>}</>}
+          </button>
         )}
       </div>
-
-      <div className="px-4 pb-4 flex justify-between items-start">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-sm text-black leading-5 tracking-tight line-clamp-2">{product.name}</h3>
-          {product.brand && (
-            <p className="text-xs text-neutral-400 mt-0.5">{product.brand}</p>
-          )}
-          <p className="text-sm font-medium text-black mt-1">{formatPrice(product.basePrice)}</p>
-        </div>
-
-        <div className="flex flex-col items-end gap-4 ml-3">
-          <div className="flex items-center gap-1">
-            <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
-            <span className="text-xs text-neutral-400">(5.0)</span>
-          </div>
-
-          {showAddToCart && (
-            <button
-              onClick={handleAddToCart}
-              disabled={product.stock === 0}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-150 ${
-                product.stock === 0
-                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  : added
-                  ? 'bg-green-500 text-white scale-110'
-                  : isInCart
-                  ? 'bg-blue-100 text-blue-500 hover:bg-blue-200'
-                  : 'bg-blue-500 text-white hover:shadow-lg hover:shadow-blue-500/30'
-              }`}
-            >
-              {added ? <Check className="h-4 w-4 animate-check-pop" /> : <ShoppingCart className="h-4 w-4" />}
-            </button>
-          )}
-        </div>
-      </div>
-    </Link>
+    </article>
   );
 }

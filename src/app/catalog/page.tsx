@@ -1,340 +1,242 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { productsApi, brandsApi } from '@/services/api';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { Search, SlidersHorizontal, X, Camera, Percent } from 'lucide-react';
+import { productsApi } from '@/services/api';
 import { Product } from '@/lib/types';
 import ProductCard from '@/components/ProductCard';
-import { Search, MapPin, X, ChevronDown, ChevronUp, SlidersHorizontal, Star, Percent } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { TIERS } from '@/lib/lista';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
+/** Categorías internas que no se venden sueltas en la tienda */
+const OCULTAS = new Set(['Servicios']);
 
-export default function CatalogPage() {
-  return <Suspense><CatalogContent /></Suspense>;
+interface Campana { id: string; name: string; slug: string; discount_percent: number }
+
+function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} aria-pressed={activo}
+      className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${activo ? 'bg-primario text-white' : 'text-grafito hover:bg-fondo'}`}>
+      {children}
+    </button>
+  );
 }
 
-function CatalogContent() {
-  const searchParams = useSearchParams();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
-  const [campaigns, setCampaigns] = useState<{ id: string; name: string; slug: string; discount_percent: number }[]>([]);
-  const [campaignProductIds, setCampaignProductIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedBrand, setSelectedBrand] = useState('');
-  const [selectedTier, setSelectedTier] = useState('');
-  const [selectedCampaign, setSelectedCampaign] = useState(searchParams.get('campaign') || '');
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 30000]);
-  const [sortBy, setSortBy] = useState('name');
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
+export default function CatalogPage() {
+  return <Suspense><Catalogo /></Suspense>;
+}
 
-  const [openSections, setOpenSections] = useState({ categories: true, brands: true, tier: true, price: true, campaigns: true });
-  const toggleSection = (s: string) => setOpenSections(prev => ({ ...prev, [s]: !(prev as any)[s] }));
+function Catalogo() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const [todos, setTodos] = useState<Product[]>([]);
+  const [campanas, setCampanas] = useState<Campana[]>([]);
+  const [idsCampana, setIdsCampana] = useState<Set<string> | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [busqueda, setBusqueda] = useState(params.get('q') ?? '');
+  const [categoria, setCategoria] = useState(params.get('categoria') ?? '');
+  const [marca, setMarca] = useState('');
+  const [nivel, setNivel] = useState(params.get('nivel') ?? '');
+  const [campana, setCampana] = useState(params.get('campaign') ?? '');
+  const [precioMax, setPrecioMax] = useState<number | null>(null);
+  const [orden, setOrden] = useState('relevancia');
+  const [filtrosMovil, setFiltrosMovil] = useState(false);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    Promise.all([
+      productsApi.getAll({ limit: 1000 }),
+      fetch(`${API}/campaigns?activeOnly=true`).then(r => r.json()).then(d => d.data || []).catch(() => []),
+    ]).then(([ps, cs]) => {
+      setTodos((ps as Product[]).filter(p => !OCULTAS.has(p.category)));
+      setCampanas(cs);
+    }).catch(() => setTodos([]))
+      .finally(() => setCargando(false));
+  }, []);
 
-  const loadData = async () => {
-    try {
-      const [productsData, categoriesData, brandsData, campaignsData] = await Promise.all([
-        productsApi.getAll({ limit: 200 }), productsApi.getCategories(), brandsApi.getAll(),
-        fetch(`${API}/campaigns?activeOnly=true`).then(r => r.json()).then(d => d.data || []),
-      ]);
-      setAllProducts(productsData);
-      setProducts(productsData);
-      setCategories(categoriesData);
-      setBrands(brandsData);
-      setCampaigns(campaignsData);
+  // Productos de la oferta elegida
+  useEffect(() => {
+    if (!campana) { setIdsCampana(null); return; }
+    fetch(`${API}/campaigns/${campana}`).then(r => r.json())
+      .then(res => setIdsCampana(new Set<string>(res.data?.products?.map((p: { id: string }) => p.id) || [])))
+      .catch(() => setIdsCampana(new Set()));
+  }, [campana]);
 
-      // If campaign from URL, load campaign products
-      const cSlug = searchParams.get('campaign');
-      if (cSlug) {
-        const cRes = await fetch(`${API}/campaigns/${cSlug}`).then(r => r.json());
-        if (cRes.success) {
-          const pids = new Set<string>(cRes.data.products?.map((p: any) => p.id) || []);
-          setCampaignProductIds(pids);
-          setSelectedCampaign(cSlug);
-        }
-      }
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+  // La categoría y la búsqueda quedan en la URL para poder compartir el enlace
+  useEffect(() => {
+    const q = new URLSearchParams();
+    if (categoria) q.set('categoria', categoria);
+    if (busqueda.trim()) q.set('q', busqueda.trim());
+    if (nivel) q.set('nivel', nivel);
+    if (campana) q.set('campaign', campana);
+    router.replace(`/catalog${q.size ? `?${q}` : ''}`, { scroll: false });
+  }, [categoria, busqueda, nivel, campana, router]);
+
+  const precioTope = useMemo(() => Math.ceil(Math.max(10, ...todos.map(p => p.basePrice))), [todos]);
+  const tope = precioMax ?? precioTope;
+
+  const coincide = (p: Product, ignorar?: 'categoria' | 'marca' | 'nivel') => {
+    const q = busqueda.trim().toLowerCase();
+    if (q && !`${p.name} ${p.brand ?? ''} ${p.category}`.toLowerCase().includes(q)) return false;
+    if (ignorar !== 'categoria' && categoria && p.category !== categoria) return false;
+    if (ignorar !== 'marca' && marca && p.brand !== marca) return false;
+    if (ignorar !== 'nivel' && nivel && p.tier !== nivel) return false;
+    if (idsCampana && !idsCampana.has(p.id)) return false;
+    return p.basePrice <= tope;
   };
 
-  const loadCampaignProducts = async (slug: string) => {
-    if (!slug) { setCampaignProductIds(new Set()); setSelectedCampaign(''); return; }
-    try {
-      const res = await fetch(`${API}/campaigns/${slug}`).then(r => r.json());
-      if (res.success) {
-        setCampaignProductIds(new Set(res.data.products?.map((p: any) => p.id) || []));
-        setSelectedCampaign(slug);
-      }
-    } catch { setCampaignProductIds(new Set()); }
-  };
+  const visibles = useMemo(() => {
+    const lista = todos.filter(p => coincide(p));
+    if (orden === 'precio-asc') lista.sort((a, b) => a.basePrice - b.basePrice);
+    else if (orden === 'precio-desc') lista.sort((a, b) => b.basePrice - a.basePrice);
+    else if (orden === 'nombre') lista.sort((a, b) => a.name.localeCompare(b.name));
+    else lista.sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0) || a.category.localeCompare(b.category) || a.basePrice - b.basePrice);
+    return lista;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todos, busqueda, categoria, marca, nivel, idsCampana, tope, orden]);
 
-  // Get filtered products for display
-  const getFiltered = () => {
-    let filtered = [...allProducts];
-    if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.brand?.toLowerCase().includes(search.toLowerCase()));
-    if (selectedCategory) filtered = filtered.filter(p => p.category === selectedCategory);
-    if (selectedBrand) filtered = filtered.filter(p => p.brand === selectedBrand);
-    if (selectedTier) filtered = filtered.filter(p => p.tier === selectedTier);
-    if (selectedCampaign && campaignProductIds.size > 0) filtered = filtered.filter(p => campaignProductIds.has(p.id));
-    filtered = filtered.filter(p => p.basePrice >= priceRange[0] && p.basePrice <= priceRange[1]);
+  const contar = (ignorar: 'categoria' | 'marca' | 'nivel', clave: (p: Product) => string | undefined) =>
+    todos.filter(p => coincide(p, ignorar)).reduce((acc, p) => {
+      const k = clave(p); if (k) acc[k] = (acc[k] || 0) + 1; return acc;
+    }, {} as Record<string, number>);
+  const porCategoria = contar('categoria', p => p.category);
+  const porMarca = contar('marca', p => p.brand);
+  const porNivel = contar('nivel', p => p.tier);
+  const categorias = [...new Set(todos.map(p => p.category))].sort();
+  const marcas = Object.keys(porMarca).sort();
 
-    if (sortBy === 'price-asc') filtered.sort((a, b) => a.basePrice - b.basePrice);
-    else if (sortBy === 'price-desc') filtered.sort((a, b) => b.basePrice - a.basePrice);
-    else if (sortBy === 'rating') filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    else filtered.sort((a, b) => a.name.localeCompare(b.name));
-    return filtered;
-  };
+  const activos = [categoria, marca, nivel, campana].filter(Boolean).length + (precioMax !== null ? 1 : 0);
+  const limpiar = () => { setBusqueda(''); setCategoria(''); setMarca(''); setNivel(''); setCampana(''); setPrecioMax(null); };
 
-  // Get available options based on current filters (cascading)
-  const getAvailable = () => {
-    let base = [...allProducts];
-    if (search) base = base.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.brand?.toLowerCase().includes(search.toLowerCase()));
 
-    // For categories: apply brand + tier filters
-    const forCategories = base.filter(p => {
-      if (selectedBrand && p.brand !== selectedBrand) return false;
-      if (selectedTier && p.tier !== selectedTier) return false;
-      return p.basePrice >= priceRange[0] && p.basePrice <= priceRange[1];
-    });
-
-    // For brands: apply category + tier filters
-    const forBrands = base.filter(p => {
-      if (selectedCategory && p.category !== selectedCategory) return false;
-      if (selectedTier && p.tier !== selectedTier) return false;
-      return p.basePrice >= priceRange[0] && p.basePrice <= priceRange[1];
-    });
-
-    // For tiers: apply category + brand filters
-    const forTiers = base.filter(p => {
-      if (selectedCategory && p.category !== selectedCategory) return false;
-      if (selectedBrand && p.brand !== selectedBrand) return false;
-      return p.basePrice >= priceRange[0] && p.basePrice <= priceRange[1];
-    });
-
-    return {
-      categories: [...new Set(forCategories.map(p => p.category))].sort(),
-      categoryCounts: forCategories.reduce((acc, p) => { acc[p.category] = (acc[p.category] || 0) + 1; return acc; }, {} as Record<string, number>),
-      brands: [...new Set(forBrands.map(p => p.brand).filter(Boolean))].sort() as string[],
-      brandCounts: forBrands.reduce((acc, p) => { if (p.brand) acc[p.brand] = (acc[p.brand] || 0) + 1; return acc; }, {} as Record<string, number>),
-      tierCounts: ['economico', 'medio', 'premium'].reduce((acc, t) => { acc[t] = forTiers.filter(p => p.tier === t).length; return acc; }, {} as Record<string, number>),
-    };
-  };
-
-  useEffect(() => { setProducts(getFiltered()); }, [selectedCategory, selectedBrand, selectedTier, selectedCampaign, campaignProductIds, priceRange, sortBy, search, allProducts]);
-
-  const available = getAvailable();
-
-  const clearFilters = () => {
-    setSearch(''); setSelectedCategory(''); setSelectedBrand(''); setSelectedTier('');
-    setSelectedCampaign(''); setCampaignProductIds(new Set());
-    setPriceRange([0, 30000]); setSortBy('name');
-  };
-
-  const activeFilterCount = [selectedCategory, selectedBrand, selectedTier, selectedCampaign].filter(Boolean).length + (priceRange[0] > 0 || priceRange[1] < 30000 ? 1 : 0);
-
-  const FilterSidebar = () => (
-    <div className="space-y-4">
-      {/* Categories */}
-      <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
-        <button onClick={() => toggleSection('categories')} className="w-full px-4 py-3 flex items-center justify-between text-sm font-bold text-slate-900">
-          Categorias {openSections.categories ? <ChevronUp className="h-4 w-4 text-neutral-400" /> : <ChevronDown className="h-4 w-4 text-neutral-400" />}
-        </button>
-        {openSections.categories && (
-          <div className="px-4 pb-3 space-y-1">
-            <button onClick={() => setSelectedCategory('')}
-              className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${!selectedCategory ? 'bg-blue-500 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
-              Todas ({allProducts.length})
-            </button>
-            {available.categories.map(cat => (
-              <button key={cat} onClick={() => setSelectedCategory(selectedCategory === cat ? '' : cat)}
-                className={`w-full text-left px-3 py-1.5 rounded-lg text-xs flex justify-between transition-colors ${selectedCategory === cat ? 'bg-blue-500 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
-                <span>{cat}</span>
-                <span className={selectedCategory === cat ? 'text-white/70' : 'text-neutral-400'}>{available.categoryCounts[cat] || 0}</span>
-              </button>
+  const Filtros = (
+    <div className="space-y-6">
+      <section aria-labelledby="f-nivel">
+        <h2 id="f-nivel" className="mb-2 text-sm font-bold">Nivel</h2>
+        {TIERS.map(t => (
+          <Chip key={t.id} activo={nivel === t.id} onClick={() => setNivel(nivel === t.id ? '' : t.id)}>
+            <span>{t.label}</span><span className={nivel === t.id ? 'text-white/75' : 'text-tenue'}>{porNivel[t.id] || 0}</span>
+          </Chip>
+        ))}
+      </section>
+      {marcas.length > 0 && (
+        <section aria-labelledby="f-marca">
+          <h2 id="f-marca" className="mb-2 text-sm font-bold">Marca</h2>
+          <div className="max-h-56 overflow-y-auto pr-1 custom-scrollbar">
+            {marcas.map(m => (
+              <Chip key={m} activo={marca === m} onClick={() => setMarca(marca === m ? '' : m)}>
+                <span className="truncate">{m}</span><span className={marca === m ? 'text-white/75' : 'text-tenue'}>{porMarca[m]}</span>
+              </Chip>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* Brands */}
-      <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
-        <button onClick={() => toggleSection('brands')} className="w-full px-4 py-3 flex items-center justify-between text-sm font-bold text-slate-900">
-          Marcas {openSections.brands ? <ChevronUp className="h-4 w-4 text-neutral-400" /> : <ChevronDown className="h-4 w-4 text-neutral-400" />}
-        </button>
-        {openSections.brands && (
-          <div className="px-4 pb-3 space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
-            {available.brands.map(bName => (
-              <button key={bName} onClick={() => setSelectedBrand(selectedBrand === bName ? '' : bName)}
-                className={`w-full text-left px-3 py-1.5 rounded-lg text-xs flex justify-between transition-colors ${selectedBrand === bName ? 'bg-blue-500 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
-                <span>{bName}</span>
-                <span className={selectedBrand === bName ? 'text-white/70' : 'text-neutral-400'}>{available.brandCounts[bName] || 0}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Tier */}
-      <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
-        <button onClick={() => toggleSection('tier')} className="w-full px-4 py-3 flex items-center justify-between text-sm font-bold text-slate-900">
-          Calidad {openSections.tier ? <ChevronUp className="h-4 w-4 text-neutral-400" /> : <ChevronDown className="h-4 w-4 text-neutral-400" />}
-        </button>
-        {openSections.tier && (
-          <div className="px-4 pb-3 space-y-1">
-            {['economico', 'medio', 'premium'].map(tier => {
-              const count = available.tierCounts[tier] || 0;
-              if (count === 0 && selectedTier !== tier) return null;
-              return (
-                <button key={tier} onClick={() => setSelectedTier(selectedTier === tier ? '' : tier)}
-                  className={`w-full text-left px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-colors ${selectedTier === tier ? 'bg-blue-500 text-white' : count === 0 ? 'text-neutral-300' : 'text-slate-600 hover:bg-slate-50'}`}>
-                  <span className={`w-2 h-2 rounded-full ${tier === 'premium' ? 'bg-amber-400' : tier === 'medio' ? 'bg-blue-400' : 'bg-green-400'}`} />
-                  <span className="capitalize">{tier}</span>
-                  <span className={`ml-auto ${selectedTier === tier ? 'text-white/70' : 'text-neutral-400'}`}>{count}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Price Range */}
-      <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
-        <button onClick={() => toggleSection('price')} className="w-full px-4 py-3 flex items-center justify-between text-sm font-bold text-slate-900">
-          Precio {openSections.price ? <ChevronUp className="h-4 w-4 text-neutral-400" /> : <ChevronDown className="h-4 w-4 text-neutral-400" />}
-        </button>
-        {openSections.price && (
-          <div className="px-4 pb-3">
-            <input type="range" min="0" max="30000" step="500" value={priceRange[1]}
-              onChange={e => setPriceRange([priceRange[0], parseInt(e.target.value)])}
-              className="w-full accent-blue-500" />
-            <div className="flex justify-between text-[10px] text-neutral-400 mt-1">
-              <span>S/ 0</span>
-              <span className="font-bold text-slate-900">Hasta S/ {(priceRange[1] / 100).toFixed(0)}</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Campaigns / Promos */}
-      {campaigns.length > 0 && (
-        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
-          <button onClick={() => toggleSection('campaigns')} className="w-full px-4 py-3 flex items-center justify-between text-sm font-bold text-slate-900">
-            <span className="flex items-center gap-1.5"><Percent className="h-3.5 w-3.5 text-red-500" /> Ofertas</span>
-            {openSections.campaigns ? <ChevronUp className="h-4 w-4 text-neutral-400" /> : <ChevronDown className="h-4 w-4 text-neutral-400" />}
-          </button>
-          {openSections.campaigns && (
-            <div className="px-4 pb-3 space-y-1">
-              <button onClick={() => { setSelectedCampaign(''); setCampaignProductIds(new Set()); }}
-                className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${!selectedCampaign ? 'bg-blue-500 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
-                Todos
-              </button>
-              {campaigns.map(c => (
-                <button key={c.id} onClick={() => loadCampaignProducts(selectedCampaign === c.slug ? '' : c.slug)}
-                  className={`w-full text-left px-3 py-1.5 rounded-lg text-xs flex justify-between transition-colors ${selectedCampaign === c.slug ? 'bg-red-500 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
-                  <span>{c.name}</span>
-                  <span className={selectedCampaign === c.slug ? 'text-white/70' : 'text-red-500'}>{c.discount_percent}%</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        </section>
       )}
-
-      {activeFilterCount > 0 && (
-        <button onClick={clearFilters} className="w-full py-2 text-xs text-red-500 font-medium hover:text-red-600">
-          Limpiar filtros ({activeFilterCount})
-        </button>
+      <section aria-labelledby="f-precio">
+        <h2 id="f-precio" className="mb-2 flex justify-between text-sm font-bold">Precio <span className="font-normal text-tenue">hasta S/ {tope}</span></h2>
+        <input type="range" min={1} max={precioTope} step={1} value={tope} aria-labelledby="f-precio"
+          onChange={e => setPrecioMax(Number(e.target.value) >= precioTope ? null : Number(e.target.value))}
+          className="w-full cursor-pointer accent-primario" />
+      </section>
+      {campanas.length > 0 && (
+        <section aria-labelledby="f-ofertas">
+          <h2 id="f-ofertas" className="mb-2 flex items-center gap-1.5 text-sm font-bold"><Percent className="h-3.5 w-3.5 text-profe" aria-hidden="true" /> Ofertas</h2>
+          {campanas.map(c => (
+            <Chip key={c.id} activo={campana === c.slug} onClick={() => setCampana(campana === c.slug ? '' : c.slug)}>
+              <span className="truncate">{c.name}</span><span className={campana === c.slug ? 'text-white/75' : 'text-profe'}>-{c.discount_percent}%</span>
+            </Chip>
+          ))}
+        </section>
       )}
+      {activos > 0 && <button onClick={limpiar} className="cursor-pointer text-sm font-semibold text-profe hover:underline">Quitar filtros ({activos})</button>}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-sky-100">
-      <div className="max-w-7xl mx-auto py-6 px-4">
-        {/* Search bar */}
-        <div className="flex gap-3 mb-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400" />
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar productos, marcas..."
-              className="w-full pl-12 pr-4 py-3.5 bg-white rounded-xl text-sm shadow-[0px_2px_4px_0px_rgba(0,0,0,0.06)] border-none placeholder-neutral-400" />
-          </div>
-          <button onClick={() => setShowMobileFilters(!showMobileFilters)}
-            className="md:hidden w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-[0px_2px_4px_0px_rgba(0,0,0,0.06)] relative">
-            <SlidersHorizontal className="h-5 w-5 text-slate-600" />
-            {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">{activeFilterCount}</span>}
-          </button>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-            className="bg-white rounded-xl px-3 py-2 text-sm shadow-[0px_2px_4px_0px_rgba(0,0,0,0.06)] border-none text-slate-600">
-            <option value="name">Nombre</option>
-            <option value="price-asc">Menor precio</option>
-            <option value="price-desc">Mayor precio</option>
-            <option value="rating">Mejor valorado</option>
-          </select>
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-[-0.02em] sm:text-4xl">Arma tu pedido</h1>
+          <p className="mt-1 text-tenue">Elige útil por útil. Puedes juntarlo con la lista de tu colegio en el mismo carrito.</p>
         </div>
+        <Link href="/upload" className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border-2 border-grafito px-4 py-2.5 text-sm font-bold hover:bg-papel md:self-auto">
+          <Camera className="h-4 w-4" aria-hidden="true" /> ¿Tienes la lista? Súbela
+        </Link>
+      </div>
 
-        <div className="flex gap-6">
-          {/* Sidebar filters - desktop */}
-          <div className="hidden md:block w-64 flex-shrink-0">
-            <FilterSidebar />
-          </div>
+      {/* Categorías */}
+      <nav aria-label="Categorías" className="-mx-4 mt-6 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0">
+        <button onClick={() => setCategoria('')} aria-pressed={!categoria}
+          className={`shrink-0 cursor-pointer rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${!categoria ? 'border-primario bg-primario text-white' : 'border-linea bg-papel hover:border-tenue'}`}>
+          Todo
+        </button>
+        {categorias.map(c => (
+          <button key={c} onClick={() => setCategoria(categoria === c ? '' : c)} aria-pressed={categoria === c}
+            className={`shrink-0 cursor-pointer rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${categoria === c ? 'border-primario bg-primario text-white' : 'border-linea bg-papel hover:border-tenue'}`}>
+            {c} <span className={categoria === c ? 'text-white/75' : 'text-tenue'}>{porCategoria[c] || 0}</span>
+          </button>
+        ))}
+      </nav>
 
-          {/* Mobile filters overlay */}
-          {showMobileFilters && (
-            <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-50" onClick={() => setShowMobileFilters(false)}>
-              <div className="absolute right-0 top-0 bottom-0 w-72 bg-sky-100 p-4 overflow-y-auto" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-slate-900">Filtros</h2>
-                  <button onClick={() => setShowMobileFilters(false)}><X className="h-5 w-5 text-slate-600" /></button>
-                </div>
-                <FilterSidebar />
+      {/* Búsqueda y orden */}
+      <div className="mt-4 flex flex-wrap gap-2 sm:flex-nowrap">
+        <label className="relative min-w-0 flex-[1_1_100%] sm:flex-1">
+          <span className="sr-only">Buscar productos</span>
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-tenue" aria-hidden="true" />
+          <input value={busqueda} onChange={e => setBusqueda(e.target.value)} name="q" type="search" autoComplete="off"
+            placeholder="Busca cuadernos, colores, una marca…"
+            className="w-full rounded-xl border border-linea bg-papel py-3 pl-11 pr-4 focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
+        </label>
+        <button onClick={() => setFiltrosMovil(true)} aria-label="Filtros"
+          className="relative flex h-[50px] w-[50px] cursor-pointer items-center justify-center rounded-xl border border-linea bg-papel md:hidden">
+          <SlidersHorizontal className="h-5 w-5" />
+          {activos > 0 && <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primario text-[11px] font-bold text-white">{activos}</span>}
+        </button>
+        <select value={orden} onChange={e => setOrden(e.target.value)} aria-label="Ordenar"
+          className="h-[50px] flex-1 cursor-pointer rounded-xl border border-linea bg-papel px-3 text-sm text-grafito sm:flex-none">
+          <option value="relevancia">Recomendados</option>
+          <option value="precio-asc">Menor precio</option>
+          <option value="precio-desc">Mayor precio</option>
+          <option value="nombre">Nombre</option>
+        </select>
+      </div>
+
+      <div className="mt-6 flex gap-8">
+        <aside className="hidden w-60 shrink-0 md:block">{Filtros}</aside>
+
+        {filtrosMovil && (
+          <div className="fixed inset-0 z-50 bg-black/40 md:hidden" onClick={() => setFiltrosMovil(false)}>
+            <div role="dialog" aria-modal="true" aria-label="Filtros" onClick={e => e.stopPropagation()}
+              className="animate-entrar absolute inset-y-0 right-0 flex w-[85%] max-w-sm flex-col bg-papel">
+              <div className="flex items-center justify-between border-b border-linea px-5 py-4">
+                <h2 className="text-lg font-bold">Filtros</h2>
+                <button onClick={() => setFiltrosMovil(false)} className="cursor-pointer rounded-lg p-1.5 hover:bg-fondo" aria-label="Cerrar"><X className="h-5 w-5" /></button>
               </div>
+              <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5">{Filtros}</div>
+              <div className="border-t border-linea p-4">
+                <button onClick={() => setFiltrosMovil(false)} className="w-full cursor-pointer rounded-xl bg-primario py-3 font-bold text-white">Ver {visibles.length} productos</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <p className="mb-3 text-sm text-tenue" aria-live="polite">{cargando ? 'Cargando productos…' : `${visibles.length} productos`}</p>
+          {cargando ? (
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton aspect-[3/4]" />)}
+            </div>
+          ) : visibles.length === 0 ? (
+            <div className="rounded-2xl border border-linea bg-papel px-6 py-14 text-center">
+              <h2 className="text-lg font-bold">No encontramos productos con esos filtros</h2>
+              <p className="mt-1 text-tenue">Prueba con otra palabra o quita algún filtro.</p>
+              {activos > 0 && <button onClick={limpiar} className="mt-4 cursor-pointer rounded-xl bg-primario px-4 py-2.5 font-bold text-white">Quitar filtros</button>}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {visibles.map(p => <ProductCard key={p.id} product={p} />)}
             </div>
           )}
-
-          {/* Products grid */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-neutral-400">{products.length} productos</p>
-              {activeFilterCount > 0 && (
-                <div className="flex items-center gap-2">
-                  {selectedCategory && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">{selectedCategory} <button onClick={() => setSelectedCategory('')}><X className="h-2.5 w-2.5" /></button></span>}
-                  {selectedBrand && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">{selectedBrand} <button onClick={() => setSelectedBrand('')}><X className="h-2.5 w-2.5" /></button></span>}
-                  {selectedTier && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1 capitalize">{selectedTier} <button onClick={() => setSelectedTier('')}><X className="h-2.5 w-2.5" /></button></span>}
-                  {selectedCampaign && <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">{campaigns.find(c => c.slug === selectedCampaign)?.name} <button onClick={() => { setSelectedCampaign(''); setCampaignProductIds(new Set()); }}><X className="h-2.5 w-2.5" /></button></span>}
-                </div>
-              )}
-            </div>
-
-            {loading ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)]">
-                    <div className="m-3 rounded-2xl aspect-square skeleton" />
-                    <div className="px-4 pb-4 space-y-2"><div className="skeleton h-4 w-3/4" /><div className="skeleton h-3 w-1/3" /></div>
-                  </div>
-                ))}
-              </div>
-            ) : products.length === 0 ? (
-              <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-16 text-center">
-                <Search className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-slate-900 mb-1">Sin resultados</h3>
-                <button onClick={clearFilters} className="text-blue-500 text-sm font-medium mt-2">Limpiar filtros</button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
-                {products.map((product, i) => (
-                  <ProductCard key={product.id} product={product} index={i} />
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>
