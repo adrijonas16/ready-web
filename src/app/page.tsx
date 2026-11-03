@@ -1,12 +1,49 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Camera, Search, ShoppingBag, ChevronRight } from 'lucide-react';
+import Vitrina from '@/components/Vitrina';
 import NewsCarousel from '@/components/NewsCarousel';
 
 export const metadata: Metadata = {
   title: 'Ready - Utiles Escolares en Arequipa | Envio a Domicilio',
-  description: 'Compra utiles escolares online en Arequipa. Sube la lista de tu colegio, elige productos economicos o premium. Envio gratis en la Ciudad Blanca.',
+  description: 'Sube la foto de la lista de útiles de tu colegio y te la armamos completa. Elige económico, estándar o premium y recíbela en casa en Arequipa.',
 };
-import { Upload, ShoppingBag, Package, CheckCircle, Search, Truck, ClipboardList, ArrowRight } from 'lucide-react';
+
+// Ejemplo ilustrativo: una lista escrita y las 3 opciones que se arman con ella
+const lineas = ['3 cuad. cuadriculado A4', '1 caja colores x24', '2 gomas en barra', '1 papel lustre', 'témperas x7'];
+const paquetes = [
+  { nombre: 'Económico', total: 'S/ 51.60', fondo: 'bg-eco-claro', punto: 'bg-eco', nota: 'Lo que pide la lista' },
+  { nombre: 'Normal', total: 'S/ 69.80', fondo: 'bg-primario-claro', punto: 'bg-primario', nota: 'Marcas conocidas' },
+  { nombre: 'Premium', total: 'S/ 102.50', fondo: 'bg-premium-claro', punto: 'bg-premium', nota: 'Dura todo el año' },
+];
+
+function ListaYPaquetes() {
+  return (
+    <figure className="relative mx-auto h-[400px] w-full max-w-[480px] sm:h-[430px]">
+      <div className="papel-rayado sombra-hoja absolute left-0 top-0 w-[62%] -rotate-[4deg] rounded-[6px] pb-6 pl-[50px] pr-4 pt-[14px]">
+        <p className="font-mano text-[1.5rem] leading-[38px] text-primario">Lista de útiles</p>
+        {lineas.map(l => <p key={l} className="font-mano text-[1.35rem] leading-[52px] text-primario">{l}</p>)}
+      </div>
+      <div className="absolute bottom-0 right-0 w-[62%] space-y-2.5">
+        {paquetes.map((p, i) => (
+          <div key={p.nombre}
+            className={`animate-slide-up flex items-center gap-3 rounded-2xl border border-linea bg-papel p-3.5 shadow-[0_12px_30px_-16px_rgba(23,33,29,0.35)] ${i === 1 ? 'sm:-translate-x-4' : ''}`}
+            style={{ animationDelay: `${300 + i * 180}ms` }}>
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${p.fondo}`}>
+              <span className={`h-3 w-3 rounded-full ${p.punto}`} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-extrabold leading-tight">{p.nombre}</span>
+              <span className="block truncate text-xs text-tenue">{p.nota}</span>
+            </span>
+            <span className="text-lg font-extrabold tabular-nums">{p.total}</span>
+          </div>
+        ))}
+      </div>
+      <figcaption className="sr-only">Ejemplo: una lista escrita a mano y las opciones Económico, Normal y Premium con su precio total</figcaption>
+    </figure>
+  );
+}
 
 export default function HomePage() {
   const jsonLd = {
@@ -20,125 +57,98 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-sky-100">
+    <div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      {/* Arequipa Banner */}
-      <div className="px-4 pt-4 max-w-7xl mx-auto">
-        <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-3 md:p-4 flex items-center gap-3 md:gap-4">
-          <img
-            src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Bandera_de_Arequipa.svg/960px-Bandera_de_Arequipa.svg.png"
-            alt="Bandera de Arequipa"
-            className="h-10 w-auto rounded-md shadow-sm flex-shrink-0"
-          />
-          <div className="flex-1">
-            <p className="text-sm font-bold text-slate-900">Disponible en Arequipa</p>
-            <p className="text-xs text-neutral-400">La Ciudad Blanca — Proximamente en mas ciudades del Peru</p>
+      {/* Hero */}
+      <section className="papel-cuadriculado overflow-hidden border-b border-linea">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:px-6 md:py-20 lg:grid-cols-[1.05fr_1fr] [&>*]:min-w-0">
+          <div>
+            <h1 className="text-[2.6rem] font-extrabold leading-[1.02] tracking-[-0.035em] text-grafito sm:text-6xl">
+              Sube la foto de la lista del colegio. Nosotros la armamos.
+            </h1>
+            <p className="mt-6 max-w-[34rem] text-lg leading-relaxed text-tenue">
+              Con la foto armamos tu lista completa en tres opciones: económica, normal y premium.
+              Eliges una, la ajustas a tu gusto y le sumas forrado, etiquetas, carátulas y libros.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/upload"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-acento px-6 py-4 text-base font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.12)] transition-colors hover:bg-acento-oscuro">
+                <Camera className="h-5 w-5" aria-hidden="true" /> Subir mi lista
+              </Link>
+              <Link href="/lists"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-grafito bg-papel px-6 py-4 text-base font-bold text-grafito transition-colors hover:bg-fondo">
+                <Search className="h-5 w-5" aria-hidden="true" /> Buscar la lista de mi colegio
+              </Link>
+            </div>
+            <p className="mt-5 text-sm text-tenue">
+              ¿Prefieres elegir tú?{' '}
+              <Link href="/catalog" className="font-semibold text-primario underline underline-offset-2">Arma tu pedido producto por producto</Link>.
+            </p>
           </div>
+          <ListaYPaquetes />
         </div>
-      </div>
+      </section>
 
-      {/* News / Promotions */}
-      <section className="px-4 pt-4 max-w-7xl mx-auto">
+      {/* Tres formas de comprar */}
+      <section aria-labelledby="formas" className="mx-auto max-w-6xl px-4 pt-14 sm:px-6">
+        <h2 id="formas" className="text-3xl font-extrabold tracking-[-0.02em]">¿Cómo quieres comprar?</h2>
+        <ul className="mt-6 grid gap-4 md:grid-cols-3">
+          {[
+            { href: '/upload', icono: Camera, titulo: 'Sube la foto de tu lista', texto: 'La leemos, la revisamos y te la damos armada en Económico, Normal o Premium.', boton: 'Subir mi lista', fondo: 'bg-acento-claro', color: 'text-acento-oscuro' },
+            { href: '/lists', icono: Search, titulo: 'Busca la lista de tu colegio', texto: 'Si otro padre ya la subió y la aprobamos, la eliges y compras al momento.', boton: 'Buscar mi colegio', fondo: 'bg-primario-claro', color: 'text-primario' },
+            { href: '/catalog', icono: ShoppingBag, titulo: 'Arma tu pedido', texto: 'Elige útil por útil, por categoría o marca, como en cualquier tienda.', boton: 'Ver productos', fondo: 'bg-eco-claro', color: 'text-eco' },
+          ].map(f => (
+            <li key={f.href}>
+              <Link href={f.href} className="group flex h-full flex-col rounded-2xl border border-linea bg-papel p-5 transition-[border-color,box-shadow] hover:border-primario/40 hover:shadow-[0_12px_32px_-20px_rgba(15,23,42,0.5)]">
+                <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${f.fondo} ${f.color}`}><f.icono className="h-6 w-6" aria-hidden="true" /></span>
+                <h3 className="mt-4 text-xl font-bold">{f.titulo}</h3>
+                <p className="mt-1 flex-1 text-tenue">{f.texto}</p>
+                <span className="mt-4 inline-flex items-center gap-0.5 font-semibold text-primario">
+                  {f.boton} <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Cómo funciona */}
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <h2 className="text-3xl font-extrabold tracking-[-0.025em]">Cómo funciona con tu lista</h2>
+        <ol className="mt-8 grid gap-8 md:grid-cols-3">
+          {[
+            { t: 'Toma la foto de la lista', d: 'Elige el colegio y el grado, y sube la foto, el PDF o el Word que te dio el colegio. Puedes subir varias hojas.' },
+            { t: 'Elige tu opción', d: 'Cuando revisamos tu lista te avisamos y la ves armada en Económico, Normal y Premium con el precio total. Eliges una y cambias lo que quieras.' },
+            { t: 'Forrado, etiquetas y libros', d: 'Forramos los cuadernos del color que pidas, ponemos etiquetas con su nombre, hacemos las carátulas y conseguimos los libros. Te llega todo listo a casa.' },
+          ].map((paso, i) => (
+            <li key={paso.t} className="border-t-2 border-grafito pt-4">
+              <span className="font-mano text-4xl font-bold leading-none text-primario">{i + 1}.</span>
+              <h3 className="mt-2 text-xl font-bold">{paso.t}</h3>
+              <p className="mt-2 leading-relaxed text-tenue">{paso.d}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <Vitrina />
+
+      {/* Promociones */}
+      <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
         <NewsCarousel />
       </section>
 
-      {/* Hero Banner */}
-      <section className="px-4 pt-6 pb-4 max-w-7xl mx-auto">
-        <div className="bg-gradient-to-br from-stone-900 to-neutral-700 rounded-[20px] shadow-[0px_7px_15px_0px_rgba(0,0,0,0.14)] overflow-hidden relative p-6 md:p-10 min-h-[200px]">
-          <div className="relative z-10 max-w-md">
-            <p className="text-white text-xs font-bold tracking-wider uppercase mb-1">READY 2026</p>
-            <h1 className="text-amber-300 text-3xl md:text-4xl font-bold leading-tight tracking-wide mb-2">
-              Utiles Escolares
-            </h1>
-            <p className="text-white text-base font-semibold mb-1">Todo lo que necesitas</p>
-            <p className="text-white/60 text-sm mb-6">para el ano escolar en un solo lugar</p>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/lists"
-                className="bg-amber-300 text-white px-5 py-2 rounded-lg font-semibold text-sm transition-shadow duration-200 hover:shadow-lg"
-              >
-                Ver Listas
-              </Link>
-              <Link
-                href="/send-list"
-                className="bg-white/15 backdrop-blur-sm text-white px-5 py-2 rounded-lg font-semibold text-sm border border-white/20 transition-colors duration-150 hover:bg-white/25"
-              >
-                Enviar Lista
-              </Link>
-            </div>
+      {/* Cierre */}
+      <section className="bg-primario text-white">
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-14 sm:px-6 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-3xl font-extrabold tracking-[-0.025em]">¿Tienes la lista a la mano?</h2>
+            <p className="mt-2 max-w-xl text-white">Tómale una foto ahora. La revisamos y te avisamos cuando puedas elegirla en Económico, Normal o Premium.</p>
           </div>
-        </div>
-      </section>
-
-      {/* Trending / How it works */}
-      <section className="px-4 py-6 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-slate-900 text-xl font-bold tracking-tight">Como funciona</h2>
-          <Link href="/catalog" className="text-zinc-500 text-xs flex items-center gap-1 bg-white rounded-sm px-2 py-1 hover:text-blue-500 transition-colors duration-150">
-            Ver catalogo
-            <ArrowRight className="h-3 w-3" />
+          <Link href="/upload"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-acento px-6 py-4 font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.15)] hover:bg-acento-oscuro">
+            <Camera className="h-5 w-5" aria-hidden="true" /> Subir mi lista
           </Link>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
-          {[
-            { icon: Upload, title: 'Sube tu lista', desc: 'Foto o texto de la lista', color: 'bg-blue-500' },
-            { icon: Search, title: 'Procesamos', desc: 'Encontramos los productos', color: 'bg-blue-500' },
-            { icon: ShoppingBag, title: 'Agrega al carrito', desc: 'Revisa y personaliza', color: 'bg-blue-500' },
-            { icon: Truck, title: 'Recibe en casa', desc: 'Envio a domicilio', color: 'bg-blue-500' },
-          ].map((step, i) => (
-            <div key={i} className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.12)] p-5 text-center group transition-transform duration-200 hover:-translate-y-1">
-              <div className={`w-12 h-12 ${step.color} rounded-2xl flex items-center justify-center mx-auto mb-3 transition-transform duration-200 group-hover:scale-105`}>
-                <step.icon className="h-5 w-5 text-white" />
-              </div>
-              <h3 className="font-bold text-sm text-slate-900 mb-1">{step.title}</h3>
-              <p className="text-xs text-neutral-400">{step.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="px-4 py-6 max-w-7xl mx-auto">
-        <h2 className="text-slate-900 text-xl font-bold tracking-tight mb-5">Por que Ready</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger-children">
-          {[
-            { icon: CheckCircle, title: 'Listas Oficiales', desc: 'Acceso directo a las listas de colegios asociados. Sin revision, compra inmediata.', bgColor: 'bg-green-100' },
-            { icon: Package, title: 'Gran Catalogo', desc: 'Miles de productos de las mejores marcas en un solo lugar.', bgColor: 'bg-violet-100' },
-            { icon: Truck, title: 'Envio a Domicilio', desc: 'Rastreo en tiempo real hasta que llega a tu puerta.', bgColor: 'bg-orange-100' },
-          ].map((feat, i) => (
-            <div key={i} className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.12)] p-6 group transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)]">
-              <div className={`w-14 h-14 ${feat.bgColor} rounded-2xl flex items-center justify-center mb-4 transition-transform duration-200 group-hover:scale-105`}>
-                <feat.icon className="h-6 w-6 text-slate-700" />
-              </div>
-              <h3 className="font-bold text-base text-slate-900 mb-2">{feat.title}</h3>
-              <p className="text-sm text-neutral-400 leading-relaxed">{feat.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="px-4 py-6 pb-10 max-w-7xl mx-auto">
-        <div className="bg-blue-500 rounded-[20px] p-8 text-white text-center shadow-lg shadow-blue-500/20">
-          <h2 className="text-2xl font-bold mb-2">Listo para empezar?</h2>
-          <p className="text-white/70 mb-6 text-sm">Envia tu lista de utiles o explora nuestro catalogo</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
-              href="/send-list"
-              className="bg-white text-blue-500 px-6 py-3 rounded-xl font-bold text-sm transition-shadow duration-200 hover:shadow-xl inline-flex items-center justify-center gap-2"
-            >
-              <ClipboardList className="h-4 w-4" />
-              Enviar mi Lista
-            </Link>
-            <Link
-              href="/catalog"
-              className="bg-white/15 backdrop-blur-sm px-6 py-3 rounded-xl font-bold text-sm border border-white/20 transition-colors duration-150 hover:bg-white/25 inline-flex items-center justify-center gap-2"
-            >
-              <ShoppingBag className="h-4 w-4" />
-              Ver Catalogo
-            </Link>
-          </div>
         </div>
       </section>
     </div>

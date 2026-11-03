@@ -1,13 +1,13 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { productsApi, brandsApi, categoriesApi } from '@/services/api';
+import { productsApi, brandsApi, categoriesApi, type Brand, type Category } from '@/services/api';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, Check, Plus, X, Star, Package, Trash2, Image as ImageIcon, Upload, ChevronDown, ShoppingCart } from 'lucide-react';
+import { Check, Plus, X, Package, Trash2, Upload, ShoppingCart } from 'lucide-react';
 import SearchSelect from '@/components/SearchSelect';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
 interface VariantType { id: string; name: string; values: VariantValue[] }
 interface VariantValue { id: string; value: string; image_url?: string; price_modifier: number; stock: number; color_hex?: string; is_active: boolean }
@@ -38,8 +38,10 @@ export default function ProductWizard({ productId }: { productId?: string }) {
   const [specs, setSpecs] = useState<Spec[]>([]);
 
   // Selects data
-  const [categories, setCategories] = useState<any[]>([]);
-  const [brands, setBrands] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  // Codigo mostrado mientras el producto aun no tiene SKU
+  const [skuProvisional] = useState(() => `SKU-${Date.now()}`);
 
   // Step 2: Variants
   const [variants, setVariants] = useState<VariantType[]>([]);
@@ -68,7 +70,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
             tier: p.tier || 'medio', rating: String(p.rating || 4), saleUnit: p.saleUnit || 'unidad',
           });
           if (p.imageUrl) setImages([p.imageUrl]);
-          if (p.images?.length) setImages(p.images.map((i: any) => i.image_url));
+          if (p.images?.length) setImages(p.images.map((i: { image_url: string }) => i.image_url));
           if (p.variants?.length) setVariants(p.variants);
           setSavedId(productId);
         }
@@ -91,7 +93,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
         await productsApi.update(savedId, data);
       } else {
         const id = await productsApi.create(data);
-        setSavedId(typeof id === 'string' ? id : (id as any));
+        setSavedId(id);
       }
       setStep(2);
     } catch (e) { console.error(e); }
@@ -206,7 +208,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-slate-900 mb-1">Codigo Producto</label>
-                  <input type="text" value={form.sku || `SKU-${Date.now()}`} disabled
+                  <input type="text" value={form.sku || skuProvisional} disabled
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-400 cursor-not-allowed" />
                 </div>
                 <div>
@@ -215,7 +217,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
                     value={form.category}
                     onChange={v => updateForm('category', v)}
                     placeholder="Seleccionar categoria"
-                    options={categories.map((c: any) => ({ value: c.name, label: c.name }))}
+                    options={categories.map(c => ({ value: c.name, label: c.name }))}
                   />
                 </div>
                 <div>
@@ -224,7 +226,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
                     value={form.brand}
                     onChange={v => updateForm('brand', v)}
                     placeholder="Seleccionar marca"
-                    options={brands.map((b: any) => ({ value: b.name, label: b.name }))}
+                    options={brands.map(b => ({ value: b.name, label: b.name }))}
                   />
                 </div>
                 <div>
@@ -402,7 +404,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
                         <button onClick={() => deleteVariantType(vt.id)} className="text-red-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
                       </div>
                       <div className="p-3 space-y-2">
-                        {vt.values.map((val: any) => (
+                        {vt.values.map(val => (
                           <div key={val.id} className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl">
                             {/* Image/Color preview */}
                             {val.color_hex ? (
@@ -597,7 +599,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
                     <div key={vt.id}>
                       <p className="text-[10px] text-slate-900 mb-1">{vt.name}:</p>
                       <div className="flex flex-wrap gap-1">
-                        {vt.values.slice(0, 6).map((v: any, i: number) => (
+                        {vt.values.slice(0, 6).map((v, i) => (
                           v.color_hex ? (
                             <div key={v.id} className={`w-5 h-5 rounded-full ${i === 0 ? 'ring-1 ring-blue-500 ring-offset-1' : ''}`}
                               style={{ backgroundColor: v.color_hex }} />

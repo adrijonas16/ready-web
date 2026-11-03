@@ -66,7 +66,62 @@ export interface SupplyList {
   fechaSubida?: string;
   fechaInicioRevision?: string;
   fechaValidacion?: string;
+  /** Lectura automática: PROCESANDO, LISTO, ERROR, MANUAL (sin IA) o DEMO (lector de prueba). */
+  iaEstado?: 'PROCESANDO' | 'LISTO' | 'ERROR' | 'MANUAL' | 'DEMO' | null;
+  iaMensaje?: string;
+  /** JSON de ListExtras guardado en la lista */
+  extras?: string;
   createdAt: string;
+}
+
+export interface ListBook {
+  id: string;
+  titulo: string;
+  editorial: string;
+  cantidad: number;
+  productoId?: string | null;
+  precio?: number | null;
+}
+
+export interface ListExtras {
+  forro: { activo: boolean; color?: string | null };
+  etiquetas: { activo: boolean; nombre: string; grado: string; diseno: string };
+  caratulas: { activo: boolean; cursos: string[] };
+  forrarLibros: boolean;
+  libros: ListBook[];
+  /** Útiles que el cliente ya tiene */
+  excluidos?: string[];
+  /** Diseño, color u otra variante elegida por útil (itemId → producto y valores) */
+  variantes?: Record<string, { productId: string; valores: ItemVariante[] }>;
+}
+
+export interface ItemVariante {
+  tipo: string;
+  valor: string;
+  valueId: string;
+  precio: number;
+  imagen?: string | null;
+}
+
+export interface VariantValue {
+  id: string;
+  value: string;
+  image_url?: string | null;
+  price_modifier: number;
+  stock: number;
+  is_active: boolean;
+  color_hex?: string | null;
+}
+
+export interface VariantType {
+  id: string;
+  name: string;
+  values: VariantValue[];
+}
+
+export interface ProductDetail extends Product {
+  variants?: VariantType[];
+  images?: { id: string; image_url: string; alt_text?: string | null }[];
 }
 
 export interface SupplyItem {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
+import type { Map as LeafletMap, Marker as LeafletMarker, LeafletMouseEvent } from 'leaflet';
 
 // Arequipa bounds
 const AREQUIPA_CENTER: [number, number] = [-16.4090, -71.5375];
@@ -15,20 +16,24 @@ interface MapPickerProps {
 
 export default function MapPicker({ onLocationSelect, initialLat, initialLng }: MapPickerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const mapInstanceRef = useRef<LeafletMap | null>(null);
+  const markerRef = useRef<LeafletMarker | null>(null);
   const [coords, setCoords] = useState<[number, number]>(
     initialLat && initialLng ? [initialLat, initialLng] : AREQUIPA_CENTER
   );
-  const [loaded, setLoaded] = useState(false);
+  const [, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
+    // Si el componente se desmonta antes de que cargue Leaflet, no se crea el mapa
+    // (evita "Map container is already initialized" al montar dos veces).
+    let cancelado = false;
 
     // Dynamic import of leaflet
     import('leaflet').then((L) => {
+      if (cancelado || !mapRef.current || mapInstanceRef.current) return;
       // Fix default icon
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
         iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -62,7 +67,7 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
         onLocationSelect(pos.lat, pos.lng, `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`);
       });
 
-      map.on('click', (e: any) => {
+      map.on('click', (e: LeafletMouseEvent) => {
         const pos = e.latlng;
         if (pos.lat < AREQUIPA_BOUNDS[0][0] || pos.lat > AREQUIPA_BOUNDS[1][0] ||
             pos.lng < AREQUIPA_BOUNDS[0][1] || pos.lng > AREQUIPA_BOUNDS[1][1]) return;
@@ -75,6 +80,7 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
     });
 
     return () => {
+      cancelado = true;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;

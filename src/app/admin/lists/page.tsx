@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { listsApi } from '@/services/api';
 import { SupplyList } from '@/lib/types';
 import Link from 'next/link';
@@ -15,17 +15,16 @@ export default function AdminListsPage() {
   const [filterType, setFilterType] = useState('');
   const [search, setSearch] = useState('');
 
-  useEffect(() => { loadLists(); }, [filterStatus]);
+  const loadLists = useCallback(() => {
+    const params: { estado?: string } = {};
+    if (filterStatus) params.estado = filterStatus;
+    return listsApi.getAll(params)
+      .then(setLists)
+      .catch(err => { console.error(err); })
+      .finally(() => setLoading(false));
+  }, [filterStatus]);
 
-  const loadLists = async () => {
-    try {
-      const params: any = {};
-      if (filterStatus) params.estado = filterStatus;
-      const data = await listsApi.getAll(params);
-      setLists(data);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+  useEffect(() => { loadLists(); }, [loadLists]);
 
   const deleteList = async (id: string) => {
     if (!confirm('Eliminar esta lista y todos sus items?')) return;

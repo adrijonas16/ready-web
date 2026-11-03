@@ -6,7 +6,7 @@ import { SupplyList } from '@/lib/types';
 import Link from 'next/link';
 import StatusBadge from '@/components/StatusBadge';
 import { formatDate } from '@/lib/utils';
-import { Clock, CheckCircle, AlertTriangle, Eye } from 'lucide-react';
+import { Clock, AlertTriangle, Eye } from 'lucide-react';
 
 export default function ReviewQueuePage() {
   const [lists, setLists] = useState<SupplyList[]>([]);
@@ -14,19 +14,15 @@ export default function ReviewQueuePage() {
   const [activeTab, setActiveTab] = useState<'pending' | 'in_review' | 'observed'>('pending');
 
   useEffect(() => {
-    loadLists();
+    listsApi.getAll()
+      .then(setLists)
+      .catch(err => {
+        console.error('Error loading lists:', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
-
-  const loadLists = async () => {
-    try {
-      const data = await listsApi.getAll();
-      setLists(data);
-    } catch (err) {
-      console.error('Error loading lists:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredLists = lists.filter(list => {
     if (activeTab === 'pending') return list.estado === 'PENDIENTE_REVISION';

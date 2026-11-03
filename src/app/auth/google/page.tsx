@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Loader2 } from 'lucide-react';
@@ -13,23 +13,19 @@ function GoogleCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { loginWithToken } = useAuth();
-  const [error, setError] = useState<string | null>(null);
+  const error = searchParams.get('error');
 
   useEffect(() => {
     const token = searchParams.get('token');
     const userId = searchParams.get('userId');
-    const errorParam = searchParams.get('error');
 
-    if (errorParam) {
-      setError(errorParam);
-      return;
-    }
+    if (error) return;
 
     if (token && userId) {
       loginWithToken(token, userId);
       router.push('/');
     }
-  }, [searchParams, loginWithToken, router]);
+  }, [searchParams, error, loginWithToken, router]);
 
   if (error) {
     return (

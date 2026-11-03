@@ -1,32 +1,294 @@
 @import "tailwindcss";
 
 :root {
-  --background: #e0f2fe;
-  --foreground: #0f172a;
+  --background: var(--t-fondo);
+  --foreground: var(--t-texto);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/*
+  Tema: los colores y la letra salen de variables (--t-*), así el tema se cambia en un solo lugar. Tailwind genera las clases (bg-primario, text-acento…) a partir
+  de estas variables; blue / sky / amber se reasignan para que las páginas antiguas
+  (catálogo, carrito, admin) también tomen el tema.
+*/
+@theme {
+  --font-sans: var(--fuente-texto);
+  --font-display: var(--fuente-titulos);
+  --font-mano: "Caveat", "Comic Sans MS", cursive;
+
+  --color-primario: var(--t-primario);
+  --color-primario-oscuro: var(--t-primario-oscuro);
+  --color-primario-claro: var(--t-primario-claro);
+  --color-acento: var(--t-acento);
+  --color-acento-oscuro: var(--t-acento-oscuro);
+  --color-acento-claro: var(--t-acento-claro);
+  --color-eco: var(--t-eco);
+  --color-eco-claro: var(--t-eco-claro);
+  --color-premium: var(--t-premium);
+  --color-premium-claro: var(--t-premium-claro);
+  --color-profe: var(--t-error);
+  --color-profe-claro: var(--t-error-claro);
+  --color-grafito: var(--t-texto);
+  --color-tenue: var(--t-tenue);
+  --color-papel: var(--t-superficie);
+  --color-fondo: var(--t-fondo);
+  --color-cuadricula: var(--t-cuadricula);
+  --color-linea: var(--t-linea);
+
+  --color-blue-50: var(--t-primario-claro);
+  --color-blue-100: var(--t-primario-claro);
+  --color-blue-200: color-mix(in oklab, var(--t-primario) 30%, white);
+  --color-blue-300: color-mix(in oklab, var(--t-primario) 50%, white);
+  --color-blue-400: color-mix(in oklab, var(--t-primario) 80%, white);
+  --color-blue-500: var(--t-primario);
+  --color-blue-600: var(--t-primario-oscuro);
+  --color-blue-700: var(--t-primario-oscuro);
+  --color-sky-100: var(--t-fondo);
+  --color-amber-300: var(--t-eco);
+
+  /* Grises fijos de las páginas antiguas: siguen al tema (claro u oscuro) */
+  --color-slate-900: var(--t-texto);
+  --color-slate-800: var(--t-texto);
+  --color-slate-700: var(--t-texto-2);
+  --color-slate-600: var(--t-texto-2);
+  --color-slate-500: var(--t-tenue);
+  --color-slate-400: var(--t-tenue);
+  --color-slate-300: var(--t-linea-fuerte);
+  --color-slate-200: var(--t-linea);
+  --color-slate-100: var(--t-linea);
+  --color-slate-50: var(--t-fondo);
+  --color-gray-700: var(--t-texto-2);
+  --color-gray-500: var(--t-tenue);
+  --color-gray-400: var(--t-tenue);
+  --color-gray-300: var(--t-linea-fuerte);
+  --color-gray-100: var(--t-linea);
+  --color-gray-50: var(--t-fondo);
+  --color-zinc-500: var(--t-tenue);
+  --color-zinc-100: var(--t-fondo);
+  --color-neutral-400: var(--t-tenue);
+  --color-neutral-300: var(--t-linea-fuerte);
+}
+
+/* Tema "Tienda familiar" (elegido con UI/UX Pro Max): Rubik + Nunito Sans, azul familia y ámbar. */
+:root {
+  --fuente-titulos: "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
+  --fuente-texto: "Nunito Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --t-primario: #1D4ED8;
+  --t-primario-oscuro: #1E3A8A;
+  --t-primario-claro: #E8EFFE;
+  --t-acento: #F59E0B;
+  --t-acento-oscuro: #D97706;
+  --t-acento-claro: #FEF3C7;
+  --t-eco: #059669;
+  --t-eco-claro: #DDF5EC;
+  --t-premium: #7C3AED;
+  --t-premium-claro: #EFE7FE;
+  --t-error: #B91C1C;
+  --t-error-claro: #FDECEC;
+  --t-texto: #0F172A;
+  --t-tenue: #475569;
+  --t-fondo: #F8FAFC;
+  --t-cuadricula: #E4ECFC;
+  --t-linea: #E2E8F0;
+  --t-linea-fuerte: #CBD5E1;
+  --t-superficie: #FFFFFF;
+  --t-texto-2: #334155;
+  --t-primario-texto: #1D4ED8;
+  color-scheme: light;
+}
+
+/* Modo oscuro: azul noche, superficies elevadas y acentos más claros para mantener 4.5:1 */
+[data-theme="dark"] {
+  --t-primario: #3360DD;
+  --t-primario-oscuro: #2A52C4;
+  --t-primario-claro: #1B2A4F;
+  --t-primario-texto: #8AB0FF;
+  --t-acento: #FBB13C;
+  --t-acento-oscuro: #F59E0B;
+  --t-acento-claro: #3A2A0E;
+  --t-eco: #2DD4A0;
+  --t-eco-claro: #0F2F27;
+  --t-premium: #B49BFF;
+  --t-premium-claro: #2A2152;
+  --t-error: #FF8A80;
+  --t-error-claro: #3A1618;
+  --t-texto: #E7ECF5;
+  --t-texto-2: #C5CEDD;
+  --t-tenue: #9AA7BF;
+  --t-fondo: #0D1424;
+  --t-superficie: #151E33;
+  --t-cuadricula: #1B2741;
+  --t-linea: #26324B;
+  --t-linea-fuerte: #34425F;
+  color-scheme: dark;
+}
+
+/* En oscuro, los textos en color primario usan una versión más clara (los fondos no cambian) */
+[data-theme="dark"] .text-black {
+  color: var(--t-texto);
+}
+
+[data-theme="dark"] .text-primario,
+[data-theme="dark"] .text-primario-oscuro,
+[data-theme="dark"] .text-blue-500,
+[data-theme="dark"] .text-blue-600,
+[data-theme="dark"] .text-blue-700 {
+  color: var(--t-primario-texto);
+}
+
+/* Botones de color claro: texto oscuro para que se lea en ambos temas */
+[data-theme="dark"] .bg-acento,
+[data-theme="dark"] .bg-eco,
+[data-theme="dark"] .bg-premium {
+  color: #0F172A;
+}
+
+/* Páginas antiguas con bg-white fijo */
+[data-theme="dark"] .bg-white {
+  background-color: var(--t-superficie);
+}
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background-color: var(--t-superficie);
+  color: var(--t-texto);
+}
+/* Chips de estado (bg-*-100 text-*-800) más suaves en oscuro */
+[data-theme="dark"] [class*="bg-"][class*="-100"][class*="text-"][class*="-800"] {
+  filter: brightness(0.82) saturate(1.1);
+}
+
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.25s ease, color 0.25s ease;
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
+}
+
+h1, h2, h3 {
+  text-wrap: balance;
+  font-family: var(--fuente-titulos);
+}
+
+.font-display {
+  font-family: var(--fuente-titulos);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-acento);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-acento-claro);
+}
+
+a, button, [role="button"], input, select, textarea, label {
+  touch-action: manipulation;
 }
 
 input, textarea, select {
-  color: #0f172a;
+  color: var(--t-texto);
 }
 
 input::placeholder, textarea::placeholder {
-  color: #a1a1aa;
+  color: var(--t-tenue);
+  opacity: 0.85;
+}
+
+/* Hoja cuadriculada de 5 mm */
+.papel-cuadriculado {
+  background-color: var(--t-superficie);
+  background-image:
+    linear-gradient(var(--color-cuadricula) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-cuadricula) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-position: -1px -1px;
+}
+
+/* Hoja rayada con margen rojo: aquí va lo que escribió el colegio */
+.papel-rayado {
+  background-color: var(--t-superficie);
+  background-image:
+    linear-gradient(90deg, transparent 39px, #F5B5A6 39px, #F5B5A6 41px, transparent 41px),
+    repeating-linear-gradient(var(--t-superficie) 0 51px, var(--color-cuadricula) 51px 52px);
+}
+
+.sombra-hoja {
+  box-shadow: 0 1px 0 var(--color-linea), 0 18px 40px -20px rgba(20, 27, 45, 0.28);
+}
+[data-theme="dark"] .sombra-hoja {
+  box-shadow: 0 1px 0 var(--color-linea), 0 18px 40px -16px rgba(0, 0, 0, 0.6);
+}
+
+/* Solo opacidad: un transform en el contenedor rompería los elementos position:fixed de la página */
+@keyframes entrada-pagina {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-entrada-pagina {
+  animation: entrada-pagina 0.25s var(--ease-out) backwards;
+}
+
+@keyframes aparecer-fondo {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-fondo {
+  animation: aparecer-fondo 0.2s ease both;
+}
+
+@keyframes elegido {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.animate-elegido {
+  animation: elegido 0.35s var(--ease-spring);
+}
+
+/* Paneles que se abren: alto automático animado */
+.desplegable {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s var(--ease-out);
+}
+.desplegable[data-abierto="true"] {
+  grid-template-rows: 1fr;
+}
+.desplegable > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+@keyframes entrar-derecha {
+  from { transform: translateX(24px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.animate-entrar {
+  animation: entrar-derecha 0.22s var(--ease-out) both;
+}
+
+@keyframes escaneo {
+  0%   { top: 0%; }
+  100% { top: calc(100% - 4px); }
+}
+
+.animate-escaneo {
+  animation: escaneo 1.6s var(--ease-in-out) infinite alternate;
 }
 
 /* ── Custom Animations ── */
@@ -110,7 +372,7 @@ input::placeholder, textarea::placeholder {
 
 /* Skeleton loading shimmer */
 .skeleton {
-  background: linear-gradient(90deg, #e0e7ff 25%, #c7d2fe 50%, #e0e7ff 75%);
+  background: linear-gradient(90deg, var(--t-primario-claro) 25%, var(--t-cuadricula) 50%, var(--t-primario-claro) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 16px;
@@ -147,4 +409,12 @@ img {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

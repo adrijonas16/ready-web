@@ -30,9 +30,11 @@ export default function NotificationBell() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2.5 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95"
+        aria-label={unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : 'Notificaciones'}
+        aria-expanded={isOpen}
+        className="relative cursor-pointer rounded-xl p-2.5 transition-[background-color,transform] duration-200 hover:bg-gray-100 active:scale-95"
       >
-        <Bell className={`h-5 w-5 text-gray-500 transition-transform duration-300 ${isOpen ? 'scale-110' : ''}`} />
+        <Bell aria-hidden="true" className={`h-5 w-5 text-gray-500 transition-transform duration-300 ${isOpen ? 'scale-110' : ''}`} />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center ring-2 ring-white animate-pulse">
             {unreadCount}
@@ -81,7 +83,7 @@ export default function NotificationBell() {
                       {!notification.read && (
                         <button
                           onClick={() => markAsRead(notification.id)}
-                          className="p-1.5 hover:bg-white rounded-lg transition-all duration-200 hover:shadow-sm"
+                          aria-label="Marcar como leída" className="p-1.5 hover:bg-white rounded-lg transition-[background-color,box-shadow] duration-200 hover:shadow-sm"
                         >
                           <Check className="h-4 w-4 text-green-600" />
                         </button>
@@ -96,7 +98,7 @@ export default function NotificationBell() {
               <div className="p-3 border-t border-gray-100 bg-gray-50/50">
                 <button
                   onClick={clearNotifications}
-                  className="w-full text-sm text-gray-500 hover:text-gray-700 font-medium py-1.5 rounded-lg hover:bg-gray-100 transition-all duration-200"
+                  className="w-full text-sm text-gray-500 hover:text-gray-700 font-medium py-1.5 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                 >
                   Limpiar todas
                 </button>

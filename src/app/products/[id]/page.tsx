@@ -1,12 +1,12 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
 import { ArrowLeft, ShoppingCart, Star, Check, Package, Minus, Plus } from 'lucide-react';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
 interface VariantValue { id: string; value: string; image_url?: string; price_modifier: number; stock: number; is_active: boolean; color_hex?: string }
 interface VariantType { id: string; name: string; values: VariantValue[] }
@@ -20,7 +20,7 @@ interface ProductDetail {
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { addItem, items } = useCart();
+  const { addItem } = useCart();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, VariantValue>>({});
@@ -66,8 +66,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const handleAddToCart = () => {
-    const notes = Object.entries(selectedVariants).map(([_, v]) => v.value).join(', ');
-    addItem({ ...product, basePrice: finalPrice } as any, quantity, notes || undefined);
+    const notes = Object.values(selectedVariants).map(v => v.value).join(', ');
+    addItem({ ...product!, basePrice: finalPrice }, quantity, notes || undefined);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };

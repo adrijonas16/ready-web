@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { listsApi, productsApi } from '@/services/api';
 import { ListDetail, Product, SupplyItem } from '@/lib/types';
@@ -53,20 +53,20 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
   const [showPreview, setShowPreview] = useState(false);
   const [previewTier, setPreviewTier] = useState('medio');
 
-  useEffect(() => { loadList(); }, [id]);
+  const loadList = useCallback(() =>
+    listsApi.getById(id)
+      .then(result => {
+        setData(result);
+        setLocalItems(result.items.map((i: SupplyItem) => ({
+          id: i.id, nombreOriginal: i.nombreOriginal, cantidad: i.cantidad, notas: i.notas || '',
+        })));
+        setHasChanges(false);
+        setDeletedIds([]);
+      })
+      .catch(err => { console.error(err); })
+      .finally(() => setLoading(false)), [id]);
 
-  const loadList = async () => {
-    try {
-      const result = await listsApi.getById(id);
-      setData(result);
-      setLocalItems(result.items.map((i: SupplyItem) => ({
-        id: i.id, nombreOriginal: i.nombreOriginal, cantidad: i.cantidad, notas: i.notas || '',
-      })));
-      setHasChanges(false);
-      setDeletedIds([]);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+  useEffect(() => { loadList(); }, [loadList]);
 
   // --- Items tab: local edits ---
   const updateLocal = (idx: number, field: string, value: string | number) => {
@@ -269,7 +269,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
           {TIERS.map(t => {
             const Icon = t.icon;
             return (
-              <button key={t.id} onClick={() => setActiveTab(t.id as any)}
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
                 className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 flex items-center justify-center gap-1.5 ${activeTab === t.id ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 <Icon className="h-4 w-4" />{t.label}
               </button>

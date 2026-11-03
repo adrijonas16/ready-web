@@ -106,7 +106,7 @@ export function formatPrice(price: number): string {
 
 export function formatDate(dateString?: string): string {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('es-CL', {
+  return new Date(dateString).toLocaleDateString('es-PE', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

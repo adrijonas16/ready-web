@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Upload, CheckCircle, X, FileText } from 'lucide-react';
+import { Camera, X, FileText } from 'lucide-react';
 import { validateImage, ImageValidationResult } from '@/lib/utils';
+import { compressImage } from '@/lib/compress-image';
 
 interface ImageUploaderProps {
   onImagesSelected: (files: File[]) => void;
@@ -23,13 +24,14 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
     const validFiles: { file: File; url: string; validation: ImageValidationResult }[] = [...previews];
     const errors: string[] = [];
 
-    for (const file of newFiles) {
+    for (const original of newFiles) {
+      const file = await compressImage(original);
       if (validFiles.length >= maxFiles) {
-        errors.push(`Maximo ${maxFiles} archivos`);
+        errors.push(`Máximo ${maxFiles} archivos`);
         break;
       }
       if (!allowedTypes.includes(file.type)) {
-        errors.push(`${file.name}: solo imagenes, PDF o Word`);
+        errors.push(`${file.name}: solo fotos, PDF o Word`);
         continue;
       }
       if (file.type.startsWith('image/')) {
@@ -68,15 +70,17 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
   return (
     <div className="space-y-4">
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Elegir fotos o archivos de la lista"
         onDrop={handleDrop}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onClick={() => previews.length < maxFiles && fileInputRef.current?.click()}
-        className={`
-          relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300
-          ${isDragging ? 'border-blue-500 bg-blue-50/60 scale-[1.01]' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/30'}
-          ${previews.length >= maxFiles ? 'opacity-50 cursor-not-allowed' : ''}
-        `}
+        onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && previews.length < maxFiles) { e.preventDefault(); fileInputRef.current?.click(); } }}
+        className={`papel-cuadriculado relative cursor-pointer rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors
+          ${isDragging ? 'border-primario bg-primario-claro' : 'border-linea hover:border-primario'}
+          ${previews.length >= maxFiles ? 'cursor-not-allowed opacity-50' : ''}`}
       >
         <input
           ref={fileInputRef}
@@ -88,48 +92,43 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
           }}
           className="hidden"
         />
-
-        <div className="space-y-2">
-          <div className="flex justify-center">
-            {isValidating ? (
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-            ) : (
-              <Upload className="h-10 w-10 text-gray-400" />
-            )}
-          </div>
-          <p className="text-sm font-medium text-gray-700">
-            {isValidating ? 'Validando...' : 'Arrastra tus archivos aqui'}
-          </p>
-          <p className="text-xs text-gray-500">
-            Fotos, PDF o Word ({previews.length}/{maxFiles})
-          </p>
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-acento shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)]">
+          {isValidating
+            ? <div className="h-6 w-6 animate-spin rounded-full border-2 border-grafito border-t-transparent" />
+            : <Camera className="h-6 w-6 text-grafito" aria-hidden="true" />}
         </div>
+        <p className="mt-4 text-lg font-bold text-grafito">
+          {isValidating ? 'Preparando las fotos…' : previews.length > 0 ? 'Agregar otra hoja' : 'Toma o elige la foto de la lista'}
+        </p>
+        <p className="mt-1 text-sm text-tenue">
+          Fotos, PDF o Word. Hasta {maxFiles} archivos si la lista tiene varias hojas ({previews.length}/{maxFiles}).
+        </p>
       </div>
 
       {previews.length > 0 && (
-        <div className="grid grid-cols-5 gap-2">
+        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-5">
           {previews.map((p, i) => (
-            <div key={i} className="relative aspect-square rounded-xl overflow-hidden bg-slate-50 border border-slate-200 flex items-center justify-center">
+            <li key={i} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-linea bg-papel">
               {p.url ? (
-                <img src={p.url} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+                <img src={p.url} alt={`Hoja ${i + 1}`} className="h-full w-full object-cover" />
               ) : (
-                <div className="text-center p-2">
-                  <FileText className="h-6 w-6 text-blue-500 mx-auto mb-1" />
-                  <p className="text-[9px] text-slate-500 truncate max-w-full">{p.file.name}</p>
+                <div className="flex h-full flex-col items-center justify-center p-2 text-center">
+                  <FileText className="mb-1 h-7 w-7 text-primario" aria-hidden="true" />
+                  <p className="max-w-full truncate text-[11px] text-tenue">{p.file.name}</p>
                 </div>
               )}
+              <span className="absolute bottom-1.5 left-1.5 rounded-md bg-grafito/80 px-1.5 py-0.5 text-[11px] font-semibold text-white">Hoja {i + 1}</span>
               <button
+                type="button"
                 onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600"
+                className="absolute right-1.5 top-1.5 rounded-full bg-papel p-1 text-profe shadow hover:bg-profe-claro"
+                aria-label={`Quitar hoja ${i + 1}`}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
-              <div className="absolute bottom-1 left-1">
-                <CheckCircle className="h-4 w-4 text-green-500 drop-shadow" />
-              </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

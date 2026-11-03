@@ -1,12 +1,12 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import { useState, useEffect } from 'react';
-import { listsApi, ordersApi } from '@/services/api';
 import { useAuth } from '@/lib/auth-context';
-import { useRealtimeNotifications, RealtimeNotification } from '@/lib/useNotifications';
-import Link from 'next/link';
-import { formatPrice, formatDate } from '@/lib/utils';
-import { Package, ShoppingCart, TrendingUp, Clock, AlertTriangle, Bell, Users, ClipboardList, X, CheckCircle, XCircle } from 'lucide-react';
+import { useRealtimeNotifications } from '@/lib/useNotifications';
+import { formatPrice } from '@/lib/utils';
+import type { Order } from '@/lib/types';
+import { Package, ShoppingCart, TrendingUp, Clock, AlertTriangle, Bell, Users, ClipboardList, X, XCircle } from 'lucide-react';
 
 interface DashboardStats {
   totalOrders: number;
@@ -18,30 +18,27 @@ interface DashboardStats {
   totalLists: number;
   pendingLists: number;
   totalUsers: number;
-  lowStockProducts: { name: string; stock: number; baseprice: number }[];
+  lowStockProducts: { name: string; stock: number; baseprice?: number; basePrice?: number }[];
 }
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const { notifications, connected, unreadCount, markAsRead, clearAll } = useRealtimeNotifications(user?.role, user?.id);
   const [showNotifs, setShowNotifs] = useState(false);
 
-  useEffect(() => { loadData(); }, []);
-
-  const loadData = async () => {
-    try {
-      const [statsRes, ordersRes] = await Promise.all([
-        fetch('http://localhost:5050/api/orders/stats').then(r => r.json()),
-        fetch('http://localhost:5050/api/orders').then(r => r.json()),
-      ]);
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API}/orders/stats`).then(r => r.json()),
+      fetch(`${API}/orders`).then(r => r.json()),
+    ]).then(([statsRes, ordersRes]) => {
       if (statsRes.success) setStats(statsRes.data);
       if (ordersRes.success) setOrders(ordersRes.data || []);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+    }).catch(err => { console.error(err); })
+      .finally(() => setLoading(false));
+  }, []);
 
   const getNotifIcon = (type: string) => {
     switch (type) {
@@ -181,7 +178,7 @@ export default function AdminDashboard() {
             Productos con stock bajo
           </h2>
           <div className="space-y-2">
-            {stats.lowStockProducts.map((p: any, i: number) => (
+            {stats.lowStockProducts.map((p, i) => (
               <div key={i} className={`flex items-center justify-between p-3 rounded-xl ${p.stock === 0 ? 'bg-red-50 border border-red-100' : 'bg-yellow-50 border border-yellow-100'}`}>
                 <div>
                   <p className="text-sm font-medium text-slate-900">{p.name}</p>
@@ -203,7 +200,7 @@ export default function AdminDashboard() {
           <p className="text-xs text-neutral-400 text-center py-6">No hay pedidos aun</p>
         ) : (
           <div className="space-y-2">
-            {orders.slice(0, 10).map((order: any) => (
+            {orders.slice(0, 10).map(order => (
               <div key={order.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                 <div>
                   <p className="text-sm font-medium text-slate-900">#{order.id.slice(0, 8)}</p>

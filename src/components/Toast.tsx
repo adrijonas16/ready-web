@@ -16,7 +16,7 @@ export default function Toast({ message, type, onClose }: ToastProps) {
   }, [onClose]);
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+    <div role="status" aria-live="polite" className="fixed bottom-24 right-4 z-50 animate-slide-up sm:right-6 lg:bottom-6">
       <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl backdrop-blur-sm ${
         type === 'success'
           ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/25'
@@ -30,6 +30,7 @@ export default function Toast({ message, type, onClose }: ToastProps) {
         <p className="font-medium pr-2">{message}</p>
         <button
           onClick={onClose}
+          aria-label="Cerrar aviso"
           className="p-1.5 hover:bg-white/20 rounded-xl transition-colors duration-200 ml-1"
         >
           <X className="h-4 w-4" />

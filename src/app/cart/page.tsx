@@ -1,27 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
 import Link from 'next/link';
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Package, MessageSquare, Check, ZoomIn } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Package, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, updateNotes, total, clearCart } = useCart();
+  const { items, removeItem, updateQuantity, total, clearCart, notasPedido } = useCart();
   const { user } = useAuth();
-  const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
-
-  useEffect(() => {
-    const initialNotes: Record<string, string> = {};
-    items.forEach(item => { initialNotes[item.product.id] = item.notes || ''; });
-    setEditingNotes(initialNotes);
-  }, [items]);
-
-  const handleSaveNotes = (productId: string) => { updateNotes(productId, editingNotes[productId]); };
 
   const handleClearCart = () => {
     clearCart(); setShowClearConfirm(false); setShowSuccess(true);
@@ -64,9 +55,9 @@ export default function CartPage() {
         )}
 
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-slate-900 text-2xl font-bold tracking-tight">Shopping Bag</h1>
+          <h1 className="text-slate-900 text-2xl font-bold tracking-tight">Tu carrito</h1>
           {items.length > 0 && (
-            <button onClick={() => setShowClearConfirm(true)} className="text-red-500 hover:text-red-600 flex items-center gap-1.5 text-sm font-medium">
+            <button onClick={() => setShowClearConfirm(true)} className="text-profe hover:underline flex items-center gap-1.5 text-sm font-medium cursor-pointer">
               <Trash2 className="h-3.5 w-3.5" /> Limpiar
             </button>
           )}
@@ -89,36 +80,37 @@ export default function CartPage() {
           {items.map((item) => (
             <div key={item.product.id} className="bg-white rounded-[20px] shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10),0px_-1px_30px_-6px_rgba(0,0,0,0.04)] overflow-hidden">
               <div className="p-4 flex gap-4">
-                <div className="w-16 h-16 bg-yellow-50 rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer"
+                <button type="button" aria-label={`Ver foto de ${item.product.name}`} className="w-16 h-16 bg-fondo rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer"
                   onClick={() => item.product.imageUrl && setZoomedImage(item.product.imageUrl)}>
                   {item.product.imageUrl ? (
-                    <img src={item.product.imageUrl} alt={item.product.name} className="w-full h-full object-cover" />
+                    <img src={item.product.imageUrl} alt="" width={64} height={64} className="w-full h-full object-contain p-1" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center"><Package className="h-6 w-6 text-neutral-300" /></div>
+                    <div className="w-full h-full flex items-center justify-center"><Package className="h-6 w-6 text-neutral-300" aria-hidden="true" /></div>
                   )}
-                </div>
+                </button>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start">
                     <div className="min-w-0">
                       <h3 className="font-bold text-sm text-black truncate">{item.product.name}</h3>
                       <p className="text-xs text-neutral-400">{item.product.brand}</p>
+                      {item.notes && <p className="mt-0.5 text-xs text-tenue line-clamp-2">{item.notes}</p>}
                       <p className="text-sm font-medium text-black mt-1">{formatPrice(item.product.basePrice)}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end justify-between">
-                  <button onClick={() => removeItem(item.product.id)} className="text-neutral-400 hover:text-red-500 transition-colors p-1">
-                    <Trash2 className="h-3.5 w-3.5" />
+                  <button onClick={() => removeItem(item.product.id)} aria-label={`Quitar ${item.product.name}`} className="cursor-pointer text-neutral-400 hover:text-profe transition-colors p-1">
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
                   <div className="flex items-center gap-1.5">
-                    <button onClick={() => updateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
+                    <button onClick={() => updateQuantity(item.product.id, Math.max(1, item.quantity - 1))} aria-label="Uno menos"
                       className="w-7 h-7 rounded-full border border-blue-500 flex items-center justify-center text-blue-500 hover:bg-blue-50 transition-colors">
                       <Minus className="h-3.5 w-3.5" />
                     </button>
                     <span className="w-6 text-center font-bold text-sm">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                    <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} aria-label="Uno más"
                       className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white hover:shadow-md hover:shadow-blue-500/25 transition-shadow">
                       <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -128,6 +120,14 @@ export default function CartPage() {
             </div>
           ))}
         </div>
+
+        {notasPedido.length > 0 && (
+          <div className="mb-4 rounded-2xl border border-acento bg-acento-claro p-4 text-sm text-grafito">
+            <p className="font-bold">Por cotizar</p>
+            {notasPedido.map((n, i) => <p key={i} className="mt-1 whitespace-pre-line">{n}</p>)}
+            <p className="mt-2 text-tenue">Te confirmamos el precio antes de enviar el pedido.</p>
+          </div>
+        )}
 
         {/* Promo + Summary */}
         <div className="bg-white rounded-[30px] shadow-[0px_4px_24px_0px_rgba(0,0,0,0.08)] p-6">
@@ -154,7 +154,7 @@ export default function CartPage() {
           {user ? (
             <Link href="/checkout"
               className="w-full bg-blue-500 text-white py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-              Proceder al Checkout
+              Ir a pagar
               <ArrowRight className="h-4 w-4" />
             </Link>
           ) : (
