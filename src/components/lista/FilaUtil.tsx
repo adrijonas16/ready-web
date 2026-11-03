@@ -5,10 +5,12 @@ import { formatPrice } from '@/lib/utils';
 import { ItemVariante, SupplyItem } from '@/lib/types';
 import { Tier, currentTier, tierLabel } from '@/lib/lista';
 import { ESTILO_NIVEL } from './Paquetes';
+import PrecioAnimado from '@/components/PrecioAnimado';
 
 /** Un útil: foto, marca, producto, diseño elegido, cantidad y precio. Tocarlo abre las opciones. */
-export default function FilaUtil({ item, incluido, qty, precio, variantes, onIncluir, onQty, onAbrir }: {
+export default function FilaUtil({ item, indice = 0, incluido, qty, precio, variantes, onIncluir, onQty, onAbrir }: {
   item: SupplyItem;
+  indice?: number;
   incluido: boolean;
   qty: number;
   precio: number;
@@ -24,7 +26,7 @@ export default function FilaUtil({ item, incluido, qty, precio, variantes, onInc
   const foto = fotoVariante || product?.imageUrl;
 
   return (
-    <li className={`flex gap-3 py-4 ${incluido ? '' : 'opacity-55'}`}>
+    <li className={`animate-slide-up flex gap-3 py-4 transition-opacity duration-200 ${incluido ? '' : 'opacity-55'}`} style={{ animationDelay: `${Math.min(indice, 12) * 35}ms` }}>
       <input type="checkbox" checked={incluido} onChange={e => onIncluir(e.target.checked)}
         aria-label={incluido ? `Ya tengo: ${item.nombreOriginal}` : `Volver a agregar: ${item.nombreOriginal}`}
         className="mt-6 h-5 w-5 shrink-0 cursor-pointer rounded accent-primario" />
@@ -63,7 +65,7 @@ export default function FilaUtil({ item, incluido, qty, precio, variantes, onInc
             )}
           </button>
           <span className={`shrink-0 pt-4 text-right font-bold tabular-nums ${incluido ? '' : 'line-through'}`}>
-            {product ? formatPrice(precio * qty) : '—'}
+            {product ? <PrecioAnimado valor={precio * qty} /> : '—'}
           </span>
         </div>
 

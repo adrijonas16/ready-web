@@ -24,9 +24,13 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
+    // Si el componente se desmonta antes de que cargue Leaflet, no se crea el mapa
+    // (evita "Map container is already initialized" al montar dos veces).
+    let cancelado = false;
 
     // Dynamic import of leaflet
     import('leaflet').then((L) => {
+      if (cancelado || !mapRef.current || mapInstanceRef.current) return;
       // Fix default icon
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
@@ -75,6 +79,7 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
     });
 
     return () => {
+      cancelado = true;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;

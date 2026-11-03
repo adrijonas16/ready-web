@@ -24,7 +24,7 @@ function PaymentMethodSelector({ selected, onSelect }: { selected: string; onSel
   return (
     <div className="grid grid-cols-4 gap-2 mb-4">
       {methods.map(m => (
-        <button key={m.id} onClick={() => onSelect(m.id)}
+        <button key={m.id} type="button" onClick={() => onSelect(m.id)} aria-pressed={selected === m.id}
           className={`p-3 rounded-xl border-2 text-center transition-all duration-150 ${
             selected === m.id ? `${m.border} ${m.activeBg} scale-[1.02]` : 'border-transparent bg-slate-50 hover:bg-slate-100'
           }`}>

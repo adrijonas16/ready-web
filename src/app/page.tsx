@@ -143,7 +143,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-14 sm:px-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-3xl font-extrabold tracking-[-0.025em]">¿Tienes la lista a la mano?</h2>
-            <p className="mt-2 max-w-xl text-white/80">Tómale una foto ahora. La revisamos y te avisamos cuando puedas elegirla en Económico, Normal o Premium.</p>
+            <p className="mt-2 max-w-xl text-white">Tómale una foto ahora. La revisamos y te avisamos cuando puedas elegirla en Económico, Normal o Premium.</p>
           </div>
           <Link href="/upload"
             className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-acento px-6 py-4 font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.15)] hover:bg-acento-oscuro">

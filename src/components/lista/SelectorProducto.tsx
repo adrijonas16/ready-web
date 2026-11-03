@@ -144,7 +144,7 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
+    <div className="animate-fondo fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="selector-titulo" onClick={e => e.stopPropagation()}
         className="animate-entrar flex h-full w-full flex-col bg-papel shadow-2xl sm:max-w-[680px]">
         {/* Encabezado */}

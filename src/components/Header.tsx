@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useRealtimeNotifications } from '@/lib/useNotifications';
-import { ShoppingBag, LogOut, Menu, X, Camera } from 'lucide-react';
+import { ShoppingBag, LogOut, Menu, X, Camera, Moon, Sun } from 'lucide-react';
+import { useTema } from '@/lib/tema';
 import { useAuth } from '@/lib/auth-context';
 import { useCart } from '@/lib/cart-context';
 import NotificationBell from './NotificationBell';
@@ -25,6 +26,7 @@ export default function Header() {
   const { itemCount } = useCart();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { oscuro, alternar } = useTema();
 
   const nav = [
     { href: '/lists', label: 'Listas de colegios' },
@@ -64,12 +66,18 @@ export default function Header() {
             Subir mi lista
           </Link>
 
+          <button onClick={alternar} aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} title={oscuro ? 'Modo claro' : 'Modo oscuro'}
+            className="relative h-10 w-10 cursor-pointer overflow-hidden rounded-xl text-grafito transition-colors hover:bg-fondo">
+            <Sun className={`absolute inset-0 m-auto h-5 w-5 transition-[transform,opacity] duration-300 ${oscuro ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-50 opacity-0'}`} aria-hidden="true" />
+            <Moon className={`absolute inset-0 m-auto h-5 w-5 transition-[transform,opacity] duration-300 ${oscuro ? 'rotate-90 scale-50 opacity-0' : 'rotate-0 scale-100 opacity-100'}`} aria-hidden="true" />
+          </button>
+
           {user && <NotificationBell />}
 
           <Link href="/cart" className="relative rounded-xl p-2.5 text-grafito hover:bg-fondo" aria-label={`Carrito, ${itemCount} productos`}>
             <ShoppingBag className="h-5 w-5" />
             {itemCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primario px-1 text-[11px] font-bold text-white ring-2 ring-papel animate-cart-bounce">
+              <span key={itemCount} className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primario px-1 text-[11px] font-bold text-white ring-2 ring-papel animate-cart-bounce">
                 {itemCount}
               </span>
             )}

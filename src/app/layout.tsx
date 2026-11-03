@@ -10,9 +10,13 @@ import { AuthProvider } from "@/lib/auth-context";
 import { CartProvider } from "@/lib/cart-context";
 import Header from "@/components/Header";
 import Logo from "@/components/Logo";
+import { scriptTema } from "@/lib/tema-script";
 
 export const viewport: Viewport = {
-  themeColor: "#F8FAFC",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
+    { media: "(prefers-color-scheme: dark)", color: "#0D1424" },
+  ],
 };
 
 export const metadata: Metadata = {
@@ -42,7 +46,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" style={{ colorScheme: 'light' }}>
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: scriptTema }} />
+      </head>
       <body className="min-h-screen bg-fondo text-grafito flex flex-col antialiased">
         <AuthProvider>
           <CartProvider>

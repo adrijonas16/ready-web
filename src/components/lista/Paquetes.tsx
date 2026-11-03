@@ -4,6 +4,7 @@ import { Check } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { SupplyItem } from '@/lib/types';
 import { Tier, TIERS, tierProduct } from '@/lib/lista';
+import PrecioAnimado from '@/components/PrecioAnimado';
 
 export const ESTILO_NIVEL: Record<Tier, { fondo: string; punto: string; anillo: string; boton: string }> = {
   economico: { fondo: 'bg-eco-claro', punto: 'bg-eco', anillo: 'ring-eco', boton: 'bg-eco text-grafito hover:brightness-95' },
@@ -39,7 +40,7 @@ export function ElegirPaquete({ items, qty, onElegir, eligiendo }: {
           const e = ESTILO_NIVEL[t.id];
           const muestra = items.map(i => ({ i, p: tierProduct(i, t.id) })).filter(x => x.p).slice(0, 4);
           return (
-            <article key={t.id} className="flex flex-col overflow-hidden rounded-3xl border border-linea bg-papel">
+            <article key={t.id} className={`animate-slide-up flex flex-col overflow-hidden rounded-3xl border bg-papel transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_-24px_rgba(15,23,42,0.55)] ${eligiendo === t.id ? `animate-elegido border-transparent ring-2 ${e.anillo}` : 'border-linea'}`} style={{ animationDelay: `${TIERS.indexOf(t) * 90}ms` }}>
               <div className={`${e.fondo} px-5 pb-5 pt-4`}>
                 <div className="flex items-center gap-2">
                   <span className={`h-2.5 w-2.5 rounded-full ${e.punto}`} aria-hidden="true" />
@@ -91,7 +92,7 @@ export function CambiarPaquete({ items, qty, actual, onElegir }: {
               {activo ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <span className={`h-2 w-2 rounded-full ${e.punto}`} aria-hidden="true" />}
               {t.label}
             </span>
-            <span className="block text-base font-extrabold tabular-nums sm:text-lg">{formatPrice(totalPaquete(items, t.id, qty))}</span>
+            <PrecioAnimado valor={totalPaquete(items, t.id, qty)} className="block text-base font-extrabold sm:text-lg" />
           </button>
         );
       })}

@@ -15,6 +15,7 @@ import { ElegirPaquete, CambiarPaquete } from '@/components/lista/Paquetes';
 import FilaUtil from '@/components/lista/FilaUtil';
 import Extras, { PreciosServicios } from '@/components/lista/Extras';
 import SelectorProducto from '@/components/lista/SelectorProducto';
+import PrecioAnimado from '@/components/PrecioAnimado';
 
 // ── Observations Box ──
 function ObservationBox({ listId, existing, onSaved }: { listId: string; existing?: string; onSaved: () => void }) {
@@ -477,8 +478,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
                 {hayNiveles && <div className="mb-3"><CambiarPaquete items={incluidos} qty={getQty} actual={plan} onElegir={elegirPaquete} /></div>}
                 <ul className="divide-y divide-linea rounded-2xl border border-linea bg-papel px-3 sm:px-4">
-                  {items.map(item => (
-                    <FilaUtil key={item.id} item={item} incluido={!excluidos.has(item.id)} qty={getQty(item)}
+                  {items.map((item, i) => (
+                    <FilaUtil key={item.id} indice={i} item={item} incluido={!excluidos.has(item.id)} qty={getQty(item)}
                       precio={precioUnitario(item, extras)} variantes={variantesDe(item, extras)}
                       onIncluir={v => incluir(item, v)} onQty={q => setQty(item, q)} onAbrir={() => setAbierto(item)} />
                   ))}
@@ -495,7 +496,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               <div className="rounded-3xl border border-linea bg-papel p-5">
                 <h2 className="text-lg font-extrabold">Resumen</h2>
                 <dl className="mt-3 space-y-2 text-sm">
-                  <div className="flex justify-between"><dt>Útiles ({conProducto.length})</dt><dd className="font-semibold tabular-nums">{formatPrice(totalUtiles)}</dd></div>
+                  <div className="flex justify-between"><dt>Útiles ({conProducto.length})</dt><dd className="font-semibold"><PrecioAnimado valor={totalUtiles} /></dd></div>
                   {lineasExtras.map(l => (
                     <div key={l.label} className="flex justify-between"><dt>{l.label}</dt><dd className="font-semibold tabular-nums">{formatPrice(l.monto)}</dd></div>
                   ))}
@@ -505,7 +506,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 </dl>
                 <div className="mt-4 flex items-baseline justify-between border-t border-linea pt-4">
                   <span className="font-semibold">Total</span>
-                  <span className="text-3xl font-extrabold tracking-tight tabular-nums">{formatPrice(total)}</span>
+                  <PrecioAnimado valor={total} className="text-3xl font-extrabold tracking-tight" />
                 </div>
                 <button onClick={agregarAlCarrito} disabled={agregando}
                   className="mt-4 hidden w-full items-center justify-center gap-2 rounded-xl bg-acento py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50 lg:flex">
@@ -523,7 +524,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
             <div>
               <p className="text-xs text-tenue">Total</p>
-              <p className="text-2xl font-extrabold tabular-nums">{formatPrice(total)}</p>
+              <p className="text-2xl font-extrabold"><PrecioAnimado valor={total} /></p>
             </div>
             <button onClick={agregarAlCarrito} disabled={agregando}
               className="ml-auto inline-flex items-center gap-2 rounded-xl bg-acento px-5 py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50">

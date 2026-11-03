@@ -5,6 +5,7 @@ import { BookOpen, Tag, NotebookPen, FileText, Plus, Trash2, Minus, Star, Flower
 import { formatPrice } from '@/lib/utils';
 import { ListBook, ListExtras, Product } from '@/lib/types';
 import { OpcionesServicios, buscarOpcion, precioServicio } from '@/lib/lista';
+import PrecioAnimado from '@/components/PrecioAnimado';
 
 export interface ConteoExtras {
   cuadernos: number;
@@ -46,10 +47,14 @@ function Tarjeta({ icono, titulo, detalle, monto, activo, onToggle, children }: 
           <h3 className="font-bold leading-tight">{titulo}</h3>
           <p className="text-sm text-tenue">{detalle}</p>
         </div>
-        {abierto && monto != null && monto > 0 && <span className="font-bold tabular-nums">{formatPrice(monto)}</span>}
+        {abierto && monto != null && monto > 0 && <PrecioAnimado valor={monto} className="font-bold" />}
         {onToggle && <Interruptor activo={!!activo} onChange={onToggle} etiqueta={titulo} />}
       </div>
-      {abierto && children && <div className="border-t border-linea px-4 pb-4 pt-3">{children}</div>}
+      {children && (
+        <div className="desplegable" data-abierto={abierto ? 'true' : 'false'} aria-hidden={!abierto}>
+          <div><div className="border-t border-linea px-4 pb-4 pt-3" inert={!abierto}>{children}</div></div>
+        </div>
+      )}
     </div>
   );
 }
