@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
+import { API, MODO_DEMO } from '@/lib/api-base';
 
 export interface RealtimeNotification {
   id: string;
   type: string;
   message: string;
   timestamp: string;
-  data?: any;
+  data?: unknown;
   read: boolean;
 }
 
@@ -17,11 +18,24 @@ export function useRealtimeNotifications(role?: string, userId?: string) {
   const [connected, setConnected] = useState(false);
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
+  // Modo demo: los avisos llegan como eventos del navegador
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !MODO_DEMO) return;
+    const nombres: Record<string, string> = { NewOrder: 'new_order', NewList: 'new_list', NewMessage: 'new_message', OrderUpdate: 'order_update', ListReady: 'list_ready' };
+    const alAvisar = (ev: Event) => {
+      const d = (ev as CustomEvent<{ tipo: string; mensaje: string; userId?: string; admin?: boolean; timestamp: string }>).detail;
+      if (d.admin ? role !== 'ADMIN' && role !== 'OPERATOR' : d.userId !== userId) return;
+      setNotifications(prev => [{ id: `${Date.now()}-${Math.random()}`, type: nombres[d.tipo] ?? d.tipo, message: d.mensaje, timestamp: d.timestamp, data: d, read: false }, ...prev].slice(0, 50));
+    };
+    window.addEventListener('ready-demo-aviso', alAvisar);
+    const reloj = setInterval(() => { import('@/demo/servidor').then(m => m.avanzar()); }, 2000);
+    return () => { window.removeEventListener('ready-demo-aviso', alAvisar); clearInterval(reloj); };
+  }, [role, userId]);
+
+  useEffect(() => {
+    if (!userId || MODO_DEMO) return;
     // El hub vive en el mismo servidor que la API: https://…/api → https://…/hub/notifications
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
-    const hubUrl = apiUrl.replace(/\/api\/?$/, '') + '/hub/notifications';
+    const hubUrl = API.replace(/\/api\/?$/, '') + '/hub/notifications';
     const connection = new signalR.HubConnectionBuilder()
       // Sin cookies: la API permite cualquier origen (AllowAnyOrigin), que no admite credenciales
       .withUrl(hubUrl, { withCredentials: false })
@@ -31,7 +45,7 @@ export function useRealtimeNotifications(role?: string, userId?: string) {
 
     connectionRef.current = connection;
 
-    const addNotification = (type: string, data: any) => {
+    const addNotification = (type: string, data: { message?: string; timestamp?: string }) => {
       setNotifications(prev => [{
         id: Date.now().toString(),
         type,
@@ -69,5 +83,5 @@ export function useRealtimeNotifications(role?: string, userId?: string) {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  return { notifications, connected, unreadCount, markAsRead, clearAll };
+  return { notifications, connected: MODO_DEMO || connected, unreadCount, markAsRead, clearAll };
 }

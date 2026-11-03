@@ -29,8 +29,13 @@ export default function UploadPage() {
     sectionsApi.getAll().then(setAllSections).catch(() => {});
   }, []);
 
+  const elegirColegio = (v: string) => {
+    if (!v) { setSchoolSections([]); setSelectedGradeName(''); }
+    setSelectedSchool(v);
+  };
+
   useEffect(() => {
-    if (!selectedSchool) { setSchoolSections([]); setSelectedGradeName(''); return; }
+    if (!selectedSchool) return;
     schoolsApi.getSchoolSections(selectedSchool).then(setSchoolSections).catch(() => setSchoolSections([]));
   }, [selectedSchool]);
 
@@ -45,7 +50,7 @@ export default function UploadPage() {
     setError('');
     try {
       const newGrade = await schoolsApi.createGrade(selectedSchool, selectedGradeName, year);
-      const gradeId = typeof newGrade === 'string' ? newGrade : newGrade.id || newGrade;
+      const gradeId = typeof newGrade === 'string' ? newGrade : String(newGrade.id || newGrade);
 
       const formData = new FormData();
       files.forEach(f => formData.append('files', f));
@@ -94,7 +99,7 @@ export default function UploadPage() {
           <div className="mt-3 grid gap-3 sm:grid-cols-[1.6fr_1.2fr_0.7fr]">
             <div>
               <label className="mb-1 block text-sm font-medium text-tenue">Colegio</label>
-              <SearchSelect value={selectedSchool} onChange={setSelectedSchool} placeholder="Busca tu colegio…"
+              <SearchSelect value={selectedSchool} onChange={elegirColegio} placeholder="Busca tu colegio…"
                 options={schools.map(s => ({ value: s.id, label: s.name }))} />
             </div>
             <div>

@@ -1,27 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
 import Link from 'next/link';
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Package, MessageSquare, Check, ZoomIn } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Package, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, updateNotes, total, clearCart, notasPedido } = useCart();
+  const { items, removeItem, updateQuantity, total, clearCart, notasPedido } = useCart();
   const { user } = useAuth();
-  const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
-
-  useEffect(() => {
-    const initialNotes: Record<string, string> = {};
-    items.forEach(item => { initialNotes[item.product.id] = item.notes || ''; });
-    setEditingNotes(initialNotes);
-  }, [items]);
-
-  const handleSaveNotes = (productId: string) => { updateNotes(productId, editingNotes[productId]); };
 
   const handleClearCart = () => {
     clearCart(); setShowClearConfirm(false); setShowSuccess(true);

@@ -1,7 +1,6 @@
 'use client';
 
 import { ChevronRight, Minus, Plus, Package } from 'lucide-react';
-import { formatPrice } from '@/lib/utils';
 import { ItemVariante, SupplyItem } from '@/lib/types';
 import { Tier, currentTier, tierLabel } from '@/lib/lista';
 import { ESTILO_NIVEL } from './Paquetes';

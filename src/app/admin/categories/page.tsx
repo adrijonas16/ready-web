@@ -1,18 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { categoriesApi } from '@/services/api';
+import { categoriesApi, type Category } from '@/services/api';
 import { Plus, Trash2, Search, X } from 'lucide-react';
 
 export default function AdminCategoriesPage() {
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
 
+  const load = () => categoriesApi.getAll().then(setCategories).catch(() => {}).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
-  const load = async () => { try { setCategories(await categoriesApi.getAll()); } catch {} finally { setLoading(false); } };
 
   const save = async () => {
     if (!name.trim()) return;

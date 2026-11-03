@@ -1,107 +1,115 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/lib/auth-context';
-import { listsApi } from '@/services/api';
-import { SupplyList } from '@/lib/types';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ChevronRight, ClipboardList, Package, Upload } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
+import { listsApi, ordersApi } from '@/services/api';
+import { SupplyList } from '@/lib/types';
 import StatusBadge from '@/components/StatusBadge';
-import { formatDate } from '@/lib/utils';
-import { List, Eye } from 'lucide-react';
+import { formatDate, formatPrice } from '@/lib/utils';
+
+interface PedidoResumen { id: string; total: number; status: string; createdAt: string; items: unknown[] }
+
+const ESTADO_PEDIDO: Record<string, string> = {
+  RECIBIDO: 'Recibido', EN_PREPARACION: 'Preparando', ARMADO: 'Armado', EN_CAMINO: 'En camino', ENTREGADO: 'Entregado',
+};
 
 export default function MyListsPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [lists, setLists] = useState<SupplyList[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [pedidos, setPedidos] = useState<PedidoResumen[]>([]);
+  const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      loadLists();
-    }
+    if (!user) return;
+    let vivo = true;
+    Promise.all([
+      listsApi.getAll({ userId: user.id }).catch(() => [] as SupplyList[]),
+      ordersApi.getByUserId(user.id).catch(() => [] as PedidoResumen[]),
+    ]).then(([l, p]) => { if (vivo) { setLists(l); setPedidos(p); setCargando(false); } });
+    return () => { vivo = false; };
   }, [user]);
-
-  const loadLists = async () => {
-    try {
-      const data = await listsApi.getAll({ userId: user?.id });
-      setLists(data);
-    } catch (err) {
-      console.error('Error loading lists:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!user) {
     return (
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 bg-sky-100">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Inicia sesion para ver tus listas</h2>
-          <Link href="/login" className="bg-blue-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:shadow-lg hover:shadow-blue-500/25 transition-colors duration-150">
-            Iniciar Sesion
-          </Link>
-        </div>
+      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4 py-12">
+        {!isLoading && (
+          <div className="text-center">
+            <h1 className="mb-2 text-2xl font-extrabold">Inicia sesión para ver tus listas</h1>
+            <p className="mb-6 text-tenue">Aquí verás tus listas subidas y tus pedidos.</p>
+            <Link href="/login?redirect=/my-lists" className="rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Iniciar sesión</Link>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-6 md:py-10 px-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Mis Listas</h1>
+    <div className="mx-auto max-w-5xl px-4 py-8 md:py-12">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h1 className="text-3xl font-extrabold tracking-tight">Mis listas y pedidos</h1>
+        <Link href="/upload" className="inline-flex items-center gap-2 rounded-xl bg-acento px-4 py-2.5 text-sm font-bold text-grafito hover:brightness-95">
+          <Upload className="h-4 w-4" aria-hidden="true" /> Subir otra lista
+        </Link>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : lists.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-100 p-12 text-center">
-          <List className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-slate-900 mb-1">No tienes listas aun</h3>
-          <p className="text-neutral-400 text-sm mb-6">Sube tu primera lista de utiles para comenzar.</p>
-          <Link href="/upload" className="bg-blue-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:shadow-lg hover:shadow-blue-500/25 transition-colors duration-150">
-            Subir lista
-          </Link>
-        </div>
+      {cargando ? (
+        <div className="flex justify-center py-16"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primario border-t-transparent" /></div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
-          <div className="overflow-x-auto">
-          <table className="w-full min-w-[540px]">
-            <thead className="bg-sky-100 border-b border-slate-100">
-              <tr>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Colegio</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Grado</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Ano</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Estado</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Fecha</th>
-                <th className="text-right px-5 py-3 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {lists.map((list) => (
-                <tr key={list.id} className="hover:bg-sky-100/50 transition-colors duration-100">
-                  <td className="px-5 py-3.5 text-sm text-slate-900 font-medium">{list.schoolName}</td>
-                  <td className="px-5 py-3.5 text-sm text-slate-500">{list.gradeName}</td>
-                  <td className="px-5 py-3.5 text-sm text-slate-500">{list.year}</td>
-                  <td className="px-5 py-3.5">
-                    <StatusBadge status={list.estado} size="sm" />
-                  </td>
-                  <td className="px-5 py-3.5 text-sm text-neutral-400">{formatDate(list.fechaSubida)}</td>
-                  <td className="px-5 py-3.5 text-right">
-                    <Link
-                      href={`/lists/${list.id}`}
-                      className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1 justify-end transition-colors duration-150"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      Ver
+        <>
+          <section className="mt-8" aria-labelledby="titulo-pedidos">
+            <h2 id="titulo-pedidos" className="text-lg font-bold">Pedidos</h2>
+            {pedidos.length === 0 ? (
+              <p className="mt-3 rounded-2xl border border-dashed border-linea-fuerte px-5 py-6 text-tenue">
+                Aún no tienes pedidos. Elige una lista o arma tu pedido en el <Link href="/catalog" className="font-semibold text-primario underline underline-offset-2">catálogo</Link>.
+              </p>
+            ) : (
+              <ul className="mt-3 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-papel">
+                {pedidos.map(p => (
+                  <li key={p.id}>
+                    <Link href={`/orders/${p.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-fondo">
+                      <Package className="h-5 w-5 shrink-0 text-primario" aria-hidden="true" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">Pedido {p.id}</p>
+                        <p className="text-sm text-tenue">{formatDate(p.createdAt)} · {p.items.length} productos</p>
+                      </div>
+                      <span className="rounded-full bg-eco-claro px-2.5 py-1 text-xs font-bold text-eco">{ESTADO_PEDIDO[p.status] ?? p.status}</span>
+                      <span className="w-24 text-right font-bold tabular-nums">{formatPrice(p.total)}</span>
+                      <ChevronRight className="h-4 w-4 text-tenue" aria-hidden="true" />
                     </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="mt-10" aria-labelledby="titulo-listas">
+            <h2 id="titulo-listas" className="text-lg font-bold">Listas que subiste</h2>
+            {lists.length === 0 ? (
+              <div className="mt-3 rounded-2xl border border-dashed border-linea-fuerte px-5 py-8 text-center">
+                <ClipboardList className="mx-auto h-8 w-8 text-tenue" aria-hidden="true" />
+                <p className="mt-3 text-tenue">Sube la foto de la lista del colegio y te la armamos completa.</p>
+              </div>
+            ) : (
+              <ul className="mt-3 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-papel">
+                {lists.map(l => (
+                  <li key={l.id}>
+                    <Link href={`/lists/${l.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-fondo">
+                      <ClipboardList className="h-5 w-5 shrink-0 text-primario" aria-hidden="true" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold">{l.schoolName}</p>
+                        <p className="text-sm text-tenue">{l.gradeName} {l.year} · subida el {formatDate(l.fechaSubida)}</p>
+                      </div>
+                      <StatusBadge status={l.estado} size="sm" />
+                      <ChevronRight className="h-4 w-4 text-tenue" aria-hidden="true" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
       )}
     </div>
   );

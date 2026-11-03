@@ -1,22 +1,24 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import { useState, useEffect } from 'react';
-import { Search, Users, Shield, User } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import type { User } from '@/lib/types';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
+type AdminUser = User & { created_at: string };
+
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('');
 
+  const load = () =>
+    fetch(`${API}/auth/users`).then(r => r.json()).then(d => { if (d.success) setUsers(d.data); })
+      .catch(() => {}).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
-  const load = async () => {
-    try { const r = await fetch(`${API}/auth/users`); const d = await r.json(); if (d.success) setUsers(d.data); }
-    catch {} finally { setLoading(false); }
-  };
 
   const changeRole = async (id: string, role: string) => {
     await fetch(`${API}/auth/users/${id}/role`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }) });

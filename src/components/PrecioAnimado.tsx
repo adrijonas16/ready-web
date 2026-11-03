@@ -14,12 +14,16 @@ export default function PrecioAnimado({ valor, className = '' }: { valor: number
     anterior.current = valor;
     if (desde === valor) return;
     const reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reducido) { setMostrado(valor); return; }
-    setCambio(valor > desde ? 'sube' : 'baja');
+    let frame = 0;
+    if (reducido) {
+      frame = requestAnimationFrame(() => setMostrado(valor));
+      return () => cancelAnimationFrame(frame);
+    }
     const inicio = performance.now();
     const duracion = 450;
-    let frame = 0;
+    let primero = true;
     const paso = (t: number) => {
+      if (primero) { primero = false; setCambio(valor > desde ? 'sube' : 'baja'); }
       const p = Math.min(1, (t - inicio) / duracion);
       const e = 1 - Math.pow(1 - p, 3);
       setMostrado(desde + (valor - desde) * e);

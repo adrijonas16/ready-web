@@ -1,3 +1,4 @@
+import AvisoDemo from '@/components/AvisoDemo';
 import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/nunito-sans";
 import "@fontsource-variable/rubik";
@@ -76,6 +77,7 @@ export default function RootLayout({
                   <Link href="/login" className="text-tenue hover:text-primario">Iniciar sesión</Link>
                 </nav>
               </div>
+              <AvisoDemo />
               <p className="border-t border-linea py-4 text-center text-xs text-tenue">© 2026 <span translate="no">Ready</span>, Arequipa (Perú)</p>
             </footer>
           </CartProvider>

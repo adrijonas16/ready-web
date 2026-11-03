@@ -35,7 +35,7 @@ export default function SearchSelect({ options, value, onChange, placeholder = '
   }, []);
 
   useEffect(() => {
-    if (open) { setSearch(''); setTimeout(() => inputRef.current?.focus(), 50); }
+    if (open) setTimeout(() => inputRef.current?.focus(), 50);
   }, [open]);
 
   const filtered = search
@@ -55,7 +55,7 @@ export default function SearchSelect({ options, value, onChange, placeholder = '
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setOpen(!open)}
+        onClick={() => { if (disabled) return; if (!open) setSearch(''); setOpen(!open); }}
         className={`w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-left flex items-center justify-between gap-2 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${disabled ? 'bg-slate-50 text-neutral-400 cursor-not-allowed' : 'hover:border-slate-300'}`}
       >
         <span className={selectedLabel ? 'text-slate-900' : 'text-neutral-400'}>

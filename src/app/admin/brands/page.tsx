@@ -1,21 +1,21 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import { useState, useEffect } from 'react';
-import { brandsApi } from '@/services/api';
-import { Plus, Edit2, Trash2, Search, X, Upload } from 'lucide-react';
+import { brandsApi, type Brand } from '@/services/api';
+import { Plus, Edit2, Search, X, Upload } from 'lucide-react';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
 export default function AdminBrandsPage() {
-  const [brands, setBrands] = useState<any[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState('');
 
+  const load = () => brandsApi.getAll().then(setBrands).catch(() => {}).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
-  const load = async () => { try { setBrands(await brandsApi.getAll()); } catch {} finally { setLoading(false); } };
 
   const save = async () => {
     if (!name.trim()) return;

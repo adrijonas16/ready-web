@@ -1,12 +1,12 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import { useState, useEffect } from 'react';
 import { ordersApi } from '@/services/api';
 import { formatPrice, formatDate } from '@/lib/utils';
-import { Search, Package, Eye, ChevronDown } from 'lucide-react';
-import Link from 'next/link';
+import { Search, ChevronDown } from 'lucide-react';
+import type { Order } from '@/lib/types';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 const STATUSES = ['RECIBIDO', 'EN_PREPARACION', 'ARMADO', 'EN_CAMINO', 'ENTREGADO'];
 const STATUS_COLORS: Record<string, string> = {
   RECIBIDO: 'bg-purple-100 text-purple-700', EN_PREPARACION: 'bg-blue-100 text-blue-700',
@@ -14,17 +14,16 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  const load = () =>
+    fetch(`${API}/orders`).then(r => r.json()).then(d => { if (d.success) setOrders(d.data || []); })
+      .catch(() => {}).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
-  const load = async () => {
-    try { const r = await fetch(`${API}/orders`); const d = await r.json(); if (d.success) setOrders(d.data || []); }
-    catch {} finally { setLoading(false); }
-  };
 
   const changeStatus = async (id: string, status: string) => {
     await ordersApi.updateStatus(id, status, `Cambiado a ${status} por admin`);
@@ -97,7 +96,7 @@ export default function AdminOrdersPage() {
                   )}
                   <div>
                     <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Productos</p>
-                    {order.items?.map((item: any) => (
+                    {order.items?.map(item => (
                       <div key={item.id} className="flex items-center justify-between px-3 py-1.5 bg-white rounded-lg mb-1">
                         <span className="text-xs text-slate-700">{item.productName}</span>
                         <div className="flex items-center gap-3 text-xs">
@@ -110,7 +109,7 @@ export default function AdminOrdersPage() {
                   {order.statusHistory?.length > 0 && (
                     <div>
                       <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Historial</p>
-                      {order.statusHistory.map((h: any, i: number) => (
+                      {order.statusHistory.map((h, i) => (
                         <div key={i} className="flex items-center gap-2 text-[10px] text-neutral-400">
                           <span className={`px-1.5 py-0.5 rounded ${STATUS_COLORS[h.status] || 'bg-slate-100'} text-[9px] font-bold`}>{h.status}</span>
                           <span>{formatDate(h.createdAt)}</span>

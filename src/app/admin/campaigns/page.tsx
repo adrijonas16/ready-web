@@ -1,17 +1,43 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import React, { useState, useEffect } from 'react';
-import { formatDate } from '@/lib/utils';
-import { Plus, Edit2, Trash2, Percent, Newspaper, Upload, X, Search, ChevronDown, Package, Check } from 'lucide-react';
+import { Plus, Edit2, Trash2, Percent, Newspaper, Upload, X, Search, Package, Check } from 'lucide-react';
 import { productsApi } from '@/services/api';
 import { Product } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
+interface Campaign {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  discount_percent: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  is_active?: boolean;
+}
+
+interface NewsItem {
+  id: string;
+  title: string;
+  content: string;
+  image_url?: string | null;
+  campaign_name?: string | null;
+}
+
+interface CampaignProduct {
+  id: string;
+  name: string;
+  image_url?: string | null;
+  sale_price?: number | null;
+  base_price: number;
+}
+
 
 export default function AdminCampaignsPage() {
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [news, setNews] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'campaigns' | 'news'>('campaigns');
   const [showForm, setShowForm] = useState(false);
@@ -19,21 +45,19 @@ export default function AdminCampaignsPage() {
   const [newsForm, setNewsForm] = useState({ title: '', content: '', imageUrl: '', campaignId: '', displayOrder: '0' });
   const [editId, setEditId] = useState<string | null>(null);
   const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
-  const [campaignProducts, setCampaignProducts] = useState<any[]>([]);
+  const [campaignProducts, setCampaignProducts] = useState<CampaignProduct[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [productSearch, setProductSearch] = useState('');
 
-  useEffect(() => { load(); }, []);
-  const load = async () => {
-    try {
-      const [c, n] = await Promise.all([
-        fetch(`${API}/campaigns`).then(r => r.json()),
-        fetch(`${API}/news`).then(r => r.json()),
-      ]);
+  const load = () =>
+    Promise.all([
+      fetch(`${API}/campaigns`).then(r => r.json()),
+      fetch(`${API}/news`).then(r => r.json()),
+    ]).then(([c, n]) => {
       if (c.success) setCampaigns(c.data);
       if (n.success) setNews(n.data);
-    } catch {} finally { setLoading(false); }
-  };
+    }).catch(() => {}).finally(() => setLoading(false));
+  useEffect(() => { load(); }, []);
 
   const saveCampaign = async () => {
     const data = { name: form.name, slug: form.slug || form.name.toLowerCase().replace(/\s+/g, '-'), description: form.description, discountPercent: parseFloat(form.discountPercent), discountFixed: 0, startDate: form.startDate || null, endDate: form.endDate || null };
@@ -76,7 +100,7 @@ export default function AdminCampaignsPage() {
     if (expandedCampaign) await toggleCampaignProducts(expandedCampaign);
   };
 
-  const campaignProductIds = new Set(campaignProducts.map((p: any) => p.id));
+  const campaignProductIds = new Set(campaignProducts.map(p => p.id));
   const filteredAllProducts = allProducts.filter(p =>
     productSearch ? p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.brand?.toLowerCase().includes(productSearch.toLowerCase()) : true
   );
@@ -201,7 +225,7 @@ export default function AdminCampaignsPage() {
                           <div className="flex-1">
                             <p className="text-xs font-bold text-slate-900 mb-2">Productos en esta campana ({campaignProducts.length})</p>
                             <div className="space-y-1 max-h-48 overflow-y-auto">
-                              {campaignProducts.map((p: any) => (
+                              {campaignProducts.map(p => (
                                 <div key={p.id} className="flex items-center justify-between px-3 py-1.5 bg-white rounded-lg">
                                   <div className="flex items-center gap-2">
                                     <div className="w-7 h-7 bg-slate-50 rounded overflow-hidden flex-shrink-0">

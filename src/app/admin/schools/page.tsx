@@ -1,16 +1,16 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import { useState, useEffect } from 'react';
 import { schoolsApi } from '@/services/api';
 import { Plus, Edit2, Trash2, Search, X, ChevronDown, ChevronUp, GraduationCap } from 'lucide-react';
 import { sectionsApi } from '@/services/api';
-import { Section } from '@/lib/types';
+import { Section, School, Grade } from '@/lib/types';
 import { groupSections } from '@/lib/constants';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
 export default function AdminSchoolsPage() {
-  const [schools, setSchools] = useState<any[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -18,15 +18,15 @@ export default function AdminSchoolsPage() {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [grades, setGrades] = useState<any[]>([]);
+  const [grades, setGrades] = useState<Grade[]>([]);
   const [newGrade, setNewGrade] = useState('');
   const [allSections, setAllSections] = useState<Section[]>([]);
   const [schoolSectionIds, setSchoolSectionIds] = useState<Set<string>>(new Set());
   const [savingSections, setSavingSections] = useState(false);
 
+  const load = () => schoolsApi.getAll().then(setSchools).catch(() => {}).finally(() => setLoading(false));
+  const loadAllSections = () => sectionsApi.getAll().then(setAllSections).catch(() => {});
   useEffect(() => { load(); loadAllSections(); }, []);
-  const load = async () => { try { setSchools(await schoolsApi.getAll()); } catch {} finally { setLoading(false); } };
-  const loadAllSections = async () => { try { setAllSections(await sectionsApi.getAll()); } catch {} };
 
   const save = async () => {
     if (!name.trim()) return;
@@ -52,7 +52,7 @@ export default function AdminSchoolsPage() {
       schoolsApi.getSchoolSections(id),
     ]);
     setGrades(gradesData);
-    setSchoolSectionIds(new Set(schoolSecs.map((s: any) => s.id)));
+    setSchoolSectionIds(new Set(schoolSecs.map(s => s.id)));
   };
 
   const toggleSection = async (schoolId: string, sectionId: string) => {

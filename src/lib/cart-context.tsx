@@ -28,9 +28,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [listaId, setListaId] = useState<string | null>(null);
   const [cargado, setCargado] = useState(false);
 
+  // El carrito vive en localStorage, que solo existe en el navegador: se lee al montar
+  // (no en el estado inicial) para que el HTML del servidor y el del cliente coincidan.
   useEffect(() => {
     try {
       const stored = localStorage.getItem('cart');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única de localStorage tras hidratar
       if (stored) setItems(JSON.parse(stored));
       const extra = localStorage.getItem('cart_extra');
       if (extra) {

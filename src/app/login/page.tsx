@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-import { Eye, EyeOff, LogIn, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Loader2, UserRound, ShieldCheck } from 'lucide-react';
+import { MODO_DEMO } from '@/lib/api-base';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -15,18 +16,28 @@ export default function LoginPage() {
   const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Vuelve a la página desde la que se pidió iniciar sesión (?redirect=/checkout)
+  const destino = () => {
+    const r = new URLSearchParams(window.location.search).get('redirect');
+    return r && r.startsWith('/') && !r.startsWith('//') ? r : '/';
+  };
+
+  const entrar = async (correo: string, clave: string) => {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
-      router.push('/');
-    } catch (err: any) {
-      setError(err.message || 'Credenciales invalidas');
+      await login(correo, clave);
+      router.push(correo.startsWith('admin') && destino() === '/' ? '/admin' : destino());
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Correo o contraseña incorrectos');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    entrar(email, password);
   };
 
   return (
@@ -47,7 +58,24 @@ export default function LoginPage() {
             </Link>
           </div>
 
+          {MODO_DEMO ? (
+            <div className="mb-6 rounded-xl border border-acento bg-acento-claro p-4">
+              <p className="text-sm font-bold text-slate-900">Tienda de demostración</p>
+              <p className="mt-1 text-xs text-slate-700">Entra con cualquier correo y contraseña, o usa una cuenta de prueba:</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <button type="button" disabled={loading} onClick={() => entrar('cliente@demo.pe', 'demo')}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 border border-slate-200 hover:bg-slate-50 disabled:opacity-50">
+                  <UserRound className="h-4 w-4" aria-hidden="true" /> Soy cliente
+                </button>
+                <button type="button" disabled={loading} onClick={() => entrar('admin@ready.pe', 'demo')}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 border border-slate-200 hover:bg-slate-50 disabled:opacity-50">
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" /> Soy administrador
+                </button>
+              </div>
+            </div>
+          ) : (
           <button
+            type="button"
             onClick={() => loginWithGoogle()}
             className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors duration-150 mb-6"
           >
@@ -59,6 +87,8 @@ export default function LoginPage() {
             </svg>
             <span className="font-medium text-slate-700 text-sm">Continuar con Google</span>
           </button>
+
+          )}
 
           <div className="flex items-center gap-4 mb-6">
             <div className="flex-1 h-px bg-slate-200" />
@@ -74,7 +104,7 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">Correo electronico</label>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">Correo electrónico</label>
               <input
                 type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} required
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-[box-shadow,border-color] duration-150 text-sm placeholder-neutral-400"
@@ -83,12 +113,12 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">Contrasena</label>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">Contraseña</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'} id="password" value={password} onChange={(e) => setPassword(e.target.value)} required
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-[box-shadow,border-color] duration-150 pr-11 text-sm placeholder-neutral-400"
-                  placeholder="Tu contrasena"
+                  placeholder="Tu contraseña"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-slate-600 p-1 rounded transition-colors">
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -100,13 +130,13 @@ export default function LoginPage() {
               type="submit" disabled={loading}
               className="w-full bg-blue-500 text-white py-3 px-4 rounded-xl font-bold text-sm transition-[opacity,box-shadow] duration-150 disabled:opacity-50 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LogIn className="h-4 w-4" />Iniciar Sesion</>}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LogIn className="h-4 w-4" />Iniciar sesión</>}
             </button>
           </form>
 
           <p className="text-center text-sm text-neutral-400 mt-6">
-            No tienes cuenta?{' '}
-            <Link href="/register" className="font-semibold text-blue-500 hover:text-blue-600 transition-colors">Registrate</Link>
+            ¿No tienes cuenta?{' '}
+            <Link href="/register" className="font-semibold text-blue-500 hover:text-blue-600 transition-colors">Regístrate</Link>
           </p>
         </div>
       </div>

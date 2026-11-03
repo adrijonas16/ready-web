@@ -1,5 +1,6 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -9,7 +10,6 @@ import { Product } from '@/lib/types';
 import ProductCard from '@/components/ProductCard';
 import { TIERS } from '@/lib/lista';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 /** Categorías internas que no se venden sueltas en la tienda */
 const OCULTAS = new Set(['Servicios']);
 
@@ -55,9 +55,14 @@ function Catalogo() {
       .finally(() => setCargando(false));
   }, []);
 
-  // Productos de la oferta elegida
+  // Productos de la oferta elegida (al quitar la oferta se olvidan durante el render)
+  const [campanaPrevia, setCampanaPrevia] = useState(campana);
+  if (campana !== campanaPrevia) {
+    setCampanaPrevia(campana);
+    if (!campana) setIdsCampana(null);
+  }
   useEffect(() => {
-    if (!campana) { setIdsCampana(null); return; }
+    if (!campana) return;
     fetch(`${API}/campaigns/${campana}`).then(r => r.json())
       .then(res => setIdsCampana(new Set<string>(res.data?.products?.map((p: { id: string }) => p.id) || [])))
       .catch(() => setIdsCampana(new Set()));

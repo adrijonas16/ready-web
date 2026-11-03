@@ -24,9 +24,16 @@ export default function ListsPage() {
       .finally(() => setCargando(false));
   }, []);
 
+  const elegirColegio = (v: string) => {
+    if (v !== colegio) {
+      setGrado('');
+      if (!v) setSeccionesColegio([]);
+    }
+    setColegio(v);
+  };
+
   useEffect(() => {
-    setGrado('');
-    if (!colegio) { setSeccionesColegio([]); return; }
+    if (!colegio) return;
     schoolsApi.getSchoolSections(colegio).then(setSeccionesColegio).catch(() => setSeccionesColegio([]));
   }, [colegio]);
 
@@ -47,7 +54,7 @@ export default function ListsPage() {
       <div className="mt-6 grid gap-3 rounded-2xl border border-linea bg-papel p-4 sm:grid-cols-[1.6fr_1fr] sm:p-5">
         <div>
           <label className="mb-1 block text-sm font-semibold">Colegio</label>
-          <SearchSelect value={colegio} onChange={setColegio} placeholder="Escribe el nombre de tu colegio…"
+          <SearchSelect value={colegio} onChange={elegirColegio} placeholder="Escribe el nombre de tu colegio…"
             options={colegios.map(c => ({ value: c.id, label: conLista.has(c.id) ? c.name : `${c.name} (sin lista aún)` }))} />
         </div>
         <div>
@@ -60,8 +67,6 @@ export default function ListsPage() {
       <section aria-live="polite" className="mt-8">
         {cargando ? (
           <div className="grid gap-3 sm:grid-cols-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-24" />)}</div>
-        ) : !colegio ? (
-          <p className="text-tenue">{aprobadas.length} listas de {conLista.size} colegios disponibles. Elige tu colegio para verlas.</p>
         ) : visibles.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-linea bg-papel px-6 py-10 text-center">
             <GraduationCap className="mx-auto h-10 w-10 text-tenue/50" aria-hidden="true" />
@@ -78,7 +83,11 @@ export default function ListsPage() {
           </div>
         ) : (
           <>
-            <h2 className="mb-3 font-bold">{visibles.length} {visibles.length === 1 ? 'lista' : 'listas'} de {nombreColegio}</h2>
+            <h2 className="mb-3 font-bold">
+              {colegio
+                ? `${visibles.length} ${visibles.length === 1 ? 'lista' : 'listas'} de ${nombreColegio}`
+                : `${aprobadas.length} listas de ${conLista.size} colegios`}
+            </h2>
             <ul className="grid gap-3 sm:grid-cols-2">
               {visibles.map(l => (
                 <li key={l.id}>
@@ -89,6 +98,7 @@ export default function ListsPage() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-bold">{l.gradeName}</span>
+                      {!colegio && <span className="block truncate text-sm font-semibold text-grafito">{l.schoolName}</span>}
                       <span className="block text-sm text-tenue">Año escolar {l.year}{l.esOficial ? ', lista oficial del colegio' : ''}</span>
                     </span>
                     <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-primario">

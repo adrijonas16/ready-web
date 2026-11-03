@@ -1,10 +1,10 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
 
 interface NewsItem { id: string; title: string; content?: string; image_url?: string; campaign_slug?: string; campaign_name?: string }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { MODO_DEMO } from '@/lib/api-base';
 import { listsApi, productsApi } from '@/services/api';
 import { ItemVariante, ListDetail, ListExtras, Product, ProductDetail, SupplyItem } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
@@ -63,7 +64,7 @@ function LeyendoLista({ imageUrl, startedAt, onTimeout }: { imageUrl?: string; s
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   const seg = Math.floor((now - startedAt) / 1000);
   const paso = seg < 12 ? 'Leyendo cada línea de la lista…' : seg < 35 ? 'Buscando cada útil en nuestro catálogo…' : 'Calculando las opciones económica, estándar y premium…';
-  const primera = imageUrl?.split('|').find(u => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
+  const primera = imageUrl?.split('|').find(u => /^data:image\/|\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
 
   return (
     <div className="mx-auto grid max-w-5xl items-center gap-8 px-4 py-10 md:grid-cols-[minmax(0,380px)_1fr] md:gap-10 md:py-12">
@@ -120,7 +121,7 @@ function EnRevision({ estado, observaciones, utiles, libros, imageUrl, leida }: 
     { t: observada ? 'Encontramos algo por corregir' : 'Nuestro equipo la está revisando', hecho: false, actual: true },
     { t: 'Eliges tu opción y compras', hecho: false },
   ];
-  const primera = imageUrl?.split('|').find(u => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
+  const primera = imageUrl?.split('|').find(u => /^data:image\/|\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
 
   return (
     <div className="mx-auto grid max-w-5xl items-start gap-10 px-4 py-10 md:grid-cols-[1fr_320px] md:py-14">
@@ -148,6 +149,11 @@ function EnRevision({ estado, observaciones, utiles, libros, imageUrl, leida }: 
             </li>
           ))}
         </ol>
+        {MODO_DEMO && !observada && (
+          <p className="mt-6 rounded-xl border border-acento bg-acento-claro px-4 py-3 text-sm">
+            Esta es una tienda de demostración: el administrador aprueba la lista solo, en unos segundos.
+          </p>
+        )}
         <p className="mt-8 text-sm text-tenue">
           Puedes cerrar esta página. La lista queda en <Link href="/my-lists" className="font-semibold text-primario underline underline-offset-2">Mis listas</Link>.
         </p>
@@ -202,29 +208,26 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const extrasTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const extrasCargados = useRef(false);
 
-  const loadList = useCallback(async () => {
-    try {
-      const result: ListDetail = await listsApi.getById(id);
-      setData(result);
-      setLocalQty(prev => {
-        const next: Record<string, number> = {};
-        result.items.forEach(i => { next[i.id] = prev[i.id] ?? (i.userCustomQuantity || i.matchedQuantity || i.cantidad); });
-        return next;
-      });
-      if (!extrasCargados.current && result.list.iaEstado !== 'PROCESANDO') {
-        const e = parseExtras(result.list.extras);
-        if (!e.etiquetas.nombre && result.list.estudianteNombre) e.etiquetas.nombre = result.list.estudianteNombre;
-        if (!e.etiquetas.grado && result.list.estudianteGrado) e.etiquetas.grado = result.list.estudianteGrado;
-        setExtras(e);
-        extrasCargados.current = true;
-      }
-      return result;
-    } catch {
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+  const loadList = useCallback(() =>
+    listsApi.getById(id)
+      .then((result: ListDetail) => {
+        setData(result);
+        setLocalQty(prev => {
+          const next: Record<string, number> = {};
+          result.items.forEach(i => { next[i.id] = prev[i.id] ?? (i.userCustomQuantity || i.matchedQuantity || i.cantidad); });
+          return next;
+        });
+        if (!extrasCargados.current && result.list.iaEstado !== 'PROCESANDO') {
+          const e = parseExtras(result.list.extras);
+          if (!e.etiquetas.nombre && result.list.estudianteNombre) e.etiquetas.nombre = result.list.estudianteNombre;
+          if (!e.etiquetas.grado && result.list.estudianteGrado) e.etiquetas.grado = result.list.estudianteGrado;
+          setExtras(e);
+          extrasCargados.current = true;
+        }
+        return result;
+      })
+      .catch(() => null)
+      .finally(() => setLoading(false)), [id]);
 
   useEffect(() => { loadList(); }, [loadList]);
 
@@ -261,7 +264,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const esperandoAprobacion = !!data && !procesando && data.list.estado !== 'VALIDADA' && data.list.estado !== 'PROCESADA' && user?.role !== 'ADMIN';
   useEffect(() => {
     if (!esperandoAprobacion) return;
-    const t = setInterval(() => { loadList(); }, 30000);
+    const t = setInterval(() => { loadList(); }, MODO_DEMO ? 3000 : 30000);
     return () => clearInterval(t);
   }, [esperandoAprobacion, loadList]);
 

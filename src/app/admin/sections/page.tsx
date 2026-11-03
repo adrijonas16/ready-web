@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { sectionsApi } from '@/services/api';
 import { Section } from '@/lib/types';
 import { groupSections } from '@/lib/constants';
-import { Plus, Trash2, Search, X } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react';
 
 export default function AdminSectionsPage() {
   const [sections, setSections] = useState<Section[]>([]);
@@ -15,8 +15,8 @@ export default function AdminSectionsPage() {
   const [useCustomGroup, setUseCustomGroup] = useState(false);
   const [name, setName] = useState('');
 
+  const load = () => sectionsApi.getAll().then(setSections).catch(() => {}).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
-  const load = async () => { try { setSections(await sectionsApi.getAll()); } catch {} finally { setLoading(false); } };
 
   const save = async () => {
     const group = useCustomGroup ? customGroup.trim() : groupName;

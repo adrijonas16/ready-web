@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { productsApi, brandsApi } from '@/services/api';
 import { Product } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
@@ -8,7 +8,6 @@ import { Plus, Edit2, Search, Star, Package, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [brandNames, setBrandNames] = useState<string[]>([]);
@@ -19,24 +18,21 @@ export default function AdminProductsPage() {
   const [filterTier, setFilterTier] = useState('');
   const [filterStock, setFilterStock] = useState('');
 
+  const loadData = () =>
+    Promise.all([
+      productsApi.getAll({ limit: 500 }),
+      productsApi.getCategories(),
+      brandsApi.getAll(),
+    ]).then(([prods, cats, brands]) => {
+      setAllProducts(prods);
+      setCategories(cats);
+      setBrandNames(brands.map(b => b.name).sort());
+    }).catch(e => { console.error(e); })
+      .finally(() => setLoading(false));
+
   useEffect(() => { loadData(); }, []);
 
-  const loadData = async () => {
-    try {
-      const [prods, cats, brands] = await Promise.all([
-        productsApi.getAll({ limit: 500 }),
-        productsApi.getCategories(),
-        brandsApi.getAll(),
-      ]);
-      setAllProducts(prods);
-      setProducts(prods);
-      setCategories(cats);
-      setBrandNames(brands.map((b: any) => b.name).sort());
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => {
+  const products = useMemo(() => {
     let f = [...allProducts];
     if (search) f = f.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.sku?.toLowerCase().includes(search.toLowerCase()));
     if (filterCat) f = f.filter(p => p.category === filterCat);
@@ -45,15 +41,8 @@ export default function AdminProductsPage() {
     if (filterStock === 'low') f = f.filter(p => p.stock > 0 && p.stock <= 10);
     if (filterStock === 'out') f = f.filter(p => p.stock === 0);
     if (filterStock === 'ok') f = f.filter(p => p.stock > 10);
-    setProducts(f);
+    return f;
   }, [search, filterCat, filterBrand, filterTier, filterStock, allProducts]);
-
-  const toggleActive = async (id: string) => {
-    try {
-      await productsApi.delete(id);
-      await loadData();
-    } catch (e) { console.error(e); }
-  };
 
   return (
     <div>

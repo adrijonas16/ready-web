@@ -1,5 +1,6 @@
 'use client';
 
+import { API } from '@/lib/api-base';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/lib/types';
 import { authApi } from '@/services/api';
@@ -40,9 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
 
-    if (storedToken && storedUser) {
-      // Validate token against real backend
-      authApi.getCurrentUser()
+    // Validate token against real backend (sin sesión guardada no hay nada que validar)
+    const validacion = storedToken && storedUser
+      ? authApi.getCurrentUser()
         .then((userData) => {
           setToken(storedToken);
           setUser(userData);
@@ -53,10 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
         })
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
+      : Promise.resolve();
+    validacion.finally(() => setIsLoading(false));
   }, []);
 
   const addNotification = (message: string, type: 'success' | 'error' | 'info') => {
@@ -115,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithToken = (newToken: string, userId: string) => {
     setToken(newToken);
     localStorage.setItem('token', newToken);
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api'}/auth/me`, { headers: { Authorization: `Bearer ${newToken}` } })
+    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${newToken}` } })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data) {
