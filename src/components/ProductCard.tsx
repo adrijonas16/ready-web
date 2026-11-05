@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Check, Package, Plus } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
 import { TIERS } from '@/lib/lista';
+import { volarAlCarrito } from '@/lib/efectos';
 
 const PUNTO_NIVEL: Record<string, string> = { economico: 'bg-eco', medio: 'bg-primario', premium: 'bg-premium' };
 
@@ -26,7 +27,20 @@ export default function ProductCard({ product, showAddToCart = true, onClick }: 
   const nivel = TIERS.find(t => t.id === product.tier);
   const href = `/products/${product.id}`;
 
+  const foto = useRef<HTMLDivElement>(null);
+  const tarjeta = useRef<HTMLElement>(null);
+
+  // Inclinación suave siguiendo el puntero (solo con mouse)
+  const inclinar = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'mouse' || !tarjeta.current) return;
+    const r = tarjeta.current.getBoundingClientRect();
+    tarjeta.current.style.setProperty('--rx', `${((e.clientY - r.top) / r.height - 0.5) * -6}deg`);
+    tarjeta.current.style.setProperty('--ry', `${((e.clientX - r.left) / r.width - 0.5) * 8}deg`);
+  };
+  const enderezar = () => { tarjeta.current?.style.setProperty('--rx', '0deg'); tarjeta.current?.style.setProperty('--ry', '0deg'); };
+
   const agregar = () => {
+    volarAlCarrito(foto.current, product.imageUrl);
     addItem(product, 1);
     setAdded(true);
     setTimeout(() => setAdded(false), 1400);
@@ -34,10 +48,10 @@ export default function ProductCard({ product, showAddToCart = true, onClick }: 
 
   const Contenido = (
     <>
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-fondo">
+      <div ref={foto} className="relative aspect-square overflow-hidden rounded-xl bg-fondo">
         {product.imageUrl
           ? <img src={product.imageUrl} alt={product.name} width={300} height={300} loading="lazy"
-              className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.03]" />
+              className="h-full w-full object-contain p-2 transition-transform duration-500 ease-out group-hover:-translate-y-1 group-hover:scale-[1.07] group-hover:-rotate-2" />
           : <div className="flex h-full items-center justify-center"><Package className="h-10 w-10 text-tenue/40" aria-hidden="true" /></div>}
         {agotado && <span className="absolute left-2 top-2 rounded-full bg-grafito px-2 py-0.5 text-xs font-semibold text-white">Agotado</span>}
         {!agotado && product.stock < 10 && <span className="absolute left-2 top-2 rounded-full bg-acento-claro px-2 py-0.5 text-xs font-semibold text-grafito">Quedan {product.stock}</span>}
@@ -52,7 +66,8 @@ export default function ProductCard({ product, showAddToCart = true, onClick }: 
   );
 
   return (
-    <article className="group flex flex-col rounded-2xl border border-linea bg-papel p-3 transition-[border-color,box-shadow] hover:border-primario/40 hover:shadow-[0_10px_30px_-18px_rgba(15,23,42,0.45)]">
+    <article ref={tarjeta} onPointerMove={inclinar} onPointerLeave={enderezar}
+      className="tarjeta-inclinable group flex flex-col rounded-2xl border border-linea bg-papel p-3 hover:border-primario/40 hover:shadow-[0_18px_36px_-18px_rgba(15,23,42,0.5)]">
       {onClick
         ? <button onClick={onClick} className="cursor-pointer text-left">{Contenido}</button>
         : <Link href={href} className="block">{Contenido}</Link>}
@@ -60,7 +75,7 @@ export default function ProductCard({ product, showAddToCart = true, onClick }: 
         <span className="min-w-0 truncate text-base font-bold tabular-nums sm:text-lg">{formatPrice(product.basePrice)}</span>
         {showAddToCart && (
           <button onClick={agregar} disabled={agotado} aria-label={`Agregar ${product.name} al carrito`}
-            className={`inline-flex h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-2.5 sm:px-3 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`inline-flex h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-2.5 sm:px-3 text-sm font-bold transition-[background-color,transform] active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 ${
               added ? 'bg-eco text-white' : 'bg-acento text-grafito hover:bg-acento-oscuro'}`}>
             {added
               ? <><Check className="h-4 w-4 animate-check-pop" aria-hidden="true" /><span className="hidden sm:inline">Listo</span></>

@@ -39,9 +39,19 @@ export function ElegirPaquete({ items, qty, onElegir, eligiendo }: {
         {TIERS.map(t => {
           const e = ESTILO_NIVEL[t.id];
           const muestra = items.map(i => ({ i, p: tierProduct(i, t.id) })).filter(x => x.p).slice(0, 4);
+          const fotos = items.map(i => tierProduct(i, t.id)?.imageUrl).filter(Boolean).slice(0, 5) as string[];
           return (
-            <article key={t.id} className={`animate-slide-up flex flex-col overflow-hidden rounded-3xl border bg-papel transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_-24px_rgba(15,23,42,0.55)] ${eligiendo === t.id ? `animate-elegido border-transparent ring-2 ${e.anillo}` : 'border-linea'}`} style={{ animationDelay: `${TIERS.indexOf(t) * 90}ms` }}>
-              <div className={`${e.fondo} px-5 pb-5 pt-4`}>
+            <article key={t.id} className={`group animate-slide-up flex flex-col overflow-hidden rounded-3xl border bg-papel transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_-24px_rgba(15,23,42,0.55)] ${eligiendo === t.id ? `animate-elegido border-transparent ring-2 ${e.anillo}` : 'border-linea'}`} style={{ animationDelay: `${TIERS.indexOf(t) * 90}ms` }}>
+              <div className={`relative ${e.fondo} px-5 pb-5 pt-4`}>
+                {/* Fotos de los útiles de esta opción, en abanico al pasar el mouse */}
+                <div className="pointer-events-none absolute bottom-5 right-4 h-12 w-12" aria-hidden="true">
+                  {fotos.map((src, k) => (
+                    <span key={k} style={{ ['--k' as string]: k, zIndex: 10 - k }}
+                      className="absolute right-0 top-0 flex h-12 w-12 translate-x-[calc(var(--k)*-16px)] rotate-[calc((var(--k)-2)*5deg)] items-center justify-center rounded-xl border border-linea bg-white shadow-sm transition-[translate,rotate] duration-500 ease-out group-hover:translate-x-[calc(var(--k)*-26px)] group-hover:-translate-y-1 group-hover:rotate-[calc((var(--k)-2)*9deg)]">
+                      <img src={src} alt="" className="h-10 w-10 object-contain" />
+                    </span>
+                  ))}
+                </div>
                 <div className="flex items-center gap-2">
                   <span className={`h-2.5 w-2.5 rounded-full ${e.punto}`} aria-hidden="true" />
                   <h2 className="text-xl font-extrabold">{t.label}</h2>

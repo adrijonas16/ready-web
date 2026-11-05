@@ -74,7 +74,7 @@ export default function Header() {
 
           {user && <NotificationBell />}
 
-          <Link href="/cart" className="relative rounded-xl p-2.5 text-grafito hover:bg-fondo" aria-label={`Carrito, ${itemCount} productos`}>
+          <Link href="/cart" data-carrito className="relative rounded-xl p-2.5 text-grafito hover:bg-fondo" aria-label={`Carrito, ${itemCount} productos`}>
             <ShoppingBag className="h-5 w-5" />
             {itemCount > 0 && (
               <span key={itemCount} className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primario px-1 text-[11px] font-bold text-white ring-2 ring-papel animate-cart-bounce">

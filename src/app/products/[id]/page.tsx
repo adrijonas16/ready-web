@@ -1,5 +1,6 @@
 'use client';
 
+import { volarAlCarrito } from '@/lib/efectos';
 import { API } from '@/lib/api-base';
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
@@ -67,6 +68,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const handleAddToCart = () => {
     const notes = Object.values(selectedVariants).map(v => v.value).join(', ');
+    volarAlCarrito(document.getElementById('foto-producto'), activeImage || product!.imageUrl);
     addItem({ ...product!, basePrice: finalPrice }, quantity, notes || undefined);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -101,7 +103,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
                 <div className="aspect-square bg-slate-50 flex items-center justify-center p-6">
                   {activeImage ? (
-                    <img src={activeImage} alt={product.name} className="max-w-full max-h-full object-contain rounded-lg" />
+                    <img key={activeImage} id="foto-producto" src={activeImage} alt={product.name} className="max-w-full max-h-full object-contain rounded-lg animate-scale-in" />
                   ) : (
                     <Package className="h-24 w-24 text-neutral-200" />
                   )}

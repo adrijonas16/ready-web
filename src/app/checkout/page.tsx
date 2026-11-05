@@ -1,5 +1,6 @@
 'use client';
 
+import { lanzarConfeti } from '@/lib/efectos';
 import { useState } from 'react';
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
@@ -245,6 +246,7 @@ export default function CheckoutPage() {
       setOrderId(result.id);
       setOperacion(op);
       setOrderComplete(true);
+      lanzarConfeti();
       setPasoPago(null);
       clearCart();
       addNotification('¡Pedido confirmado!', 'success');

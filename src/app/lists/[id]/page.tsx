@@ -17,6 +17,7 @@ import FilaUtil from '@/components/lista/FilaUtil';
 import Extras, { PreciosServicios } from '@/components/lista/Extras';
 import SelectorProducto from '@/components/lista/SelectorProducto';
 import PrecioAnimado from '@/components/PrecioAnimado';
+import { lanzarConfeti, volarAlCarrito } from '@/lib/efectos';
 
 // ── Observations Box ──
 function ObservationBox({ listId, existing, onSaved }: { listId: string; existing?: string; onSaved: () => void }) {
@@ -206,6 +207,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [agotado, setAgotado] = useState(false);
   const qtyTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const extrasTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Confeti cuando la lista pasa de "en revisión" a aprobada con la página abierta
+  const estadoAnterior = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const estado = data?.list.estado;
+    if (estadoAnterior.current === 'PENDIENTE_REVISION' && estado === 'VALIDADA') lanzarConfeti();
+    estadoAnterior.current = estado;
+  }, [data?.list.estado]);
   const extrasCargados = useRef(false);
 
   const loadList = useCallback(() =>
@@ -401,6 +410,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     setAgregando(true);
     const etiquetaNota = [extras.etiquetas.nombre && `Nombre: ${extras.etiquetas.nombre}`, extras.etiquetas.grado && `Grado: ${extras.etiquetas.grado}`, `Diseño: ${extras.etiquetas.diseno}`].filter(Boolean).join(' | ');
     const origen = `${data.list.schoolName}, ${data.list.gradeName}`;
+    const boton = document.activeElement;
+    conProducto.slice(0, 6).forEach((i, k) => setTimeout(() => volarAlCarrito(boton, i.matchedProduct?.imageUrl), k * 110));
     try {
       conProducto.forEach(i => {
         const vs = variantesDe(i, extras);
@@ -433,6 +444,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         ...(sinPrecio.length ? [`Servicios por confirmar, ${origen}: ${sinPrecio.join('; ')}`] : []),
       ]);
       setListaId(id);
+      await new Promise(r => setTimeout(r, 750));
       router.push('/cart');
     } finally {
       setAgregando(false);

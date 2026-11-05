@@ -418,3 +418,40 @@ img {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Tarjeta de producto que se inclina siguiendo el puntero */
+.tarjeta-inclinable {
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.25s var(--ease-out), border-color 0.2s, box-shadow 0.2s;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta-inclinable { transform: none !important; }
+}
+
+/* Barra de lectura que recorre la hoja en la demo del inicio */
+@keyframes escaneo-hoja {
+  0% { top: 40px; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: calc(100% - 30px); opacity: 0; }
+}
+.animate-escaneo-hoja { animation: escaneo-hoja 4s var(--ease-out) forwards; }
+
+/* La foto del producto gira al cambiar de opción */
+@keyframes voltear {
+  from { transform: rotateY(90deg) scale(0.8); opacity: 0; }
+  to { transform: rotateY(0) scale(1); opacity: 1; }
+}
+.animate-voltear { animation: voltear 0.45s var(--ease-out) both; }
+
+/* Útiles que flotan en el fondo del inicio */
+@keyframes flotar {
+  0%, 100% { transform: translateY(0) rotate(var(--giro, 0deg)); }
+  50% { transform: translateY(-10px) rotate(calc(var(--giro, 0deg) + 4deg)); }
+}
+.animate-flotar { animation: flotar 6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-escaneo-hoja, .animate-voltear, .animate-flotar { animation: none !important; }
+}
