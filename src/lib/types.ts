@@ -18,6 +18,7 @@ export interface User {
   /** DNI (8 dígitos) o RUC (11) para la boleta o factura */
   documento?: string;
   role: 'USER' | 'ADMIN' | 'OPERATOR';
+  createdAt?: string;
 }
 
 export interface AuthResponse {
@@ -45,7 +46,7 @@ export interface Section {
   sortOrder: number;
 }
 
-export type ListStatus = 'PENDIENTE_REVISION' | 'EN_REVISION' | 'OBSERVADA' | 'VALIDADA' | 'PROCESADA';
+export type ListStatus = 'PENDIENTE_REVISION' | 'EN_REVISION' | 'OBSERVADA' | 'RECHAZADA' | 'VALIDADA' | 'PROCESADA';
 
 export interface SupplyList {
   id: string;
@@ -125,7 +126,7 @@ export interface VariantType {
 
 export interface ProductDetail extends Product {
   variants?: VariantType[];
-  images?: { id: string; image_url: string; alt_text?: string | null }[];
+  images?: { id: string; image_url: string; alt_text?: string | null; imageUrl?: string; isPrimary?: boolean }[];
 }
 
 export interface SupplyItem {
@@ -225,14 +226,14 @@ export interface Order {
   status: OrderStatus;
   shippingAddress: string;
   shippingPhone: string;
-  contactNotes?: string;
   trackingNumber?: string;
   createdAt: string;
-  userName?: string;
-  userEmail?: string;
+  contactNotes?: string | null;
+  userName?: string | null;
+  userEmail?: string | null;
   pago?: { metodo: string; operacion: string; estado: string };
   entrega?: Entrega | null;
-  costoEnvio?: number;
+  costoEnvio?: number | null;
   comprobante?: Comprobante | null;
   cupon?: string | null;
   descuento?: number;
@@ -249,6 +250,7 @@ export interface OrderItem {
   unitPrice: number;
   recargo?: number;
   notes?: string;
+  /** Para quién es el útil (hermanos con listas distintas) */
   para?: string | null;
 }
 

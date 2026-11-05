@@ -1,6 +1,6 @@
 'use client';
 
-import { API } from '@/lib/api-base';
+import { API, apiFetch } from '@/lib/api-base';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -40,7 +40,7 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${API}/auth/register`, {
+      const res = await apiFetch(`${API}/auth/register`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       });

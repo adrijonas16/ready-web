@@ -1,6 +1,6 @@
 'use client';
 
-import { API } from '@/lib/api-base';
+import { API, apiFetch } from '@/lib/api-base';
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '@/lib/types';
 import { authApi, PerfilInput } from '@/services/api';
@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithToken = (newToken: string, userId: string) => {
     setToken(newToken);
     localStorage.setItem('token', newToken);
-    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${newToken}` } })
+    apiFetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${newToken}` } })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data) {

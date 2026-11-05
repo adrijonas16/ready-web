@@ -72,7 +72,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const actual = Math.max(0, ETAPAS.findIndex(e => e.id === pedido.status));
   const cuando = (etapa: string) => pedido.statusHistory.find(h => h.status === etapa)?.createdAt;
   const grupos = agruparPorPara(pedido.items);
-  const { porCotizar, otras } = leerNotas(pedido.contactNotes);
+  const { porCotizar, otras } = leerNotas(pedido.contactNotes ?? undefined);
   const subtotal = pedido.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
   const envio = pedido.costoEnvio ?? 0;
   const ayuda = enlaceWhatsapp(ajustes.whatsapp, `Hola, necesito ayuda con mi pedido ${pedido.id}`);
