@@ -88,7 +88,7 @@ export default function SearchSelect({ options, value, onChange, placeholder = '
                 onClick={() => { onChange(''); setOpen(false); }}
                 className="w-full px-3 py-2 text-left text-xs text-neutral-400 hover:bg-slate-50 flex items-center gap-1"
               >
-                <X className="h-3 w-3" /> Limpiar seleccion
+                <X className="h-3 w-3" /> Limpiar selección
               </button>
             )}
             {Object.entries(groups).map(([group, opts]) => (

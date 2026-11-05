@@ -52,7 +52,7 @@ export default function NotificationBell() {
                 Notificaciones
               </h3>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => setIsOpen(false)} aria-label="Cerrar notificaciones"
                 className="p-1.5 hover:bg-white/20 rounded-lg transition-colors duration-200"
               >
                 <X className="h-4 w-4 text-white" />
@@ -77,7 +77,7 @@ export default function NotificationBell() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-gray-700 leading-relaxed">{notification.message}</p>
                         <p className="text-xs text-gray-400 mt-1.5">
-                          {notification.createdAt.toLocaleTimeString()}
+                          {notification.createdAt.toLocaleString('es-PE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                       {!notification.read && (

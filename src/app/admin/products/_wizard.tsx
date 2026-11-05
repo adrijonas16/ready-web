@@ -1,534 +1,355 @@
 'use client';
 
-import { API } from '@/lib/api-base';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { productsApi, brandsApi, categoriesApi, type Brand, type Category } from '@/services/api';
+import Link from 'next/link';
+import {
+  productsApi, brandsApi, categoriesApi, productImagesApi, variantsApi,
+  type Brand, type Category, type ProductImage,
+} from '@/services/api';
+import type { Product, VariantType, VariantValue } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
-import { Check, Plus, X, Package, Trash2, Upload, ShoppingCart } from 'lucide-react';
+import { Check, Plus, Package, Trash2, Upload, Star, Save } from 'lucide-react';
 import SearchSelect from '@/components/SearchSelect';
-
-
-interface VariantType { id: string; name: string; values: VariantValue[] }
-interface VariantValue { id: string; value: string; image_url?: string; price_modifier: number; stock: number; color_hex?: string; is_active: boolean }
-interface Spec { tipo: string; descripcion: string }
-interface FAQ { pregunta: string; respuesta: string }
+import { Interruptor, NIVELES, NivelBadge, campo, tarjeta, useAvisos } from '../_ui';
 
 const STEPS = [
-  { num: 1, label: 'Informacion Producto', sub: '' },
-  { num: 2, label: 'Variantes', sub: '' },
-  { num: 3, label: 'Stock y Oferta', sub: '' },
-  { num: 4, label: 'Preguntas Frecuentes', sub: '' },
+  { num: 1, label: 'Información' },
+  { num: 2, label: 'Fotos' },
+  { num: 3, label: 'Variantes' },
+  { num: 4, label: 'Revisar y publicar' },
 ];
+
+const PRESETS = ['Color', 'Tamaño', 'Cantidad', 'Material', 'Personaje', 'Presentación', 'Diseño', 'Curso'];
+
+interface Formulario { name: string; description: string; category: string; brand: string; sku: string; basePrice: string; stock: string; tier: string; isActive: boolean }
+const vacio: Formulario = { name: '', description: '', category: '', brand: '', sku: '', basePrice: '0', stock: '100', tier: 'medio', isActive: true };
 
 export default function ProductWizard({ productId }: { productId?: string }) {
   const router = useRouter();
+  const avisos = useAvisos();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState(productId || '');
+  const [cargando, setCargando] = useState(!!productId);
 
-  // Step 1: Info
-  const [form, setForm] = useState({
-    name: '', description: '', shortDesc: '', category: '', brand: '', sku: '',
-    basePrice: '0', stock: '100', tier: 'medio', rating: '4.0', saleUnit: 'unidad',
-  });
-  const [images, setImages] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [newTag, setNewTag] = useState('');
-  const [specs, setSpecs] = useState<Spec[]>([]);
-
-  // Selects data
+  const [form, setForm] = useState<Formulario>(vacio);
+  const [guardado, setGuardado] = useState<Formulario>(vacio);
+  const [images, setImages] = useState<ProductImage[]>([]);
+  const [subiendo, setSubiendo] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  // Codigo mostrado mientras el producto aun no tiene SKU
-  const [skuProvisional] = useState(() => `SKU-${Date.now()}`);
-
-  // Step 2: Variants
   const [variants, setVariants] = useState<VariantType[]>([]);
   const [newTypeName, setNewTypeName] = useState('');
-  const [showTypePresets, setShowTypePresets] = useState(false);
 
-  // Step 4: FAQ
-  const [faqs, setFaqs] = useState<FAQ[]>([]);
-
-  // Load categories and brands
   useEffect(() => {
-    categoriesApi.getAll().then(setCategories).catch(() => {});
-    brandsApi.getAll().then(setBrands).catch(() => {});
-  }, []);
+    categoriesApi.getAll().then(setCategories).catch(e => avisos.error(e, 'No pudimos cargar las categorías'));
+    brandsApi.getAll().then(setBrands).catch(e => avisos.error(e, 'No pudimos cargar las marcas'));
+  }, [avisos]);
 
-  // Load existing product
+  const cargarFotos = useCallback(async (id: string) => {
+    try { setImages(await productImagesApi.getAll(id)); }
+    catch (e) { avisos.error(e, 'No pudimos cargar las fotos'); }
+  }, [avisos]);
+
   useEffect(() => {
-    if (productId) {
-      fetch(`${API}/products/${productId}`).then(r => r.json()).then(d => {
-        if (d.success) {
-          const p = d.data;
-          setForm({
-            name: p.name || '', description: p.description || '', shortDesc: '',
-            category: p.category || '', brand: p.brand || '', sku: p.sku || '',
-            basePrice: String(p.basePrice || 0), stock: String(p.stock || 0),
-            tier: p.tier || 'medio', rating: String(p.rating || 4), saleUnit: p.saleUnit || 'unidad',
-          });
-          if (p.imageUrl) setImages([p.imageUrl]);
-          if (p.images?.length) setImages(p.images.map((i: { image_url: string }) => i.image_url));
-          if (p.variants?.length) setVariants(p.variants);
-          setSavedId(productId);
-        }
-      });
-    }
-  }, [productId]);
+    if (!productId) return;
+    productsApi.getById(productId).then(p => {
+      const f: Formulario = {
+        name: p.name || '', description: p.description || '', category: p.category || '', brand: p.brand || '', sku: p.sku || '',
+        basePrice: String(p.basePrice ?? 0), stock: String(p.stock ?? 0), tier: p.tier || 'medio', isActive: p.isActive !== false,
+      };
+      setForm(f); setGuardado(f);
+      setVariants(p.variants ?? []);
+      setSavedId(productId);
+    }).catch(e => avisos.error(e, 'No encontramos el producto'))
+      .finally(() => setCargando(false));
+    productImagesApi.getAll(productId).then(setImages).catch(e => avisos.error(e, 'No pudimos cargar las fotos'));
+  }, [productId, avisos]);
 
-  const updateForm = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
+  const updateForm = <K extends keyof Formulario>(key: K, val: Formulario[K]) => setForm(prev => ({ ...prev, [key]: val }));
+  const cambiosSinGuardar = JSON.stringify(form) !== JSON.stringify(guardado);
+  const esServicio = form.category === 'Servicios' || /^SRV-/.test(guardado.sku);
 
-  // Save step 1
-  const saveInfo = async () => {
+  const datos = (): Partial<Product> => ({
+    name: form.name.trim(), description: form.description.trim(), category: form.category, brand: form.brand || undefined,
+    sku: form.sku.trim() || undefined, basePrice: parseFloat(form.basePrice) || 0, stock: Math.max(0, parseInt(form.stock) || 0),
+    tier: form.tier, isActive: form.isActive,
+  });
+
+  /** Crea o actualiza el producto con lo que hay en el formulario. Devuelve el id o null si falló. */
+  const guardarInfo = async (mensaje?: string): Promise<string | null> => {
+    if (!form.name.trim() || !form.category) { avisos.error(null, 'Escribe el nombre y elige la categoría'); setStep(1); return null; }
+    const precio = parseFloat(form.basePrice);
+    if (!Number.isFinite(precio) || precio < 0) { avisos.error(null, 'El precio no es válido'); setStep(1); return null; }
     setSaving(true);
     try {
-      const data = {
-        name: form.name, description: form.description, category: form.category,
-        brand: form.brand, sku: form.sku || `SKU-${Date.now()}`,
-        basePrice: parseFloat(form.basePrice), stock: parseInt(form.stock),
-      };
-      if (savedId) {
-        await productsApi.update(savedId, data);
+      let id = savedId;
+      if (id) {
+        await productsApi.update(id, datos());
       } else {
-        const id = await productsApi.create(data);
+        const creado = await productsApi.create(datos());
+        id = creado.id;
         setSavedId(id);
+        if (creado.sku) setForm(f => ({ ...f, sku: creado.sku }));
+        window.history.replaceState(null, '', `/admin/products/${id}/edit`);
       }
-      setStep(2);
-    } catch (e) { console.error(e); }
+      setGuardado({ ...form, sku: form.sku || guardado.sku });
+      if (mensaje) avisos.exito(mensaje);
+      return id;
+    } catch (e) { avisos.error(e, 'No pudimos guardar el producto'); return null; }
     finally { setSaving(false); }
   };
 
-  // Variant operations
-  const addVariantType = async (name: string) => {
+  // ── Fotos ──
+  const subirFotos = async (files: FileList) => {
     if (!savedId) return;
-    await fetch(`${API}/products/${savedId}/variants/types`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, displayOrder: variants.length })
-    });
-    await reloadVariants();
-    setShowTypePresets(false);
-    setNewTypeName('');
+    setSubiendo(true);
+    let n = 0;
+    try {
+      for (const f of Array.from(files).slice(0, Math.max(0, 8 - images.length))) {
+        await productImagesApi.upload(savedId, f, images.length === 0 && n === 0);
+        n++;
+      }
+      if (n) avisos.exito(n === 1 ? 'Foto subida' : `${n} fotos subidas`);
+    } catch (e) { avisos.error(e, 'No pudimos subir la foto'); }
+    finally { setSubiendo(false); cargarFotos(savedId); }
+  };
+  const borrarFoto = async (im: ProductImage) => {
+    if (!confirm('¿Eliminar esta foto?')) return;
+    try { await productImagesApi.delete(savedId, im.id); avisos.exito('Foto eliminada'); }
+    catch (e) { avisos.error(e, 'No pudimos eliminar la foto'); }
+    cargarFotos(savedId);
+  };
+  const hacerPrincipal = async (im: ProductImage) => {
+    try { await productImagesApi.setPrimary(savedId, im.id); avisos.exito('Foto principal cambiada'); }
+    catch (e) { avisos.error(e, 'No pudimos cambiar la foto principal'); }
+    cargarFotos(savedId);
   };
 
-  const addVariantValue = async (typeId: string, value: string, priceModifier: number, stock: number, colorHex?: string) => {
+  // ── Variantes ──
+  const reloadVariants = useCallback(async () => {
     if (!savedId) return;
-    const type = variants.find(v => v.id === typeId);
-    await fetch(`${API}/products/${savedId}/variants/types/${typeId}/values`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value, priceModifier, stock, displayOrder: type?.values?.length || 0, colorHex })
-    });
-    await reloadVariants();
+    try { setVariants(await variantsApi.getAll(savedId)); }
+    catch (e) { avisos.error(e, 'No pudimos cargar las variantes'); }
+  }, [savedId, avisos]);
+
+  const accion = async (fn: () => Promise<unknown>, ok: string, mal: string) => {
+    try { await fn(); avisos.exito(ok); return true; }
+    catch (e) { avisos.error(e, mal); return false; }
+    finally { await reloadVariants(); }
+  };
+  const addVariantType = (name: string) => {
+    if (!name.trim()) return;
+    if (variants.some(v => v.name.toLowerCase() === name.trim().toLowerCase())) { avisos.error(null, `Ya hay un grupo "${name}"`); return; }
+    accion(() => variantsApi.createType(savedId, name.trim(), variants.length), `Grupo "${name}" agregado`, 'No pudimos agregar el grupo').then(() => setNewTypeName(''));
   };
 
-  const deleteVariantType = async (typeId: string) => {
-    await fetch(`${API}/products/${savedId}/variants/types/${typeId}`, { method: 'DELETE' });
-    await reloadVariants();
+  const imagenPrincipal = images.find(i => i.isPrimary)?.imageUrl ?? images[0]?.imageUrl;
+  const base = parseFloat(form.basePrice) || 0;
+  const mods = variants.flatMap(v => v.values.filter(x => x.is_active !== false).map(val => Number(val.price_modifier) || 0));
+  const minPrice = base + Math.min(0, ...mods), maxPrice = base + Math.max(0, ...mods);
+  const stepComplete = (n: number) => (n === 1 ? !!savedId && !cambiosSinGuardar : n === 2 ? images.length > 0 : n === 3 ? variants.length > 0 : false);
+
+  const irA = async (n: number) => {
+    if (n > 1 && !savedId) { const id = await guardarInfo('Producto creado'); if (!id) return; }
+    else if (n > 1 && step === 1 && cambiosSinGuardar) { if (!(await guardarInfo('Cambios guardados'))) return; }
+    setStep(n);
   };
 
-  const deleteVariantValue = async (valueId: string) => {
-    await fetch(`${API}/products/${savedId}/variants/values/${valueId}`, { method: 'DELETE' });
-    await reloadVariants();
+  const publicar = async () => {
+    const id = await guardarInfo();
+    if (!id) return;
+    avisos.exito(form.isActive ? `"${form.name}" publicado en la tienda` : `"${form.name}" guardado como inactivo`);
+    router.push('/admin/products');
   };
 
-  const uploadVariantImage = async (valueId: string, file: File) => {
-    const fd = new FormData(); fd.append('file', file);
-    await fetch(`${API}/products/${savedId}/variants/values/${valueId}/image`, { method: 'POST', body: fd });
-    await reloadVariants();
-  };
-
-  const reloadVariants = async () => {
-    const res = await fetch(`${API}/products/${savedId}/variants`);
-    const d = await res.json();
-    if (d.success) setVariants(d.data);
-  };
-
-  const stepComplete = (n: number) => {
-    if (n === 1) return !!form.name && !!form.category;
-    if (n === 2) return variants.length > 0;
-    return false;
-  };
-
-  // Compute price range from variants
-  const priceRange = () => {
-    const base = parseFloat(form.basePrice) || 0;
-    if (variants.length === 0) return { min: base, max: base };
-    const mods = variants.flatMap(v => v.values.map(val => val.price_modifier));
-    return { min: base + Math.min(0, ...mods), max: base + Math.max(0, ...mods) };
-  };
-
-  const totalVariantStock = variants.reduce((s, vt) => s + vt.values.reduce((s2, v) => s2 + v.stock, 0), 0);
-  const { min: minPrice, max: maxPrice } = priceRange();
+  if (cargando) return <div className="flex justify-center py-12"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
     <div>
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => router.push('/admin/products')} className="text-neutral-400 hover:text-slate-700 text-sm">Productos</button>
-        <span className="text-neutral-300">/</span>
-        <span className="text-slate-900 text-sm font-medium">{productId ? 'Editar' : 'Crear'} Producto</span>
-      </div>
+      <nav aria-label="Ruta" className="flex items-center gap-2 mb-4 text-sm">
+        <Link href="/admin/products" className="text-neutral-400 hover:text-slate-700">Productos</Link>
+        <span className="text-neutral-300" aria-hidden="true">/</span>
+        <span className="text-slate-900 font-medium">{productId || savedId ? 'Editar producto' : 'Nuevo producto'}</span>
+      </nav>
+      <h1 className="sr-only">{productId || savedId ? `Editar ${form.name}` : 'Nuevo producto'}</h1>
 
       <div className="flex flex-col md:flex-row gap-4">
-        {/* Left: Steps sidebar */}
-        <div className="flex flex-row md:flex-col md:w-52 flex-shrink-0 gap-2 md:gap-0 md:space-y-3 overflow-x-auto pb-2 md:pb-0">
+        {/* Pasos */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:flex md:flex-col md:w-52 flex-shrink-0 gap-2 md:gap-3" role="tablist" aria-label="Pasos">
           {STEPS.map(s => (
-            <button key={s.num} onClick={() => (s.num === 1 || savedId) && setStep(s.num)}
-              className={`flex-shrink-0 md:w-full text-left p-2 md:p-3 rounded-[16px] transition-all duration-150 ${
-                step === s.num
-                  ? 'bg-white shadow-[0px_2px_6px_2px_rgba(0,0,0,0.15)] border border-slate-900'
-                  : 'bg-white shadow-[0px_2px_6px_2px_rgba(0,0,0,0.08)] hover:shadow-md'
-              }`}>
-              <div className="flex items-center gap-2 mb-1 md:mb-2">
-                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${
-                  stepComplete(s.num) ? 'bg-blue-500 text-white' :
-                  step === s.num ? 'bg-slate-900 text-white border border-slate-900' :
-                  'border border-slate-200 text-slate-500'
-                }`}>
-                  {stepComplete(s.num) ? <Check className="h-3 w-3" /> : s.num}
-                </div>
+            <button key={s.num} role="tab" aria-selected={step === s.num} onClick={() => irA(s.num)}
+              className={`min-w-0 text-left p-2 md:p-3 rounded-[16px] transition-all duration-150 bg-white ${
+                step === s.num ? 'shadow-[0px_2px_6px_2px_rgba(0,0,0,0.15)] border border-slate-900' : 'shadow-[0px_2px_6px_2px_rgba(0,0,0,0.08)] hover:shadow-md'}`}>
+              <div className={`w-6 h-6 mb-1 rounded-md flex items-center justify-center text-xs font-bold ${
+                stepComplete(s.num) ? 'bg-blue-500 text-white' : step === s.num ? 'bg-slate-900 text-white' : 'border border-slate-200 text-slate-500'}`}>
+                {stepComplete(s.num) ? <Check className="h-3 w-3" aria-hidden="true" /> : s.num}
               </div>
-              <p className={`text-xs md:text-sm whitespace-nowrap ${step === s.num ? 'text-slate-900 font-medium' : 'text-slate-500'}`}>{s.label}</p>
-              <p className="hidden md:block text-[10px] text-neutral-400 mt-0.5">
-                {s.num === 1 && form.name ? `${form.name}` : ''}
-                {s.num === 2 ? `${variants.length} grupos de variantes` : ''}
-                {s.num === 3 ? `Stock: ${parseInt(form.stock) + totalVariantStock}` : ''}
-                {s.num === 4 ? `${faqs.length} preguntas` : ''}
+              <p className={`text-xs md:text-sm truncate ${step === s.num ? 'text-slate-900 font-medium' : 'text-slate-500'}`}>{s.label}</p>
+              <p className="hidden md:block text-[10px] text-neutral-400 mt-0.5 truncate">
+                {s.num === 1 ? (form.name || '') : s.num === 2 ? `${images.length} ${images.length === 1 ? 'foto' : 'fotos'}` : s.num === 3 ? `${variants.length} grupos de variantes` : (form.isActive ? 'Activo' : 'Inactivo')}
               </p>
             </button>
           ))}
         </div>
 
-        {/* Center: Form */}
-        <div className="flex-1 bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 min-h-[500px]">
-          {/* Step 1: Info */}
+        <div className={`flex-1 min-w-0 ${tarjeta} rounded-[20px] p-4 sm:p-5 min-h-[420px]`}>
+          {/* Paso 1 */}
           {step === 1 && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-slate-900 mb-1">Codigo Producto</label>
-                  <input type="text" value={form.sku || skuProvisional} disabled
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-400 cursor-not-allowed" />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-900 mb-1">Categoria *</label>
-                  <SearchSelect
-                    value={form.category}
-                    onChange={v => updateForm('category', v)}
-                    placeholder="Seleccionar categoria"
-                    options={categories.map(c => ({ value: c.name, label: c.name }))}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-900 mb-1">Marca</label>
-                  <SearchSelect
-                    value={form.brand}
-                    onChange={v => updateForm('brand', v)}
-                    placeholder="Seleccionar marca"
-                    options={brands.map(b => ({ value: b.name, label: b.name }))}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-900 mb-1">Tier</label>
-                  <select value={form.tier} onChange={e => updateForm('tier', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                    <option value="economico">Economico</option>
-                    <option value="medio">Estandar</option>
-                    <option value="premium">Premium</option>
+                <Campo label="Nombre *" full>
+                  <input value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Cuaderno A4 rayado 100 hojas" className={campo} />
+                </Campo>
+                <Campo label="Código">
+                  <input value={form.sku} onChange={e => updateForm('sku', e.target.value.toUpperCase())} disabled={esServicio && !!guardado.sku}
+                    placeholder="Se genera solo si lo dejas vacío" className={`${campo} font-mono disabled:bg-slate-50 disabled:text-slate-400`} />
+                  {esServicio && !!guardado.sku && <p className="text-[10px] text-neutral-400 mt-1">El código de los servicios no se cambia: la tienda lo usa para encontrarlos.</p>}
+                </Campo>
+                <Campo label="Categoría *" grupo>
+                  <SearchSelect value={form.category} onChange={v => updateForm('category', v)} placeholder="Elegir categoría"
+                    options={categories.map(c => ({ value: c.name, label: c.name }))} />
+                </Campo>
+                <Campo label="Marca" grupo>
+                  <SearchSelect value={form.brand} onChange={v => updateForm('brand', v)} placeholder="Elegir marca"
+                    options={brands.map(b => ({ value: b.name, label: b.name }))} />
+                </Campo>
+                <Campo label="Nivel">
+                  <select value={form.tier} onChange={e => updateForm('tier', e.target.value)} className={campo} aria-label="Nivel">
+                    {NIVELES.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}
                   </select>
+                </Campo>
+                <Campo label="Precio (S/) *">
+                  <input type="number" min={0} step="0.1" value={form.basePrice} onChange={e => updateForm('basePrice', e.target.value)} className={campo} />
+                </Campo>
+                <Campo label="Stock">
+                  <input type="number" min={0} value={form.stock} onChange={e => updateForm('stock', e.target.value)} className={campo} />
+                </Campo>
+                <Campo label="Descripción" full>
+                  <textarea value={form.description} onChange={e => updateForm('description', e.target.value)} maxLength={1000} rows={4}
+                    placeholder="Qué es, medidas, para qué sirve…" className={campo} />
+                </Campo>
+                <div className="sm:col-span-2">
+                  <Interruptor activo={form.isActive} onChange={v => updateForm('isActive', v)} etiqueta="Activo (se ve en la tienda)" />
                 </div>
               </div>
-              <Field label="Nombre" value={form.name} onChange={v => updateForm('name', v)} placeholder="Cuaderno A4 Rayado 100 hojas" full />
-
-              {/* Images */}
-              <div>
-                <label className="block text-xs text-slate-900 mb-1">Imagenes del producto (hasta 5)</label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {images.map((img, i) => (
-                    <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-slate-200 group">
-                      <img src={img} alt="" className="w-full h-full object-cover" />
-                      <button onClick={() => setImages(images.filter((_, j) => j !== i))}
-                        className="absolute inset-0 bg-red-500/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                      {i === 0 && <span className="absolute bottom-0 left-0 right-0 bg-blue-500 text-white text-[8px] text-center py-0.5">Principal</span>}
-                    </div>
-                  ))}
-                  {images.length < 5 && (
-                    <label className="w-16 h-16 border-2 border-dashed border-blue-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 transition-colors">
-                      <Upload className="h-4 w-4 text-blue-500 mb-0.5" />
-                      <span className="text-[8px] text-blue-500 font-medium">Subir</span>
-                      <input type="file" accept="image/*" multiple className="hidden" onChange={async e => {
-                        const files = e.target.files;
-                        if (!files) return;
-
-                        // Auto-save product first if new
-                        let pid = savedId;
-                        if (!pid && form.name && form.category) {
-                          setSaving(true);
-                          try {
-                            const data = { name: form.name, description: form.description, category: form.category, brand: form.brand, sku: form.sku || `SKU-${Date.now()}`, basePrice: parseFloat(form.basePrice), stock: parseInt(form.stock) };
-                            const id = await productsApi.create(data);
-                            pid = typeof id === 'string' ? id : String(id);
-                            setSavedId(pid);
-                          } catch (err) { console.error(err); setSaving(false); return; }
-                          setSaving(false);
-                        }
-
-                        if (!pid) { alert('Primero escribe nombre y categoria del producto'); return; }
-
-                        for (let i = 0; i < Math.min(files.length, 5 - images.length); i++) {
-                          const fd = new FormData();
-                          fd.append('file', files[i]);
-                          fd.append('isPrimary', String(images.length === 0 && i === 0));
-                          try {
-                            const res = await fetch(`${API}/products/${pid}/images`, { method: 'POST', body: fd });
-                            const d = await res.json();
-                            if (d.success) setImages(prev => [...prev, d.data.imageUrl]);
-                          } catch (err) { console.error('Upload error:', err); }
-                        }
-                      }} />
-                    </label>
-                  )}
-                </div>
-                {images.length === 0 && <p className="text-[10px] text-neutral-400 mt-1">Sube al menos 1 imagen. La primera sera la principal.</p>}
-              </div>
-
-              <Field label="Detalle corto (128 chars)" value={form.shortDesc} onChange={v => updateForm('shortDesc', v)} placeholder="Descripcion breve..." full />
-              <FieldArea label="Descripcion completa (512 chars)" value={form.description} onChange={v => updateForm('description', v)} placeholder="Descripcion detallada..." />
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Field label="Precio Base" value={form.basePrice} onChange={v => updateForm('basePrice', v)} type="number" />
-                <Field label="Stock" value={form.stock} onChange={v => updateForm('stock', v)} type="number" />
-                <div>
-                  <label className="block text-xs text-slate-900 mb-1">Unidad de venta</label>
-                  <select value={form.saleUnit} onChange={e => updateForm('saleUnit', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                    <option value="unidad">Unidad</option><option value="docena">Docena</option>
-                    <option value="media_docena">Media Docena</option><option value="caja">Caja</option>
-                    <option value="ciento">Ciento</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Tags */}
-              <div>
-                <label className="block text-xs text-slate-900 mb-1">Tags</label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {tags.map((t, i) => (
-                    <span key={i} className="text-xs bg-slate-100 text-blue-500 px-2 py-1 rounded-lg flex items-center gap-1">
-                      {t} <button onClick={() => setTags(tags.filter((_, j) => j !== i))}><X className="h-2.5 w-2.5 text-red-400" /></button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input type="text" value={newTag} onChange={e => setNewTag(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && newTag) { setTags([...tags, newTag]); setNewTag(''); } }}
-                    placeholder="Agregar tag..." className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs" />
-                </div>
-              </div>
-
-              {/* Specs table */}
-              <div>
-                <label className="block text-xs text-slate-900 mb-1">Especificaciones</label>
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-200">
-                    <div className="px-3 py-1.5 text-xs font-medium text-slate-900">Tipo</div>
-                    <div className="px-3 py-1.5 text-xs font-medium text-slate-900">Descripcion</div>
-                    <div className="px-3 py-1.5 text-xs font-medium text-slate-900">Accion</div>
-                  </div>
-                  {specs.map((s, i) => (
-                    <div key={i} className="grid grid-cols-3 border-b border-slate-100">
-                      <input className="px-3 py-1.5 text-xs border-r border-slate-100" value={s.tipo}
-                        onChange={e => { const n = [...specs]; n[i].tipo = e.target.value; setSpecs(n); }} />
-                      <input className="px-3 py-1.5 text-xs border-r border-slate-100" value={s.descripcion}
-                        onChange={e => { const n = [...specs]; n[i].descripcion = e.target.value; setSpecs(n); }} />
-                      <div className="px-3 py-1.5 flex gap-2">
-                        <button onClick={() => setSpecs(specs.filter((_, j) => j !== i))}><Trash2 className="h-3 w-3 text-red-400" /></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button onClick={() => setSpecs([...specs, { tipo: '', descripcion: '' }])}
-                  className="mt-2 text-xs text-blue-500 font-medium flex items-center gap-1"><Plus className="h-3 w-3" /> Agregar especificacion</button>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <button onClick={saveInfo} disabled={saving || !form.name || !form.category}
-                  className="bg-blue-500 text-white px-8 py-2 rounded-lg text-sm font-medium disabled:opacity-40 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-                  {saving ? 'Guardando...' : 'Guardar y Continuar'}
+              <div className="flex flex-wrap justify-end items-center gap-3 pt-2">
+                {cambiosSinGuardar && savedId && <span className="text-xs text-orange-500 font-medium">Hay cambios sin guardar</span>}
+                <button onClick={async () => { const id = await guardarInfo(savedId ? 'Cambios guardados' : 'Producto creado'); if (id) setStep(2); }}
+                  disabled={saving || !form.name.trim() || !form.category}
+                  className="bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-medium disabled:opacity-40 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
+                  {saving ? 'Guardando…' : 'Guardar y continuar'}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step 2: Variants */}
+          {/* Paso 2: fotos */}
           {step === 2 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-slate-900">Variantes del producto</h2>
-                <div className="relative">
-                  <button onClick={() => setShowTypePresets(!showTypePresets)}
-                    className="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-1 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-                    <Plus className="h-3 w-3" /> Nueva Variante
-                  </button>
-                  {showTypePresets && (
-                    <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 p-2 z-10 w-48 animate-slide-down">
-                      {['Color', 'Tamano', 'Cantidad', 'Material', 'Personaje', 'Presentacion', 'Tipo'].map(p => (
-                        <button key={p} onClick={() => addVariantType(p)}
-                          className="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-blue-50 text-slate-700">{p}</button>
-                      ))}
-                      <div className="flex gap-1 mt-1 pt-1 border-t border-slate-100">
-                        <input type="text" value={newTypeName} onChange={e => setNewTypeName(e.target.value)}
-                          placeholder="Otro..." className="flex-1 px-2 py-1 border border-slate-200 rounded text-xs" />
-                        <button onClick={() => { if (newTypeName) addVariantType(newTypeName); }}
-                          className="bg-blue-500 text-white px-2 py-1 rounded text-xs">OK</button>
-                      </div>
+              <h2 className="text-base font-bold text-slate-900">Fotos del producto</h2>
+              <p className="text-xs text-neutral-400">La foto principal es la que se ve en el catálogo y en las listas. Puedes subir hasta 8.</p>
+              <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3" aria-label="Fotos">
+                {images.map(im => (
+                  <li key={im.id} data-foto={im.id} className={`relative rounded-xl overflow-hidden border-2 ${im.isPrimary ? 'border-blue-500' : 'border-slate-200'}`}>
+                    <img src={im.imageUrl} alt={im.altText || form.name} className="w-full aspect-square object-cover bg-slate-50" />
+                    {im.isPrimary && <span className="absolute top-1.5 left-1.5 bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Principal</span>}
+                    <div className="flex border-t border-slate-200 bg-white">
+                      {!im.isPrimary && (
+                        <button onClick={() => hacerPrincipal(im)} className="flex-1 py-1.5 text-[11px] text-blue-500 font-medium hover:bg-blue-50 flex items-center justify-center gap-1">
+                          <Star className="h-3 w-3" aria-hidden="true" /> Principal
+                        </button>
+                      )}
+                      <button onClick={() => borrarFoto(im)} aria-label="Eliminar foto" className="flex-1 py-1.5 text-[11px] text-red-500 font-medium hover:bg-red-50 flex items-center justify-center gap-1">
+                        <Trash2 className="h-3 w-3" aria-hidden="true" /> Eliminar
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </li>
+                ))}
+                {images.length < 8 && (
+                  <li>
+                    <label className="w-full aspect-square border-2 border-dashed border-blue-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 transition-colors">
+                      <Upload className="h-5 w-5 text-blue-500 mb-1" aria-hidden="true" />
+                      <span className="text-xs text-blue-500 font-medium">{subiendo ? 'Subiendo…' : 'Subir fotos'}</span>
+                      <input type="file" accept="image/*" multiple className="sr-only" aria-label="Subir fotos" disabled={subiendo}
+                        onChange={e => { if (e.target.files?.length) subirFotos(e.target.files); e.target.value = ''; }} />
+                    </label>
+                  </li>
+                )}
+              </ul>
+              <Navegacion atras={() => setStep(1)} siguiente={() => setStep(3)} />
+            </div>
+          )}
+
+          {/* Paso 3: variantes */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Variantes</h2>
+                <p className="text-xs text-neutral-400">Colores, diseños o tamaños que el cliente puede elegir. Cada opción puede tener su recargo, su stock y su foto.</p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <span className="text-xs text-slate-500 mr-1">Agregar grupo:</span>
+                {PRESETS.filter(p => !variants.some(v => v.name === p)).map(p => (
+                  <button key={p} onClick={() => addVariantType(p)} className="px-2.5 py-1 rounded-lg text-xs bg-slate-100 text-slate-700 hover:bg-blue-50">{p}</button>
+                ))}
+                <input value={newTypeName} onChange={e => setNewTypeName(e.target.value)} onKeyDown={e => e.key === 'Enter' && addVariantType(newTypeName)}
+                  placeholder="Otro…" aria-label="Nombre de otro grupo" className="px-2 py-1 border border-slate-200 rounded-lg text-xs w-28" />
+                <button onClick={() => addVariantType(newTypeName)} disabled={!newTypeName.trim()} className="bg-blue-500 text-white px-2.5 py-1 rounded-lg text-xs disabled:opacity-40">Agregar</button>
               </div>
 
               {variants.length === 0 ? (
-                <div className="text-center py-12 text-neutral-400">
-                  <Package className="h-10 w-10 mx-auto mb-2 text-neutral-300" />
-                  <p className="text-sm">Agrega variantes como Color, Tamano, Cantidad...</p>
+                <div className="text-center py-10 text-neutral-400">
+                  <Package className="h-10 w-10 mx-auto mb-2 text-neutral-300" aria-hidden="true" />
+                  <p className="text-sm">Este producto no tiene variantes. Es opcional.</p>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {variants.map(vt => (
-                    <div key={vt.id} className="border border-slate-200 rounded-[16px] overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 bg-slate-50">
-                        <span className="text-sm font-bold text-slate-900">{vt.name}</span>
-                        <button onClick={() => deleteVariantType(vt.id)} className="text-red-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
-                      </div>
-                      <div className="p-3 space-y-2">
-                        {vt.values.map(val => (
-                          <div key={val.id} className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl">
-                            {/* Image/Color preview */}
-                            {val.color_hex ? (
-                              <div className="w-10 h-10 rounded-full border-2 border-white shadow flex-shrink-0 relative group" style={{ backgroundColor: val.color_hex }}>
-                                <label className="absolute inset-0 rounded-full cursor-pointer opacity-0 group-hover:opacity-100 bg-black/30 flex items-center justify-center transition-opacity">
-                                  <Upload className="h-3 w-3 text-white" />
-                                  <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadVariantImage(val.id, f); }} />
-                                </label>
-                              </div>
-                            ) : val.image_url ? (
-                              <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 relative group">
-                                <img src={val.image_url} alt="" className="w-full h-full object-cover" />
-                                <label className="absolute inset-0 cursor-pointer opacity-0 group-hover:opacity-100 bg-black/30 flex items-center justify-center transition-opacity">
-                                  <Upload className="h-3 w-3 text-white" />
-                                  <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadVariantImage(val.id, f); }} />
-                                </label>
-                              </div>
-                            ) : (
-                              <label className="w-10 h-10 rounded-xl bg-slate-200 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors flex-shrink-0 border-2 border-dashed border-slate-300">
-                                <Upload className="h-3.5 w-3.5 text-slate-400" />
-                                <span className="text-[7px] text-slate-400 mt-0.5">Foto</span>
-                                <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadVariantImage(val.id, f); }} />
-                              </label>
-                            )}
-
-                            <div className="flex-1 min-w-0">
-                              <span className="text-xs font-medium text-slate-700 block">{val.value}</span>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {val.color_hex && <span className="text-[9px] font-mono text-neutral-400">{val.color_hex}</span>}
-                                <span className={`text-[10px] ${val.price_modifier > 0 ? 'text-red-500' : val.price_modifier < 0 ? 'text-green-500' : 'text-neutral-400'}`}>
-                                  {val.price_modifier > 0 ? `+${formatPrice(val.price_modifier)}` : val.price_modifier < 0 ? formatPrice(val.price_modifier) : 'precio base'}
-                                </span>
-                                <span className="text-[10px] text-neutral-400">stock: {val.stock}</span>
-                              </div>
-                            </div>
-
-                            <button onClick={() => deleteVariantValue(val.id)} className="text-red-300 hover:text-red-500 p-1"><Trash2 className="h-3.5 w-3.5" /></button>
-                          </div>
-                        ))}
-                        <AddValueInline onAdd={(v, p, s, c) => addVariantValue(vt.id, v, p, s, c)} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex justify-between pt-4">
-                <button onClick={() => setStep(1)} className="text-sm text-neutral-400 hover:text-slate-700">Atras</button>
-                <button onClick={() => setStep(3)} className="bg-blue-500 text-white px-8 py-2 rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-                  Continuar
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Stock & Offers */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <h2 className="text-base font-bold text-slate-900">Stock y Oferta</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <InfoBox label="Precio maximo variante" value={formatPrice(maxPrice)} />
-                <InfoBox label="Precio minimo variante" value={formatPrice(minPrice)} />
-                <InfoBox label="Stock total" value={String(parseInt(form.stock) + totalVariantStock)} />
-                <InfoBox label="Combinaciones con stock" value={String(variants.reduce((s, vt) => s + vt.values.filter(v => v.stock > 0).length, 0))} />
-              </div>
-
-              {variants.length > 0 && (
-                <div>
-                  <p className="text-sm font-bold text-slate-900 mb-2">Resumen de variantes</p>
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <div className="grid grid-cols-4 bg-slate-50 border-b border-slate-200">
-                      <div className="px-3 py-1.5 text-xs font-medium">Variante</div>
-                      <div className="px-3 py-1.5 text-xs font-medium">Valor</div>
-                      <div className="px-3 py-1.5 text-xs font-medium">Precio</div>
-                      <div className="px-3 py-1.5 text-xs font-medium">Stock</div>
-                    </div>
-                    {variants.flatMap(vt => vt.values.map(v => (
-                      <div key={v.id} className="grid grid-cols-4 border-b border-slate-100">
-                        <div className="px-3 py-1.5 text-xs text-neutral-400">{vt.name}</div>
-                        <div className="px-3 py-1.5 text-xs">{v.value}</div>
-                        <div className="px-3 py-1.5 text-xs">{formatPrice(parseFloat(form.basePrice) + v.price_modifier)}</div>
-                        <div className="px-3 py-1.5 text-xs">{v.stock}</div>
-                      </div>
-                    )))}
+              ) : variants.map(vt => (
+                <section key={vt.id} aria-label={`Grupo ${vt.name}`} className="border border-slate-200 rounded-[16px] overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50">
+                    <h3 className="text-sm font-bold text-slate-900">{vt.name} <span className="text-[10px] font-normal text-neutral-400">({vt.values.length})</span></h3>
+                    <button onClick={() => { if (confirm(`¿Eliminar el grupo "${vt.name}" con todas sus opciones?`)) accion(() => variantsApi.deleteType(savedId, vt.id), 'Grupo eliminado', 'No pudimos eliminar el grupo'); }}
+                      aria-label={`Eliminar grupo ${vt.name}`} className="text-red-400 hover:text-red-600 p-1"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
-                </div>
-              )}
-
-              <div className="flex justify-between pt-4">
-                <button onClick={() => setStep(2)} className="text-sm text-neutral-400">Atras</button>
-                <button onClick={() => setStep(4)} className="bg-blue-500 text-white px-8 py-2 rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-                  Continuar
-                </button>
-              </div>
+                  <div className="p-3 space-y-2">
+                    {vt.values.map(val => (
+                      <FilaValor key={val.id} val={val} base={base}
+                        onGuardar={d => accion(() => variantsApi.updateValue(savedId, val.id, d), `"${d.value}" guardado`, 'No pudimos guardar la opción')}
+                        onBorrar={() => { if (confirm(`¿Eliminar "${val.value}"?`)) accion(() => variantsApi.deleteValue(savedId, val.id), 'Opción eliminada', 'No pudimos eliminar la opción'); }}
+                        onFoto={f => accion(() => variantsApi.uploadValueImage(savedId, val.id, f), 'Foto de la opción subida', 'No pudimos subir la foto')} />
+                    ))}
+                    <AgregarValor onAdd={d => accion(() => variantsApi.createValue(savedId, vt.id, { ...d, displayOrder: vt.values.length }), `"${d.value}" agregado`, 'No pudimos agregar la opción')} />
+                  </div>
+                </section>
+              ))}
+              <Navegacion atras={() => setStep(2)} siguiente={() => setStep(4)} />
             </div>
           )}
 
-          {/* Step 4: FAQ */}
+          {/* Paso 4 */}
           {step === 4 && (
             <div className="space-y-4">
-              <h2 className="text-base font-bold text-slate-900">Preguntas Frecuentes</h2>
-              {faqs.map((f, i) => (
-                <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-900">Pregunta {i + 1}</span>
-                    <button onClick={() => setFaqs(faqs.filter((_, j) => j !== i))}><Trash2 className="h-3 w-3 text-red-400" /></button>
-                  </div>
-                  <input type="text" value={f.pregunta} onChange={e => { const n = [...faqs]; n[i].pregunta = e.target.value; setFaqs(n); }}
-                    placeholder="Pregunta..." className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs" />
-                  <textarea value={f.respuesta} onChange={e => { const n = [...faqs]; n[i].respuesta = e.target.value; setFaqs(n); }}
-                    placeholder="Respuesta..." rows={2} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs" />
-                </div>
-              ))}
-              <button onClick={() => setFaqs([...faqs, { pregunta: '', respuesta: '' }])}
-                className="text-xs text-blue-500 font-medium flex items-center gap-1"><Plus className="h-3 w-3" /> Agregar pregunta</button>
-
-              <div className="flex justify-between pt-4">
-                <button onClick={() => setStep(3)} className="text-sm text-neutral-400">Atras</button>
+              <h2 className="text-base font-bold text-slate-900">Revisar y publicar</h2>
+              <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <Dato label="Nombre" valor={form.name} />
+                <Dato label="Código" valor={form.sku || '—'} />
+                <Dato label="Categoría" valor={form.category} />
+                <Dato label="Marca" valor={form.brand || '—'} />
+                <Dato label="Nivel" valor={NIVELES.find(n => n.id === form.tier)?.label ?? ''} />
+                <Dato label="Precio" valor={minPrice !== maxPrice ? `${formatPrice(minPrice)} – ${formatPrice(maxPrice)}` : formatPrice(base)} />
+                <Dato label="Stock" valor={form.stock} />
+                <Dato label="Fotos" valor={String(images.length)} />
+                <Dato label="Variantes" valor={variants.map(v => `${v.name} (${v.values.length})`).join(', ') || 'Ninguna'} />
+              </dl>
+              <Interruptor activo={form.isActive} onChange={v => updateForm('isActive', v)} etiqueta="Activo (se ve en la tienda)" />
+              {images.length === 0 && <p className="text-xs text-orange-500">Aún no tiene fotos: en la tienda se verá un dibujo genérico.</p>}
+              <div className="flex flex-wrap justify-between gap-3 pt-2">
+                <button onClick={() => setStep(3)} className="text-sm text-neutral-400 hover:text-slate-700">Atrás</button>
                 <div className="flex gap-3">
-                  <button onClick={() => router.push('/admin/products')}
-                    className="px-8 py-2 bg-slate-100 rounded-lg text-sm font-medium text-red-500 hover:bg-slate-200">Cancelar</button>
-                  <button onClick={() => router.push('/admin/products')}
-                    className="bg-blue-500 text-white px-8 py-2 rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-                    Publicar Producto
+                  <Link href="/admin/products" className="px-5 py-2 bg-slate-100 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-200">Salir sin publicar</Link>
+                  <button onClick={publicar} disabled={saving}
+                    className="bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-shadow disabled:opacity-50 flex items-center gap-1.5">
+                    <Save className="h-4 w-4" aria-hidden="true" /> {saving ? 'Guardando…' : form.isActive ? 'Publicar producto' : 'Guardar como inactivo'}
                   </button>
                 </div>
               </div>
@@ -536,184 +357,158 @@ export default function ProductWizard({ productId }: { productId?: string }) {
           )}
         </div>
 
-        {/* Right: Live Preview */}
-        <div className="hidden lg:block w-72 flex-shrink-0 space-y-4">
-          <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-4">
-            <p className="text-sm font-medium text-slate-900 mb-1">Vista Previa</p>
-            <p className="text-[10px] text-neutral-400 mb-3">Los cambios se reflejan aqui</p>
-
+        {/* Vista previa */}
+        <aside aria-label="Vista previa" className="hidden lg:block w-64 flex-shrink-0">
+          <div className={`${tarjeta} rounded-[20px] p-4`}>
+            <p className="text-sm font-medium text-slate-900 mb-3">Vista previa</p>
             <div className="border border-slate-200 rounded-xl overflow-hidden">
-              {/* Product preview card */}
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="aspect-[4/3] bg-slate-50 flex items-center justify-center relative">
-                  {images[0] ? (
-                    <img src={images[0]} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <Package className="h-10 w-10 text-neutral-200" />
-                  )}
-                  {form.tier && (
-                    <span className={`absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded-full font-bold ${
-                      form.tier === 'premium' ? 'bg-amber-100 text-amber-700' : form.tier === 'economico' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                    }`}>{form.tier}</span>
-                  )}
-                </div>
-
-                {/* Thumbnails */}
-                {images.length > 1 && (
-                  <div className="flex gap-1 px-2 pt-2">
-                    {images.slice(0, 4).map((img, i) => (
-                      <div key={i} className={`w-10 h-10 rounded-lg overflow-hidden border ${i === 0 ? 'border-blue-500' : 'border-slate-200'}`}>
-                        <img src={img} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    ))}
-                    {images.length > 4 && (
-                      <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-[8px] text-blue-500 font-medium border border-slate-200">
-                        +{images.length - 4}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="p-3 space-y-2">
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">{form.name || 'Nombre del producto'}</p>
-                    <p className="text-[10px] text-neutral-400">{form.brand || 'Marca'} - {form.category || 'Categoria'}</p>
-                  </div>
-
-                  {/* Price */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-base font-bold text-slate-900">{formatPrice(parseFloat(form.basePrice) || 0)}</span>
-                  </div>
-
-                  {/* Tags */}
-                  {tags.length > 0 && (
+              <div className="aspect-[4/3] bg-slate-50 flex items-center justify-center relative">
+                {imagenPrincipal ? <img src={imagenPrincipal} alt="" className="w-full h-full object-cover" /> : <Package className="h-10 w-10 text-neutral-200" aria-hidden="true" />}
+                <span className="absolute top-2 left-2"><NivelBadge tier={form.tier} /></span>
+                {!form.isActive && <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-900 text-white">Inactivo</span>}
+              </div>
+              <div className="p-3 space-y-1">
+                <p className="text-sm font-bold text-slate-900">{form.name || 'Nombre del producto'}</p>
+                <p className="text-[10px] text-neutral-400">{form.brand || 'Marca'} · {form.category || 'Categoría'}</p>
+                <p className="text-base font-bold text-slate-900">{formatPrice(base)}</p>
+                {variants.map(vt => (
+                  <div key={vt.id}>
+                    <p className="text-[10px] text-slate-900">{vt.name}:</p>
                     <div className="flex flex-wrap gap-1">
-                      {tags.map((t, i) => (
-                        <span key={i} className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{t}</span>
-                      ))}
+                      {vt.values.filter(v => v.is_active !== false).slice(0, 8).map(v => v.color_hex
+                        ? <span key={v.id} title={v.value} className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: v.color_hex }} />
+                        : <span key={v.id} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{v.value}</span>)}
                     </div>
-                  )}
-
-                  {/* Variant preview */}
-                  {variants.map(vt => (
-                    <div key={vt.id}>
-                      <p className="text-[10px] text-slate-900 mb-1">{vt.name}:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {vt.values.slice(0, 6).map((v, i) => (
-                          v.color_hex ? (
-                            <div key={v.id} className={`w-5 h-5 rounded-full ${i === 0 ? 'ring-1 ring-blue-500 ring-offset-1' : ''}`}
-                              style={{ backgroundColor: v.color_hex }} />
-                          ) : (
-                            <span key={v.id} className={`text-[9px] px-1.5 py-0.5 rounded ${i === 0 ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                              {v.value}
-                            </span>
-                          )
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-
-                  <button className="w-full bg-blue-500 text-white py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1">
-                    <ShoppingCart className="h-3 w-3" /> Comprar
-                  </button>
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-
-          {/* Inventory summary */}
-          <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-4 space-y-2">
-            <p className="text-sm font-medium text-slate-900">Inventario</p>
-            <InfoBox label="Precio max combinacion" value={formatPrice(maxPrice)} small />
-            <InfoBox label="Precio min combinacion" value={formatPrice(minPrice)} small />
-            <InfoBox label="Stock total" value={String(parseInt(form.stock || '0') + totalVariantStock)} small />
-            <InfoBox label="Variantes con stock" value={String(variants.reduce((s, vt) => s + vt.values.filter(v => v.stock > 0).length, 0))} small />
-          </div>
-        </div>
+        </aside>
       </div>
     </div>
   );
 }
 
-// ── Helper Components ──
+// ── Piezas ──
 
-function Field({ label, value, onChange, placeholder, type, full }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; full?: boolean;
+function Campo({ label, children, full, grupo }: { label: string; children: React.ReactNode; full?: boolean; grupo?: boolean }) {
+  // Con un desplegable propio (botón + buscador) no se usa <label>, que le cambiaría el nombre al botón
+  const Tag = grupo ? 'div' : 'label';
+  return (
+    <Tag className={`block ${full ? 'sm:col-span-2' : ''}`} {...(grupo ? { role: 'group', 'aria-label': label.replace(' *', '') } : {})}>
+      <span className="block text-xs text-slate-900 mb-1">{label}</span>
+      {children}
+    </Tag>
+  );
+}
+
+function Dato({ label, valor }: { label: string; valor: string }) {
+  return (
+    <div className="p-3 border border-slate-200 rounded-lg min-w-0">
+      <dt className="text-[10px] text-slate-500">{label}</dt>
+      <dd className="text-sm font-bold text-slate-700 break-words">{valor}</dd>
+    </div>
+  );
+}
+
+function Navegacion({ atras, siguiente }: { atras: () => void; siguiente: () => void }) {
+  return (
+    <div className="flex justify-between pt-3">
+      <button onClick={atras} className="text-sm text-neutral-400 hover:text-slate-700">Atrás</button>
+      <button onClick={siguiente} className="bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">Continuar</button>
+    </div>
+  );
+}
+
+type DatosValor = { value: string; colorHex: string | null; priceModifier: number; stock: number; isActive: boolean };
+
+function FilaValor({ val, base, onGuardar, onBorrar, onFoto }: {
+  val: VariantValue; base: number; onGuardar: (d: DatosValor) => Promise<boolean>; onBorrar: () => void; onFoto: (f: File) => void;
 }) {
+  const inicial = (): DatosValor => ({ value: val.value, colorHex: val.color_hex ?? null, priceModifier: Number(val.price_modifier) || 0, stock: Number(val.stock) || 0, isActive: val.is_active !== false });
+  const [d, setD] = useState<DatosValor>(inicial);
+  const [guardando, setGuardando] = useState(false);
+  const sucio = JSON.stringify(d) !== JSON.stringify(inicial());
+  const set = <K extends keyof DatosValor>(k: K, v: DatosValor[K]) => setD(prev => ({ ...prev, [k]: v }));
+
   return (
-    <div className={full ? 'col-span-2' : ''}>
-      <label className="block text-xs text-slate-900 mb-1">{label}</label>
-      <input type={type || 'text'} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+    <div data-valor={val.id} className={`flex flex-wrap items-end gap-2 p-2.5 rounded-xl ${d.isActive ? 'bg-slate-50' : 'bg-slate-50 opacity-60'}`}>
+      <label className="relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-100 hover:bg-blue-50"
+        title="Cambiar foto" style={d.colorHex && !val.image_url ? { backgroundColor: d.colorHex, borderStyle: 'solid' } : undefined}>
+        {val.image_url ? <img src={val.image_url} alt="" className="w-full h-full object-cover" /> : !d.colorHex && <Upload className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />}
+        <input type="file" accept="image/*" className="sr-only" aria-label={`Foto de ${val.value}`} onChange={e => { const f = e.target.files?.[0]; if (f) onFoto(f); e.target.value = ''; }} />
+      </label>
+      <label className="flex-1 min-w-[120px]">
+        <span className="block text-[10px] text-slate-500 mb-0.5">Opción</span>
+        <input value={d.value} onChange={e => set('value', e.target.value)} aria-label="Nombre de la opción" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+      </label>
+      <div>
+        <span className="block text-[10px] text-slate-500 mb-0.5">Color</span>
+        <div className="flex items-center gap-1 h-[30px]">
+          <input type="checkbox" checked={!!d.colorHex} onChange={e => set('colorHex', e.target.checked ? (val.color_hex || '#3b82f6') : null)} aria-label="Tiene color" />
+          {d.colorHex && <input type="color" value={d.colorHex} onChange={e => set('colorHex', e.target.value)} aria-label="Color" className="w-7 h-6 rounded border-0 cursor-pointer" />}
+        </div>
+      </div>
+      <label className="w-20">
+        <span className="block text-[10px] text-slate-500 mb-0.5">Recargo S/</span>
+        <input type="number" step="0.1" value={d.priceModifier} onChange={e => set('priceModifier', parseFloat(e.target.value) || 0)} aria-label="Recargo" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+      </label>
+      <label className="w-16">
+        <span className="block text-[10px] text-slate-500 mb-0.5">Stock</span>
+        <input type="number" min={0} value={d.stock} onChange={e => set('stock', Math.max(0, parseInt(e.target.value) || 0))} aria-label="Stock de la opción" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+      </label>
+      <div className="pb-1.5"><Interruptor activo={d.isActive} onChange={v => set('isActive', v)} etiqueta="Activa" /></div>
+      <span className="text-[10px] text-neutral-400 pb-2 w-16">{formatPrice(base + d.priceModifier)}</span>
+      <div className="flex gap-1 pb-0.5">
+        <button onClick={async () => { setGuardando(true); await onGuardar(d); setGuardando(false); }} disabled={!sucio || guardando || !d.value.trim()}
+          className="bg-blue-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold disabled:opacity-30">{guardando ? '…' : 'Guardar'}</button>
+        <button onClick={onBorrar} aria-label={`Eliminar ${val.value}`} className="text-red-300 hover:text-red-500 p-1.5"><Trash2 className="h-3.5 w-3.5" /></button>
+      </div>
     </div>
   );
 }
 
-function FieldArea({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-xs text-slate-900 mb-1">{label}</label>
-      <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3}
-        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
-    </div>
-  );
-}
-
-function InfoBox({ label, value, small }: { label: string; value: string; small?: boolean }) {
-  return (
-    <div className={`${small ? 'p-2' : 'p-3'} border border-slate-200 rounded-lg`}>
-      <p className={`${small ? 'text-[10px]' : 'text-xs'} text-slate-900 mb-0.5`}>{label}</p>
-      <p className={`${small ? 'text-xs' : 'text-sm'} font-bold text-slate-700`}>{value}</p>
-    </div>
-  );
-}
-
-function AddValueInline({ onAdd }: { onAdd: (v: string, p: number, s: number, c?: string) => void }) {
+function AgregarValor({ onAdd }: { onAdd: (d: { value: string; priceModifier: number; stock: number; colorHex: string | null }) => Promise<boolean> }) {
   const [open, setOpen] = useState(false);
   const [val, setVal] = useState('');
   const [price, setPrice] = useState('0');
   const [stock, setStock] = useState('100');
-  const [color, setColor] = useState('');
-  const [showColor, setShowColor] = useState(false);
+  const [color, setColor] = useState<string | null>(null);
 
   if (!open) return (
-    <button onClick={() => setOpen(true)} className="text-[10px] text-blue-500 font-bold flex items-center gap-0.5 mt-1">
-      <Plus className="h-2.5 w-2.5" /> Agregar valor
+    <button onClick={() => setOpen(true)} className="text-xs text-blue-500 font-bold flex items-center gap-0.5 mt-1">
+      <Plus className="h-3 w-3" aria-hidden="true" /> Agregar opción
     </button>
   );
-
+  const agregar = async () => {
+    if (!val.trim()) return;
+    if (await onAdd({ value: val.trim(), priceModifier: parseFloat(price) || 0, stock: parseInt(stock) || 0, colorHex: color })) {
+      setVal(''); setPrice('0'); setStock('100'); setColor(null); setOpen(false);
+    }
+  };
   return (
-    <div className="mt-2 p-2.5 bg-blue-50 rounded-xl space-y-2">
-      <div className="flex gap-2 items-end">
-        <div className="flex-1">
-          <label className="block text-[10px] text-slate-500 mb-0.5">Valor</label>
-          <input type="text" value={val} onChange={e => setVal(e.target.value)} placeholder="Ej: 100 hojas, Rojo, A4..."
-            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
-        </div>
-        <div className="w-20">
-          <label className="block text-[10px] text-slate-500 mb-0.5">+/- Precio</label>
-          <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0"
-            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
-        </div>
-        <div className="w-16">
-          <label className="block text-[10px] text-slate-500 mb-0.5">Stock</label>
-          <input type="number" value={stock} onChange={e => setStock(e.target.value)} placeholder="100"
-            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
-        </div>
+    <div className="mt-2 p-2.5 bg-blue-50 rounded-xl flex flex-wrap gap-2 items-end">
+      <label className="flex-1 min-w-[120px]">
+        <span className="block text-[10px] text-slate-500 mb-0.5">Nueva opción</span>
+        <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && agregar()} placeholder="Ej: Rojo, A4, 100 hojas…" autoFocus
+          className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+      </label>
+      <label className="w-20">
+        <span className="block text-[10px] text-slate-500 mb-0.5">Recargo S/</span>
+        <input type="number" step="0.1" value={price} onChange={e => setPrice(e.target.value)} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+      </label>
+      <label className="w-16">
+        <span className="block text-[10px] text-slate-500 mb-0.5">Stock</span>
+        <input type="number" min={0} value={stock} onChange={e => setStock(e.target.value)} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+      </label>
+      <div className="flex items-center gap-1 h-[30px]">
+        <input type="checkbox" checked={!!color} onChange={e => setColor(e.target.checked ? '#3b82f6' : null)} aria-label="Nueva opción con color" />
+        <span className="text-[10px] text-slate-500">Color</span>
+        {color && <input type="color" value={color} onChange={e => setColor(e.target.value)} aria-label="Color de la nueva opción" className="w-7 h-6 rounded border-0 cursor-pointer" />}
       </div>
-      <div className="flex items-center gap-2">
-        <button onClick={() => setShowColor(!showColor)}
-          className={`px-2 py-1 rounded-lg text-[10px] font-medium flex items-center gap-1 ${showColor ? 'bg-blue-500 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>
-          {color && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />} Color
-        </button>
-        {showColor && <input type="color" value={color || '#3b82f6'} onChange={e => setColor(e.target.value)} className="w-8 h-6 rounded border-0 cursor-pointer" />}
-        <div className="flex-1" />
-        <button onClick={() => { if (val) { onAdd(val, parseFloat(price), parseInt(stock), color || undefined); setVal(''); setPrice('0'); setStock('100'); setColor(''); setOpen(false); } }}
-          className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Agregar</button>
-        <button onClick={() => setOpen(false)} className="text-neutral-400 text-xs">X</button>
-      </div>
+      <button onClick={agregar} disabled={!val.trim()} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40">Agregar</button>
+      <button onClick={() => setOpen(false)} className="text-neutral-400 text-xs px-1 py-1.5">Cancelar</button>
     </div>
   );
 }

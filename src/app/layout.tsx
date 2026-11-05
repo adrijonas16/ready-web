@@ -12,6 +12,8 @@ import { CartProvider } from "@/lib/cart-context";
 import Header from "@/components/Header";
 import Logo from "@/components/Logo";
 import { scriptTema } from "@/lib/tema-script";
+import PieCuenta from "@/components/PieCuenta";
+import WhatsappFlotante from "@/components/WhatsappFlotante";
 
 export const viewport: Viewport = {
   themeColor: [
@@ -21,12 +23,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Ready - Utiles Escolares en Arequipa | Compra Online",
-  description: "Compra utiles escolares online en Arequipa. Sube la lista de tu colegio, elige entre productos economicos, estandar o premium. Envio a domicilio en 24-48 horas.",
-  keywords: ["utiles escolares", "arequipa", "lista de utiles", "cuadernos", "lapices", "colores", "mochila escolar", "compra online", "peru", "colegio"],
+  title: "Ready - Útiles escolares en Arequipa | Compra online",
+  description: "Compra útiles escolares online en Arequipa. Sube la lista de tu colegio y elige entre productos económicos, normales o premium. Envío a domicilio.",
+  keywords: ["útiles escolares", "arequipa", "lista de útiles", "cuadernos", "lápices", "colores", "mochila escolar", "compra online", "perú", "colegio"],
   openGraph: {
-    title: "Ready - Utiles Escolares en Arequipa",
-    description: "Sube la lista de utiles de tu hijo y recibe todo en casa. Productos economicos, estandar y premium.",
+    title: "Ready - Útiles escolares en Arequipa",
+    description: "Sube la lista de útiles de tu hijo y recibe todo en casa. Productos económicos, normales y premium.",
     url: "https://ready.pe",
     siteName: "Ready",
     locale: "es_PE",
@@ -34,8 +36,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ready - Utiles Escolares en Arequipa",
-    description: "Compra utiles escolares online. Envio a domicilio en Arequipa.",
+    title: "Ready - Útiles escolares en Arequipa",
+    description: "Compra útiles escolares online. Envío a domicilio en Arequipa.",
   },
   robots: { index: true, follow: true },
   alternates: { canonical: "https://ready.pe" },
@@ -56,7 +58,8 @@ export default function RootLayout({
           <CartProvider>
             <Header />
             <main className="flex-1">{children}</main>
-            <footer className="border-t border-linea bg-papel">
+            <WhatsappFlotante />
+            <footer className="border-t border-linea bg-papel print:hidden">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid gap-8 sm:grid-cols-[1.4fr_1fr_1fr]">
                 <div>
                   <Logo />
@@ -70,12 +73,7 @@ export default function RootLayout({
                   <Link href="/lists" className="text-tenue hover:text-primario">Listas de colegios</Link>
                   <Link href="/catalog" className="text-tenue hover:text-primario">Arma tu pedido</Link>
                 </nav>
-                <nav aria-label="Mi cuenta" className="flex flex-col gap-2 text-sm">
-                  <p className="font-semibold text-grafito">Mi cuenta</p>
-                  <Link href="/my-lists" className="text-tenue hover:text-primario">Mis listas</Link>
-                  <Link href="/cart" className="text-tenue hover:text-primario">Carrito</Link>
-                  <Link href="/login" className="text-tenue hover:text-primario">Iniciar sesión</Link>
-                </nav>
+                <PieCuenta />
               </div>
               <AvisoDemo />
               <p className="border-t border-linea py-4 text-center text-xs text-tenue">© 2026 <span translate="no">Ready</span>, Arequipa (Perú)</p>

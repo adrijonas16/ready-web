@@ -1,20 +1,23 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo, use } from 'react';
+import { flushSync } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MODO_DEMO } from '@/lib/api-base';
 import { listsApi, productsApi } from '@/services/api';
-import { ItemVariante, ListDetail, ListExtras, Product, ProductDetail, SupplyItem } from '@/lib/types';
-import { useCart } from '@/lib/cart-context';
+import { ItemVariante, ListDetail, ListExtras, Product, SupplyItem } from '@/lib/types';
+import { LineaNueva, useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, MessageSquare, Check, X, Loader2, ShoppingBag, RotateCcw, Info, Image as ImageIcon, Plus, Copy } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Check, X, Loader2, ShoppingBag, RotateCcw, Info, Image as ImageIcon, Plus, Copy, Share2, Printer, Users, Link2, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import Toast from '@/components/Toast';
-import { Tier, TIERS, SKU, OPCIONES_POR_DEFECTO, OpcionesServicios, OpcionServicio, buscarOpcion, esCuaderno, parseExtras, precioServicio, precioUnitario, tierProduct, variantesDe } from '@/lib/lista';
+import { Tier, TIERS, buscarOpcion, parseExtras, paraQuien, precioServicio, precioSinOferta, precioUnitario, recargoDe, resumirLista, tierLabel, tierProduct, variantesDe } from '@/lib/lista';
+import { useServicios } from '@/lib/servicios';
+import { enlaceWhatsapp } from '@/lib/ajustes';
 import { ElegirPaquete, CambiarPaquete } from '@/components/lista/Paquetes';
 import FilaUtil from '@/components/lista/FilaUtil';
-import Extras, { PreciosServicios } from '@/components/lista/Extras';
+import Extras from '@/components/lista/Extras';
 import SelectorProducto from '@/components/lista/SelectorProducto';
 import PrecioAnimado from '@/components/PrecioAnimado';
 import { lanzarConfeti, volarAlCarrito } from '@/lib/efectos';
@@ -55,7 +58,7 @@ function ObservationBox({ listId, existing, onSaved }: { listId: string; existin
           Enviar
         </button>
       </div>
-      <p className="text-[10px] text-neutral-400 mt-1">Si hay un error en la lista, escribe aqui y lo corregiremos</p>
+      <p className="text-xs text-tenue mt-1">Si hay un error en la lista, escríbelo aquí y lo corregimos.</p>
     </div>
   );
 }
@@ -186,18 +189,67 @@ function FotosLista({ urls, onClose }: { urls: string[]; onClose: () => void }) 
   );
 }
 
+// ── Versión para imprimir (solo se ve al imprimir) ──
+function ListaImprimible({ data, resumen, extras, qty, para, plan }: {
+  data: ListDetail; resumen: ReturnType<typeof resumirLista>; extras: ListExtras; qty: (i: SupplyItem) => number; para: string; plan: Tier | null;
+}) {
+  return (
+    <div className="hidden print:block print:p-0">
+      <h1 className="text-2xl font-extrabold">Lista de útiles · {data.list.schoolName}</h1>
+      <p className="mt-1 text-sm">{data.list.gradeName} {data.list.year} · Para {para}{plan ? ` · Opción ${tierLabel(plan)}` : ''}</p>
+      <table className="mt-4 w-full border-collapse text-sm">
+        <thead><tr className="border-b-2 border-black text-left"><th className="py-1.5">Útil</th><th className="py-1.5">Producto</th><th className="py-1.5 text-right">Cant.</th><th className="py-1.5 text-right">Total</th></tr></thead>
+        <tbody>
+          {resumen.incluidos.map(i => (
+            <tr key={i.id} className="border-b border-gray-300 align-top">
+              <td className="py-1.5 pr-2">{i.nombreOriginal}</td>
+              <td className="py-1.5 pr-2">{i.matchedProduct ? `${i.matchedProduct.name}${i.matchedProduct.brand ? ` (${i.matchedProduct.brand})` : ''}${variantesDe(i, extras).map(v => `, ${v.tipo}: ${v.valor}`).join('')}` : 'Por conseguir'}</td>
+              <td className="py-1.5 text-right">{qty(i)}</td>
+              <td className="py-1.5 text-right">{i.matchedProduct ? formatPrice(precioUnitario(i, extras) * qty(i)) : '—'}</td>
+            </tr>
+          ))}
+          {resumen.lineasExtras.map(l => (
+            <tr key={l.clave} className="border-b border-gray-300"><td className="py-1.5" colSpan={3}>{l.label}</td><td className="py-1.5 text-right">{formatPrice(l.monto)}</td></tr>
+          ))}
+          {resumen.librosPorCotizar.map(l => (
+            <tr key={l.id} className="border-b border-gray-300"><td className="py-1.5" colSpan={3}>Libro: {l.titulo} x{l.cantidad}</td><td className="py-1.5 text-right">Por cotizar</td></tr>
+          ))}
+        </tbody>
+        <tfoot><tr><td className="pt-3 font-bold" colSpan={3}>Total</td><td className="pt-3 text-right text-lg font-bold">{formatPrice(resumen.total)}</td></tr></tfoot>
+      </table>
+      <p className="mt-6 text-xs">Ready · Útiles escolares en Arequipa</p>
+    </div>
+  );
+}
+
+/** true mientras se imprime: la versión en tabla solo se arma para imprimir. */
+function useImprimiendo() {
+  const [imprimiendo, setImprimiendo] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia('print');
+    const cambiar = (v: boolean) => flushSync(() => setImprimiendo(v));
+    const antes = () => cambiar(true), despues = () => cambiar(false), alCambiar = (e: MediaQueryListEvent) => cambiar(e.matches);
+    window.addEventListener('beforeprint', antes);
+    window.addEventListener('afterprint', despues);
+    mql.addEventListener('change', alCambiar);
+    return () => { window.removeEventListener('beforeprint', antes); window.removeEventListener('afterprint', despues); mql.removeEventListener('change', alCambiar); };
+  }, []);
+  return [imprimiendo, setImprimiendo] as const;
+}
+
 // ── Página ──
 export default function ListDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { addItem, setNotasPedido, setListaId, notasPedido } = useCart();
+  const { replaceList, lineasDeLista } = useCart();
   const { user } = useAuth();
   const [data, setData] = useState<ListDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [localQty, setLocalQty] = useState<Record<string, number>>({});
   const [extras, setExtras] = useState<ListExtras>(parseExtras());
-  const [servicios, setServicios] = useState<PreciosServicios>({});
-  const [opciones, setOpciones] = useState<OpcionesServicios>(OPCIONES_POR_DEFECTO);
+  const { servicios, opciones } = useServicios();
+  const [menuCompartir, setMenuCompartir] = useState(false);
+  const [imprimiendo, setImprimiendo] = useImprimiendo();
   const [abierto, setAbierto] = useState<SupplyItem | null>(null);
   const [verFotos, setVerFotos] = useState(false);
   const [eligiendo, setEligiendo] = useState<Tier | null>(null);
@@ -243,26 +295,6 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   useEffect(() => { loadList(); }, [loadList]);
 
-  // Precios de los servicios (forrado, etiquetas, carátulas)
-  useEffect(() => {
-    productsApi.getAll({ category: 'Servicios' }).then(async (ps: Product[]) => {
-      const bySku = (sku: string) => ps.find(p => p.sku === sku);
-      const s = { forroCuaderno: bySku(SKU.forroCuaderno), forroLibro: bySku(SKU.forroLibro), etiqueta: bySku(SKU.etiqueta), caratula: bySku(SKU.caratula) };
-      setServicios(s);
-      // Colores, diseños y cursos salen de las variantes de cada servicio (editables en el admin)
-      const [forro, etiqueta, caratula] = await Promise.all(
-        [s.forroCuaderno, s.etiqueta, s.caratula].map(p => p ? productsApi.getById(p.id).catch(() => null) : null)) as (ProductDetail | null)[];
-      const valores = (d: ProductDetail | null): OpcionServicio[] => (d?.variants?.[0]?.values ?? [])
-        .filter(v => v.is_active !== false)
-        .map(v => ({ nombre: v.value, hex: v.color_hex, imagen: v.image_url, recargo: Number(v.price_modifier) || 0 }));
-      setOpciones({
-        colores: valores(forro).length ? valores(forro) : OPCIONES_POR_DEFECTO.colores,
-        disenos: valores(etiqueta).length ? valores(etiqueta) : OPCIONES_POR_DEFECTO.disenos,
-        cursos: valores(caratula).length ? valores(caratula).map(v => v.nombre) : OPCIONES_POR_DEFECTO.cursos,
-      });
-    }).catch(() => {});
-  }, []);
-
   // Mientras la IA lee la lista, consultar cada 3 s (hasta 4 minutos)
   const procesando = data?.list.iaEstado === 'PROCESANDO';
   useEffect(() => {
@@ -287,13 +319,18 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const compartida = !!data && user?.role !== 'ADMIN' && !(user && data.list.userId === user.id) && !esMiCopia(id);
   const copiaPrevia = compartida ? copiaDe(id) : undefined;
 
-  const copiarYAbrir = async (plan?: Tier) => {
+  const copiarYAbrir = async (plan?: Tier, nueva = false, original = id) => {
     if (copiando) return;
     setCopiando(true);
     try {
-      const r = await listsApi.copiar(id, { userId: user?.id, plan });
-      guardarCopia(id, r.id);
-      if (r.existente) showToast('Ya tenías tu versión de esta lista. La abrimos.');
+      const r = await listsApi.copiar(original, { userId: user?.id, plan, nueva });
+      guardarCopia(original, r.id);
+      if (r.existente && plan) {
+        // Ya tenía su versión: se le aplica la opción que acaba de elegir (no se abre la vieja con otro plan)
+        await listsApi.updatePlan(r.id, { plan, aplicarATodos: true });
+        showToast(`Abrimos tu versión de esta lista con la opción ${tierLabel(plan)}.`);
+      } else if (r.existente) showToast('Ya tenías tu versión de esta lista. La abrimos.');
+      else if (nueva) showToast('Armamos otra copia de la lista. Ponle el nombre del alumno en las etiquetas.');
       router.replace(`/lists/${r.id}`);
     } catch {
       showToast('No pudimos preparar tu lista. Intenta de nuevo.', 'error');
@@ -451,60 +488,46 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   const items = data.items;
-  const incluidos = items.filter(i => !excluidos.has(i.id));
   const hayNiveles = items.some(i => i.productEconomicoId || i.productMedioId || i.productPremiumId);
   // En una lista compartida siempre se empieza eligiendo la opción (se guarda en la copia propia)
   const plan = (!compartida && TIERS.some(t => t.id === data.list.plan) ? data.list.plan : null) as Tier | null;
   const imagenes = (data.list.imageUrl || '').split('|').filter(Boolean);
 
   // Totales
-  const conProducto = incluidos.filter(i => i.matchedProduct);
-  const totalUtiles = conProducto.reduce((s, i) => s + precioUnitario(i, extras) * getQty(i), 0);
-  const cuadernos = incluidos.filter(esCuaderno).reduce((s, i) => s + getQty(i), 0);
-  const libros = extras.libros.filter(l => l.titulo.trim()).reduce((s, l) => s + l.cantidad, 0);
-  const conteo = {
-    cuadernos,
-    libros,
-    etiquetas: cuadernos + libros,
-    caratulas: extras.caratulas.activo ? extras.caratulas.cursos.length : 0,
-  };
-  const precioDe = (p?: Product) => p?.basePrice ?? 0;
+  const resumen = resumirLista(items, extras, servicios, opciones, getQty);
+  const { incluidos, conProducto, totalUtiles, cuadernos, libros, conteo, lineasExtras, librosPorCotizar, total, ahorro } = resumen;
   const colorForro = buscarOpcion(opciones.colores, extras.forro.color);
   const disenoEtiqueta = buscarOpcion(opciones.disenos, extras.etiquetas.diseno);
-  const lineasExtras = [
-    { label: `Forrado (${cuadernos} cuadernos)`, monto: extras.forro.activo ? precioServicio(servicios.forroCuaderno, colorForro) * cuadernos : 0 },
-    { label: `Forrado (${libros} libros)`, monto: extras.forro.activo && extras.forrarLibros ? precioDe(servicios.forroLibro) * libros : 0 },
-    { label: `Etiquetas (${conteo.etiquetas})`, monto: extras.etiquetas.activo ? precioServicio(servicios.etiqueta, disenoEtiqueta) * conteo.etiquetas : 0 },
-    { label: `Carátulas (${conteo.caratulas})`, monto: precioDe(servicios.caratula) * conteo.caratulas },
-    { label: 'Libros', monto: extras.libros.reduce((s, l) => s + (l.precio ? l.precio * l.cantidad : 0), 0) },
-  ].filter(l => l.monto > 0);
-  const librosPorCotizar = extras.libros.filter(l => l.titulo.trim() && !l.precio);
-  const total = totalUtiles + lineasExtras.reduce((s, l) => s + l.monto, 0);
+  const para = paraQuien(extras, data.list);
+  const enCarrito = lineasDeLista(id);
+  const totalEnCarrito = enCarrito.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
 
   const agregarAlCarrito = async () => {
     if (conProducto.length === 0 && lineasExtras.length === 0) { showToast('No hay nada para agregar', 'error'); return; }
     setAgregando(true);
     const etiquetaNota = [extras.etiquetas.nombre && `Nombre: ${extras.etiquetas.nombre}`, extras.etiquetas.grado && `Grado: ${extras.etiquetas.grado}`, `Diseño: ${extras.etiquetas.diseno}`].filter(Boolean).join(' | ');
-    const origen = `${data.list.schoolName}, ${data.list.gradeName}`;
     const boton = document.activeElement;
     conProducto.slice(0, 6).forEach((i, k) => setTimeout(() => volarAlCarrito(boton, i.matchedProduct?.imageUrl), k * 110));
     try {
-      conProducto.forEach(i => {
+      const lineas: LineaNueva[] = conProducto.map(i => {
         const vs = variantesDe(i, extras);
         const nota = [vs.map(v => `${v.tipo}: ${v.valor}`).join(', '), i.userNotas || i.notas].filter(Boolean).join(' | ');
-        addItem({ ...i.matchedProduct!, basePrice: precioUnitario(i, extras) }, getQty(i), nota || undefined, i);
+        return { product: i.matchedProduct!, quantity: getQty(i), notes: nota || undefined, unitPrice: precioUnitario(i, extras), listPrice: precioSinOferta(i, extras), recargo: recargoDe(i, extras) || undefined };
       });
+      const servicio = (product: Product, quantity: number, notes: string, recargo = 0): LineaNueva =>
+        ({ product, quantity, notes, recargo: recargo || undefined, unitPrice: precioServicio(product) + recargo, listPrice: product.basePrice + recargo });
       const s = servicios;
-      if (extras.forro.activo && s.forroCuaderno && cuadernos > 0) addItem({ ...s.forroCuaderno, basePrice: precioServicio(s.forroCuaderno, colorForro) }, cuadernos, `Color: ${extras.forro.color || 'a elegir'} (${origen})`);
-      if (extras.forro.activo && extras.forrarLibros && s.forroLibro && libros > 0) addItem(s.forroLibro, libros, `(${origen})`);
-      if (extras.etiquetas.activo && s.etiqueta && conteo.etiquetas > 0) addItem({ ...s.etiqueta, basePrice: precioServicio(s.etiqueta, disenoEtiqueta) }, conteo.etiquetas, `${etiquetaNota} (${origen})`);
-      if (s.caratula && conteo.caratulas > 0) addItem(s.caratula, conteo.caratulas, `Cursos: ${extras.caratulas.cursos.join(', ')}${extras.etiquetas.nombre ? ` | Nombre: ${extras.etiquetas.nombre}` : ''}`);
+      if (extras.forro.activo && s.forroCuaderno && cuadernos > 0) lineas.push(servicio(s.forroCuaderno, cuadernos, `Color: ${extras.forro.color || 'a elegir'}`, colorForro?.recargo));
+      if (extras.forro.activo && extras.forrarLibros && s.forroLibro && libros > 0) lineas.push(servicio(s.forroLibro, libros, `Forro de libros, color: ${extras.forro.color || 'a elegir'}`));
+      if (extras.etiquetas.activo && s.etiqueta && conteo.etiquetas > 0) lineas.push(servicio(s.etiqueta, conteo.etiquetas, etiquetaNota, disenoEtiqueta?.recargo));
+      if (s.caratula && conteo.caratulas > 0) lineas.push(servicio(s.caratula, conteo.caratulas, `Cursos: ${extras.caratulas.cursos.join(', ')}${extras.etiquetas.nombre ? ` | Nombre: ${extras.etiquetas.nombre}` : ''}`));
       // Libros del catálogo: se piden en paralelo (react-best-practices: async-parallel)
+      const porCotizar = [...librosPorCotizar];
       const conPrecio = extras.libros.filter(x => x.precio && x.productoId);
       const productosLibro = await Promise.allSettled(conPrecio.map(l => productsApi.getById(l.productoId!)));
       productosLibro.forEach((r, i) => {
-        if (r.status === 'fulfilled') addItem(r.value, conPrecio[i].cantidad, `Libro: ${conPrecio[i].titulo}`);
-        else librosPorCotizar.push(conPrecio[i]);
+        if (r.status === 'fulfilled') lineas.push({ product: r.value, quantity: conPrecio[i].cantidad, notes: `Libro: ${conPrecio[i].titulo}` });
+        else porCotizar.push(conPrecio[i]);
       });
       // Servicios elegidos cuyo precio aún no está configurado en la tienda
       const sinPrecio = [
@@ -512,16 +535,15 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         extras.etiquetas.activo && !s.etiqueta && conteo.etiquetas > 0 && `${conteo.etiquetas} etiquetas (${etiquetaNota})`,
         conteo.caratulas > 0 && !s.caratula && `Carátulas: ${extras.caratulas.cursos.join(', ')}`,
       ].filter(Boolean) as string[];
-      const pendientes = librosPorCotizar.map(l => `${l.titulo}${l.editorial ? ` (${l.editorial})` : ''} x${l.cantidad}`);
+      const pendientes = porCotizar.map(l => `${l.titulo}${l.editorial ? ` (${l.editorial})` : ''} x${l.cantidad}`);
       const porConseguir = incluidos.filter(i => !i.matchedProduct).map(i => `${i.nombreOriginal} x${getQty(i)}`);
-      const otras = notasPedido.filter(n => !n.includes(origen));
-      setNotasPedido([
-        ...otras,
-        ...(pendientes.length ? [`Libros por cotizar, ${origen}: ${pendientes.join('; ')}`] : []),
-        ...(sinPrecio.length ? [`Servicios por confirmar, ${origen}: ${sinPrecio.join('; ')}`] : []),
-        ...(porConseguir.length ? [`Útiles por conseguir, ${origen}: ${porConseguir.join('; ')}`] : []),
-      ]);
-      setListaId(id);
+      const notas = [
+        ...(pendientes.length ? [`Libros por cotizar: ${pendientes.join('; ')}`] : []),
+        ...(sinPrecio.length ? [`Servicios por confirmar: ${sinPrecio.join('; ')}`] : []),
+        ...(porConseguir.length ? [`Útiles por conseguir: ${porConseguir.join('; ')}`] : []),
+      ];
+      // Volver a agregar la lista reemplaza lo que ya estaba de ella en el carrito (no se duplica)
+      replaceList(id, para, lineas, notas);
       await new Promise(r => setTimeout(r, 750));
       router.push('/cart');
     } finally {
@@ -529,11 +551,28 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
+  const enlace = typeof window !== 'undefined' ? `${window.location.origin}/lists/${id}` : `/lists/${id}`;
+  const textoCompartir = `Lista de útiles de ${data.list.schoolName}, ${data.list.gradeName} ${data.list.year} en Ready`;
+  const compartir = async () => {
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try { await navigator.share({ title: textoCompartir, text: textoCompartir, url: enlace }); return; }
+      catch (e) { if (e instanceof DOMException && e.name === 'AbortError') return; }
+    }
+    setMenuCompartir(v => !v);
+  };
+  const copiarEnlace = async () => {
+    try { await navigator.clipboard.writeText(enlace); showToast('Enlace copiado'); }
+    catch { showToast('No se pudo copiar. Copia la dirección de la página.', 'error'); }
+    setMenuCompartir(false);
+  };
+
   return (
     <div className="pb-28 lg:pb-12">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      {imprimiendo && <ListaImprimible data={data} resumen={resumen} extras={extras} qty={getQty} para={para} plan={plan} />}
+
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 print:hidden">
         <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2">
           <button onClick={() => router.back()} className="inline-flex items-center gap-1 text-sm font-medium text-tenue hover:text-grafito">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver
@@ -544,6 +583,29 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               <ImageIcon className="h-4 w-4" aria-hidden="true" /> Ver lista original
             </button>
           )}
+          <div className="relative ml-auto flex items-center gap-1">
+            <button onClick={compartir} aria-expanded={menuCompartir} aria-haspopup="menu"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-grafito hover:bg-papel">
+              <Share2 className="h-4 w-4" aria-hidden="true" /> Compartir
+            </button>
+            <button onClick={() => { flushSync(() => setImprimiendo(true)); window.print(); }} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-grafito hover:bg-papel">
+              <Printer className="h-4 w-4" aria-hidden="true" /> Imprimir
+            </button>
+            {menuCompartir && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMenuCompartir(false)} aria-hidden="true" />
+                <div role="menu" aria-label="Compartir la lista" className="absolute right-0 top-full z-50 mt-1 w-60 overflow-hidden rounded-xl border border-linea bg-papel py-1 shadow-xl animate-slide-down">
+                  <button role="menuitem" onClick={copiarEnlace} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-fondo">
+                    <Link2 className="h-4 w-4 text-primario" aria-hidden="true" /> Copiar enlace
+                  </button>
+                  <a role="menuitem" href={enlaceWhatsapp('', `${textoCompartir}: ${enlace}`)} target="_blank" rel="noreferrer" onClick={() => setMenuCompartir(false)}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm hover:bg-fondo">
+                    <MessageCircle className="h-4 w-4 text-eco" aria-hidden="true" /> Enviar por WhatsApp
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {esAdmin && !isApproved && (
@@ -560,8 +622,22 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         {copiaPrevia && (
           <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-acento bg-acento-claro px-4 py-3">
             <Copy className="h-5 w-5 shrink-0 text-slate-900" aria-hidden="true" />
-            <p className="min-w-0 flex-1 text-sm text-slate-900">Ya armaste esta lista antes, con tus cambios.</p>
+            <p className="min-w-0 flex-1 text-sm text-slate-900">Ya armaste esta lista antes, con tus cambios. Si eliges una opción, se la aplicamos a tu versión.</p>
             <Link href={`/lists/${copiaPrevia}`} className="rounded-xl bg-grafito px-4 py-2 text-sm font-bold text-papel hover:opacity-90">Abrir la mía</Link>
+            <button onClick={() => copiarYAbrir(undefined, true)} disabled={copiando}
+              className="inline-flex items-center gap-1.5 rounded-xl border-2 border-grafito px-4 py-1.5 text-sm font-bold text-slate-900 hover:bg-papel disabled:opacity-50">
+              <Users className="h-4 w-4" aria-hidden="true" /> Armar otra copia (para otro hijo)
+            </button>
+          </div>
+        )}
+
+        {!compartida && data.list.copiaDe && (
+          <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+            <p className="text-tenue">Esta es tu versión de la lista{para && extras.etiquetas.nombre ? <>, para <b className="text-grafito">{para}</b></> : ''}. ¿Otro hijo en el mismo grado?</p>
+            <button onClick={() => copiarYAbrir(undefined, true, data.list.copiaDe!)} disabled={copiando}
+              className="inline-flex items-center gap-1.5 font-semibold text-primario hover:underline disabled:opacity-50">
+              <Users className="h-4 w-4" aria-hidden="true" /> Armar otra copia (para otro hijo)
+            </button>
           </div>
         )}
 
@@ -575,7 +651,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             )}
           </>
         ) : (
-          <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_340px]">
             <div className="min-w-0 space-y-8">
               <section aria-labelledby="utiles">
                 <div className="mb-3 flex items-end justify-between gap-4">
@@ -588,7 +664,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <ul className="divide-y divide-linea rounded-2xl border border-linea bg-papel px-3 sm:px-4">
                   {items.map((item, i) => (
                     <FilaUtil key={item.id} indice={i} item={item} incluido={!excluidos.has(item.id)} qty={getQty(item)}
-                      precio={precioUnitario(item, extras)} variantes={variantesDe(item, extras)}
+                      precio={precioUnitario(item, extras)} precioOriginal={precioSinOferta(item, extras)} variantes={variantesDe(item, extras)}
                       onIncluir={v => incluir(item, v)} onQty={q => setQty(item, q)} onAbrir={() => setAbierto(item)}
                       onQuitar={() => quitarUtil(item)} />
                   ))}
@@ -614,6 +690,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             <aside className="lg:sticky lg:top-24 lg:self-start">
               <div className="rounded-3xl border border-linea bg-papel p-5">
                 <h2 className="text-lg font-extrabold">Resumen</h2>
+                <p className="mt-0.5 truncate text-sm text-tenue">Para <span className="font-semibold text-grafito">{para}</span>{plan ? ` · ${tierLabel(plan)}` : ''}</p>
                 <dl className="mt-3 space-y-2 text-sm">
                   <div className="flex justify-between"><dt>Útiles ({conProducto.length})</dt><dd className="font-semibold"><PrecioAnimado valor={totalUtiles} /></dd></div>
                   {lineasExtras.map(l => (
@@ -622,14 +699,24 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   {librosPorCotizar.length > 0 && (
                     <div className="flex justify-between text-tenue"><dt>Libros por cotizar ({librosPorCotizar.length})</dt><dd>Te avisamos</dd></div>
                   )}
+                  {ahorro > 0 && (
+                    <div className="flex justify-between text-profe"><dt>Ahorras con las ofertas</dt><dd className="font-semibold tabular-nums">−{formatPrice(ahorro)}</dd></div>
+                  )}
                 </dl>
                 <div className="mt-4 flex items-baseline justify-between border-t border-linea pt-4">
                   <span className="font-semibold">Total</span>
                   <PrecioAnimado valor={total} className="text-3xl font-extrabold tracking-tight" />
                 </div>
+                {enCarrito.length > 0 && (
+                  <p role="status" className="mt-4 rounded-xl bg-eco-claro px-3 py-2.5 text-sm">
+                    <Check className="mr-1 inline h-4 w-4 text-eco" aria-hidden="true" />
+                    Ya está en tu carrito ({formatPrice(totalEnCarrito)}).{' '}
+                    {Math.abs(totalEnCarrito - total) > 0.005 ? 'Actualiza el carrito para llevar los cambios.' : <Link href="/cart" className="font-semibold underline underline-offset-2">Ver carrito</Link>}
+                  </p>
+                )}
                 <button onClick={agregarAlCarrito} disabled={agregando}
                   className="mt-4 hidden w-full items-center justify-center gap-2 rounded-xl bg-acento py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50 lg:flex">
-                  <ShoppingBag className="h-5 w-5" aria-hidden="true" /> {agregando ? 'Agregando…' : 'Agregar al carrito'}
+                  <ShoppingBag className="h-5 w-5" aria-hidden="true" /> {agregando ? 'Agregando…' : enCarrito.length > 0 ? 'Actualizar carrito' : 'Agregar al carrito'}
                 </button>
               </div>
             </aside>
@@ -639,15 +726,15 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Barra fija en celular */}
       {(plan || !hayNiveles) && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-linea bg-papel/95 backdrop-blur lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-linea bg-papel/95 backdrop-blur lg:hidden print:hidden">
           <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-            <div>
-              <p className="text-xs text-tenue">Total</p>
+            <div className="min-w-0">
+              <p className="truncate text-xs text-tenue">{enCarrito.length > 0 ? `En tu carrito: ${formatPrice(totalEnCarrito)}` : 'Total'}</p>
               <p className="text-2xl font-extrabold"><PrecioAnimado valor={total} /></p>
             </div>
             <button onClick={agregarAlCarrito} disabled={agregando}
-              className="ml-auto inline-flex items-center gap-2 rounded-xl bg-acento px-5 py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50">
-              <ShoppingBag className="h-5 w-5" aria-hidden="true" /> Agregar al carrito
+              className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-xl bg-acento px-5 py-3.5 font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50">
+              <ShoppingBag className="h-5 w-5" aria-hidden="true" /> {enCarrito.length > 0 ? 'Actualizar carrito' : 'Agregar al carrito'}
             </button>
           </div>
         </div>

@@ -1,16 +1,16 @@
 'use client';
 
-import { API } from '@/lib/api-base';
-import { useState, useEffect } from 'react';
-import { schoolsApi } from '@/services/api';
+import { useState, useEffect, useCallback } from 'react';
+import { schoolsApi, sectionsApi, listsApi } from '@/services/api';
 import { Plus, Edit2, Trash2, Search, X, ChevronDown, ChevronUp, GraduationCap } from 'lucide-react';
-import { sectionsApi } from '@/services/api';
 import { Section, School, Grade } from '@/lib/types';
 import { groupSections } from '@/lib/constants';
-
+import { Cargando, añoEscolar, añosElegibles, botonPrimario, campo, tarjeta, useAvisos } from '../_ui';
 
 export default function AdminSchoolsPage() {
+  const avisos = useAvisos();
   const [schools, setSchools] = useState<School[]>([]);
+  const [listasPorColegio, setListasPorColegio] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -20,84 +20,95 @@ export default function AdminSchoolsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [newGrade, setNewGrade] = useState('');
+  const [newYear, setNewYear] = useState(añoEscolar());
   const [allSections, setAllSections] = useState<Section[]>([]);
   const [schoolSectionIds, setSchoolSectionIds] = useState<Set<string>>(new Set());
   const [savingSections, setSavingSections] = useState(false);
 
-  const load = () => schoolsApi.getAll().then(setSchools).catch(() => {}).finally(() => setLoading(false));
-  const loadAllSections = () => sectionsApi.getAll().then(setAllSections).catch(() => {});
-  useEffect(() => { load(); loadAllSections(); }, []);
+  const load = useCallback(() => Promise.all([schoolsApi.getAll(), listsApi.getAll().catch(() => [])])
+    .then(([s, ls]) => {
+      setSchools(s);
+      const n: Record<string, number> = {};
+      ls.forEach(l => { n[l.schoolId] = (n[l.schoolId] ?? 0) + 1; });
+      setListasPorColegio(n);
+    })
+    .catch(e => avisos.error(e, 'No pudimos cargar los colegios'))
+    .finally(() => setLoading(false)), [avisos]);
+  useEffect(() => {
+    load();
+    sectionsApi.getAll().then(setAllSections).catch(e => avisos.error(e, 'No pudimos cargar los grados'));
+  }, [load, avisos]);
 
   const save = async () => {
-    if (!name.trim()) return;
-    if (editId) {
-      await fetch(`${API}/schools/${editId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, address }) });
-    } else {
-      await schoolsApi.create(name, address || undefined);
-    }
-    setName(''); setAddress(''); setEditId(null); setShowForm(false); load();
+    if (!name.trim()) { avisos.error(null, 'Escribe el nombre del colegio'); return; }
+    try {
+      if (editId) { await schoolsApi.update(editId, name.trim(), address.trim() || undefined); avisos.exito('Colegio guardado'); }
+      else { await schoolsApi.create(name.trim(), address.trim() || undefined); avisos.exito(`Colegio "${name.trim()}" creado`); }
+      setName(''); setAddress(''); setEditId(null); setShowForm(false); load();
+    } catch (e) { avisos.error(e, 'No pudimos guardar el colegio'); }
   };
 
-  const deleteSchool = async (id: string) => {
-    if (!confirm('Eliminar colegio y todos sus grados?')) return;
-    await fetch(`${API}/schools/${id}`, { method: 'DELETE' });
-    load();
+  const deleteSchool = async (s: School) => {
+    const n = listasPorColegio[s.id] ?? 0;
+    if (n) { avisos.error(null, `No se puede eliminar "${s.name}": tiene ${n} ${n === 1 ? 'lista' : 'listas'}. Elimina o mueve esas listas primero.`); return; }
+    if (!confirm(`¿Eliminar "${s.name}" y todos sus grados?`)) return;
+    try { await schoolsApi.delete(s.id); avisos.exito('Colegio eliminado'); if (expanded === s.id) setExpanded(null); load(); }
+    catch (e) { avisos.error(e, 'No pudimos eliminar el colegio'); }
   };
 
   const toggleGrades = async (id: string) => {
     if (expanded === id) { setExpanded(null); return; }
     setExpanded(id);
-    const [gradesData, schoolSecs] = await Promise.all([
-      schoolsApi.getGrades(id),
-      schoolsApi.getSchoolSections(id),
-    ]);
-    setGrades(gradesData);
-    setSchoolSectionIds(new Set(schoolSecs.map(s => s.id)));
+    try {
+      const [gradesData, schoolSecs] = await Promise.all([schoolsApi.getGrades(id), schoolsApi.getSchoolSections(id)]);
+      setGrades(gradesData);
+      setSchoolSectionIds(new Set(schoolSecs.map(s => s.id)));
+    } catch (e) { avisos.error(e, 'No pudimos cargar los grados del colegio'); }
   };
 
   const toggleSection = async (schoolId: string, sectionId: string) => {
     const newSet = new Set(schoolSectionIds);
-    if (newSet.has(sectionId)) newSet.delete(sectionId);
-    else newSet.add(sectionId);
+    if (newSet.has(sectionId)) newSet.delete(sectionId); else newSet.add(sectionId);
     setSchoolSectionIds(newSet);
     setSavingSections(true);
     try { await schoolsApi.setSchoolSections(schoolId, Array.from(newSet)); }
-    catch (err) { console.error(err); }
+    catch (e) { avisos.error(e, 'No pudimos guardar los grados que ofrece el colegio'); }
     finally { setSavingSections(false); }
   };
 
   const addGrade = async () => {
-    if (!newGrade.trim() || !expanded) return;
-    await schoolsApi.createGrade(expanded, newGrade, new Date().getFullYear());
-    setNewGrade('');
-    const data = await schoolsApi.getGrades(expanded);
-    setGrades(data);
+    if (!newGrade || !expanded) { avisos.error(null, 'Elige el grado'); return; }
+    if (grades.some(g => g.name === newGrade && g.year === newYear)) { avisos.error(null, `${newGrade} ${newYear} ya existe`); return; }
+    try {
+      await schoolsApi.createGrade(expanded, newGrade, newYear);
+      avisos.exito(`${newGrade} (${newYear}) agregado`);
+      setNewGrade('');
+      setGrades(await schoolsApi.getGrades(expanded));
+    } catch (e) { avisos.error(e, 'No pudimos agregar el grado'); }
   };
 
-  const deleteGrade = async (schoolId: string, gradeId: string) => {
-    await fetch(`${API}/schools/${schoolId}/grades/${gradeId}`, { method: 'DELETE' });
-    const data = await schoolsApi.getGrades(schoolId);
-    setGrades(data);
+  const deleteGrade = async (schoolId: string, g: Grade) => {
+    if (!confirm(`¿Eliminar ${g.name} (${g.year})?`)) return;
+    try { await schoolsApi.deleteGrade(schoolId, g.id); avisos.exito('Grado eliminado'); setGrades(await schoolsApi.getGrades(schoolId)); }
+    catch (e) { avisos.error(e, 'No pudimos eliminar el grado'); }
   };
 
   const filtered = schools.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+  const ordenGrado = (g: Grade) => allSections.find(s => s.name === g.name)?.sortOrder ?? 999;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 className="text-xl font-bold text-slate-900">Colegios ({schools.length})</h1>
-        <button onClick={() => { setShowForm(true); setEditId(null); setName(''); setAddress(''); }}
-          className="bg-blue-500 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-          <Plus className="h-4 w-4" /> Nuevo Colegio
+        <button onClick={() => { setShowForm(true); setEditId(null); setName(''); setAddress(''); }} className={botonPrimario}>
+          <Plus className="h-4 w-4" aria-hidden="true" /> Nuevo colegio
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-[16px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-4 mb-4 space-y-2">
-          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nombre del colegio"
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" autoFocus />
-          <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Direccion (opcional)"
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+        <div className={`${tarjeta} p-4 mb-4 space-y-2`}>
+          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nombre del colegio" aria-label="Nombre del colegio" className={campo} autoFocus />
+          <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Dirección (opcional)" aria-label="Dirección" className={campo} />
           <div className="flex gap-2">
             <button onClick={save} className="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold">{editId ? 'Guardar' : 'Crear'}</button>
             <button onClick={() => setShowForm(false)} className="text-neutral-400 text-xs">Cancelar</button>
@@ -105,95 +116,87 @@ export default function AdminSchoolsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-[16px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-3 mb-4">
+      <div className={`${tarjeta} p-3 mb-4`}>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar colegio..."
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" aria-hidden="true" />
+          <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar colegio…" aria-label="Buscar colegio"
             className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs" />
         </div>
       </div>
 
       <div className="space-y-2">
-        {loading ? <div className="flex justify-center py-12"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div> :
-          filtered.map(s => (
-            <div key={s.id} className="bg-white rounded-[16px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
-              <div className="px-4 py-3 flex items-center gap-3">
-                <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <GraduationCap className="h-4 w-4 text-blue-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900">{s.name}</p>
-                  <p className="text-[10px] text-neutral-400">{s.address || 'Sin direccion'}</p>
-                </div>
-                <button onClick={() => toggleGrades(s.id)} className="p-1.5 bg-slate-100 rounded-lg hover:bg-slate-200">
-                  {expanded === s.id ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                </button>
-                <button onClick={() => { setEditId(s.id); setName(s.name); setAddress(s.address || ''); setShowForm(true); }}
-                  className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100"><Edit2 className="h-3.5 w-3.5" /></button>
-                <button onClick={() => deleteSchool(s.id)}
-                  className="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-100"><Trash2 className="h-3.5 w-3.5" /></button>
+        {loading ? <Cargando /> : filtered.map(s => (
+          <div key={s.id} data-colegio={s.name} className={`${tarjeta} overflow-hidden`}>
+            <div className="px-4 py-3 flex items-center gap-3">
+              <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <GraduationCap className="h-4 w-4 text-blue-500" aria-hidden="true" />
               </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 truncate">{s.name}</p>
+                <p className="text-[10px] text-neutral-400 truncate">{s.address || 'Sin dirección'} · {listasPorColegio[s.id] ?? 0} listas</p>
+              </div>
+              <button onClick={() => toggleGrades(s.id)} aria-expanded={expanded === s.id} aria-label={`Grados de ${s.name}`} className="p-1.5 bg-slate-100 rounded-lg hover:bg-slate-200">
+                {expanded === s.id ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </button>
+              <button onClick={() => { setEditId(s.id); setName(s.name); setAddress(s.address || ''); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                aria-label={`Editar ${s.name}`} className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100"><Edit2 className="h-3.5 w-3.5" /></button>
+              <button onClick={() => deleteSchool(s)} aria-label={`Eliminar ${s.name}`} className="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-100"><Trash2 className="h-3.5 w-3.5" /></button>
+            </div>
 
-              {expanded === s.id && (
-                <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50 space-y-4">
-                  {/* Secciones del colegio */}
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">
-                      Secciones que tiene este colegio {savingSections && <span className="text-blue-500">(guardando...)</span>}
-                    </p>
-                    <div className="space-y-1">
-                      {groupSections(allSections).map(group => (
-                        <div key={group.group}>
-                          <p className="text-[10px] font-bold text-slate-400 mt-1">{group.group}</p>
-                          <div className="flex flex-wrap gap-1.5 mt-1">
-                            {allSections.filter(sec => sec.groupName === group.group).map(sec => (
-                              <button key={sec.id} onClick={() => toggleSection(s.id, sec.id)}
-                                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
-                                  schoolSectionIds.has(sec.id)
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-white border border-slate-200 text-slate-500 hover:border-blue-300'
-                                }`}>
-                                {sec.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Grados */}
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Grados ({grades.length})</p>
-                    <div className="space-y-1 mb-2">
-                      {grades.map(g => (
-                        <div key={g.id} className="flex items-center justify-between px-3 py-1.5 bg-white rounded-lg">
-                          <span className="text-xs text-slate-700">{g.name}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-neutral-400">{g.year}</span>
-                            <button onClick={() => deleteGrade(s.id, g.id)} className="text-red-300 hover:text-red-500"><X className="h-3 w-3" /></button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <select value={newGrade} onChange={e => setNewGrade(e.target.value)}
-                        className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs">
-                        <option value="">Seleccionar grado</option>
-                        {groupSections(allSections.filter(s => schoolSectionIds.has(s.id))).map(g => (
-                          <optgroup key={g.group} label={g.group}>
-                            {g.options.map(o => <option key={o} value={o}>{o}</option>)}
-                          </optgroup>
+            {expanded === s.id && (
+              <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50 space-y-4">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">
+                    Grados que ofrece este colegio {savingSections && <span className="text-blue-500 normal-case">(guardando…)</span>}
+                  </p>
+                  {groupSections(allSections).map(group => (
+                    <div key={group.group}>
+                      <p className="text-[10px] font-bold text-slate-400 mt-1">{group.group}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {allSections.filter(sec => sec.groupName === group.group).map(sec => (
+                          <button key={sec.id} onClick={() => toggleSection(s.id, sec.id)} aria-pressed={schoolSectionIds.has(sec.id)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${schoolSectionIds.has(sec.id) ? 'bg-blue-500 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:border-blue-300'}`}>
+                            {sec.name}
+                          </button>
                         ))}
-                      </select>
-                      <button onClick={addGrade} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Agregar</button>
+                      </div>
                     </div>
+                  ))}
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Grados con lista ({grades.length})</p>
+                  <ul className="space-y-1 mb-2">
+                    {[...grades].sort((a, b) => b.year - a.year || ordenGrado(a) - ordenGrado(b)).map(g => (
+                      <li key={g.id} data-grado={`${g.name} ${g.year}`} className="flex items-center justify-between px-3 py-1.5 bg-white rounded-lg">
+                        <span className="text-xs text-slate-700">{g.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${g.year === añoEscolar() ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>Año {g.year}</span>
+                          <button onClick={() => deleteGrade(s.id, g)} aria-label={`Eliminar ${g.name} ${g.year}`} className="text-red-300 hover:text-red-500"><X className="h-3.5 w-3.5" /></button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-wrap gap-2">
+                    <select value={newGrade} onChange={e => setNewGrade(e.target.value)} aria-label="Grado" className="flex-1 min-w-[160px] px-3 py-1.5 border border-slate-200 rounded-lg text-xs">
+                      <option value="">Elegir grado</option>
+                      {groupSections(allSections.filter(x => schoolSectionIds.has(x.id))).map(g => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.options.map(o => <option key={o} value={o}>{o}</option>)}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <select value={newYear} onChange={e => setNewYear(Number(e.target.value))} aria-label="Año escolar" className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs">
+                      {añosElegibles().map(a => <option key={a} value={a}>Año {a}{a === añoEscolar() ? ' (el que vende la tienda)' : ''}</option>)}
+                    </select>
+                    <button onClick={addGrade} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Agregar</button>
                   </div>
                 </div>
-              )}
-            </div>
-          ))
-        }
+              </div>
+            )}
+          </div>
+        ))}
+        {!loading && filtered.length === 0 && <p className="text-center py-8 text-neutral-400 text-sm">No hay colegios</p>}
       </div>
     </div>
   );

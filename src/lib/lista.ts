@@ -1,4 +1,5 @@
-import { ItemVariante, ListExtras, Product, SupplyItem } from '@/lib/types';
+import { ItemVariante, ListBook, ListExtras, Product, SupplyItem } from '@/lib/types';
+import { precioVenta, redondear } from '@/lib/precio';
 
 export type Tier = 'economico' | 'medio' | 'premium';
 
@@ -114,11 +115,75 @@ export function variantesDe(item: SupplyItem, extras: ListExtras): ItemVariante[
   return v && v.productId === item.matchedProductId ? v.valores : [];
 }
 
-/** Precio unitario del útil, con el recargo de su diseño o color. */
+/** Recargo del diseño o color elegido para el útil. */
+export const recargoDe = (item: SupplyItem, extras: ListExtras) => variantesDe(item, extras).reduce((s, v) => s + (v.precio || 0), 0);
+
+/** Precio unitario del útil (con la oferta activa), más el recargo de su diseño o color. */
 export function precioUnitario(item: SupplyItem, extras: ListExtras): number {
   if (!item.matchedProduct) return 0;
-  return item.matchedProduct.basePrice + variantesDe(item, extras).reduce((s, v) => s + (v.precio || 0), 0);
+  return redondear(precioVenta(item.matchedProduct) + recargoDe(item, extras));
+}
+
+/** Precio unitario sin oferta (para mostrarlo tachado). */
+export function precioSinOferta(item: SupplyItem, extras: ListExtras): number {
+  if (!item.matchedProduct) return 0;
+  return redondear(item.matchedProduct.basePrice + recargoDe(item, extras));
 }
 
 /** Precio unitario de un servicio con el recargo de la opción elegida (si el admin le puso uno). */
-export const precioServicio = (base?: Product, opcion?: OpcionServicio) => (base ? base.basePrice + (opcion?.recargo ?? 0) : 0);
+export const precioServicio = (base?: Product, opcion?: OpcionServicio) => (base ? precioVenta(base) + (opcion?.recargo ?? 0) : 0);
+
+/** Productos de los servicios (forrado, etiquetas, carátulas) con su precio. */
+export interface PreciosServicios {
+  forroCuaderno?: Product;
+  forroLibro?: Product;
+  etiqueta?: Product;
+  caratula?: Product;
+}
+
+export const cantidadDe = (item: SupplyItem) => item.userCustomQuantity || item.matchedQuantity || item.cantidad;
+
+/** Para quién es la lista: el nombre del alumno (etiquetas) o "Colegio, Grado". */
+export function paraQuien(extras: ListExtras, list: { schoolName: string; gradeName: string; estudianteNombre?: string }) {
+  return extras.etiquetas.nombre.trim() || list.estudianteNombre?.trim() || `${list.schoolName}, ${list.gradeName}`;
+}
+
+export interface LineaExtra { clave: 'forroCuaderno' | 'forroLibro' | 'etiqueta' | 'caratula' | 'libros'; label: string; monto: number }
+
+export interface ResumenLista {
+  incluidos: SupplyItem[];
+  conProducto: SupplyItem[];
+  totalUtiles: number;
+  cuadernos: number;
+  libros: number;
+  conteo: { cuadernos: number; libros: number; etiquetas: number; caratulas: number };
+  lineasExtras: LineaExtra[];
+  librosPorCotizar: ListBook[];
+  total: number;
+  /** Lo que se ahorra por las ofertas en los útiles */
+  ahorro: number;
+}
+
+/** Totales de una lista armada: útiles incluidos, servicios y libros. */
+export function resumirLista(items: SupplyItem[], extras: ListExtras, servicios: PreciosServicios, opciones: OpcionesServicios, qty: (i: SupplyItem) => number = cantidadDe): ResumenLista {
+  const excluidos = new Set(extras.excluidos ?? []);
+  const incluidos = items.filter(i => !excluidos.has(i.id));
+  const conProducto = incluidos.filter(i => i.matchedProduct);
+  const totalUtiles = redondear(conProducto.reduce((s, i) => s + precioUnitario(i, extras) * qty(i), 0));
+  const ahorro = redondear(conProducto.reduce((s, i) => s + (precioSinOferta(i, extras) - precioUnitario(i, extras)) * qty(i), 0));
+  const cuadernos = incluidos.filter(esCuaderno).reduce((s, i) => s + qty(i), 0);
+  const libros = extras.libros.filter(l => l.titulo.trim()).reduce((s, l) => s + l.cantidad, 0);
+  const conteo = { cuadernos, libros, etiquetas: cuadernos + libros, caratulas: extras.caratulas.activo ? extras.caratulas.cursos.length : 0 };
+  const colorForro = buscarOpcion(opciones.colores, extras.forro.color);
+  const disenoEtiqueta = buscarOpcion(opciones.disenos, extras.etiquetas.diseno);
+  const lineasExtras = ([
+    { clave: 'forroCuaderno', label: `Forrado (${cuadernos} cuadernos)`, monto: extras.forro.activo ? precioServicio(servicios.forroCuaderno, colorForro) * cuadernos : 0 },
+    { clave: 'forroLibro', label: `Forrado (${libros} ${libros === 1 ? 'libro' : 'libros'})`, monto: extras.forro.activo && extras.forrarLibros ? precioServicio(servicios.forroLibro) * libros : 0 },
+    { clave: 'etiqueta', label: `Etiquetas (${conteo.etiquetas})`, monto: extras.etiquetas.activo ? precioServicio(servicios.etiqueta, disenoEtiqueta) * conteo.etiquetas : 0 },
+    { clave: 'caratula', label: `Carátulas (${conteo.caratulas})`, monto: precioServicio(servicios.caratula) * conteo.caratulas },
+    { clave: 'libros', label: 'Libros', monto: extras.libros.reduce((s, l) => s + (l.precio ? l.precio * l.cantidad : 0), 0) },
+  ] as LineaExtra[]).filter(l => l.monto > 0).map(l => ({ ...l, monto: redondear(l.monto) }));
+  const librosPorCotizar = extras.libros.filter(l => l.titulo.trim() && !l.precio);
+  const total = redondear(totalUtiles + lineasExtras.reduce((s, l) => s + l.monto, 0));
+  return { incluidos, conProducto, totalUtiles, cuadernos, libros, conteo, lineasExtras, librosPorCotizar, total, ahorro };
+}

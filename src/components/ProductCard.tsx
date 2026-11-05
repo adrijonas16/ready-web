@@ -8,6 +8,7 @@ import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
 import { TIERS } from '@/lib/lista';
 import { volarAlCarrito } from '@/lib/efectos';
+import { descuentoPct, enOferta, precioVenta } from '@/lib/precio';
 
 const PUNTO_NIVEL: Record<string, string> = { economico: 'bg-eco', medio: 'bg-primario', premium: 'bg-premium' };
 
@@ -22,7 +23,8 @@ interface ProductCardProps {
 export default function ProductCard({ product, showAddToCart = true, onClick }: ProductCardProps) {
   const { addItem, items } = useCart();
   const [added, setAdded] = useState(false);
-  const enCarrito = items.find(i => i.product.id === product.id)?.quantity ?? 0;
+  const enCarrito = items.filter(i => i.product.id === product.id && !i.para).reduce((s, i) => s + i.quantity, 0);
+  const oferta = enOferta(product);
   const agotado = product.stock <= 0;
   const nivel = TIERS.find(t => t.id === product.tier);
   const href = `/products/${product.id}`;
@@ -55,6 +57,7 @@ export default function ProductCard({ product, showAddToCart = true, onClick }: 
           : <div className="flex h-full items-center justify-center"><Package className="h-10 w-10 text-tenue/40" aria-hidden="true" /></div>}
         {agotado && <span className="absolute left-2 top-2 rounded-full bg-grafito px-2 py-0.5 text-xs font-semibold text-white">Agotado</span>}
         {!agotado && product.stock < 10 && <span className="absolute left-2 top-2 rounded-full bg-acento-claro px-2 py-0.5 text-xs font-semibold text-grafito">Quedan {product.stock}</span>}
+        {oferta && <span className="absolute right-2 top-2 rounded-full bg-profe px-2 py-0.5 text-xs font-bold text-white">−{descuentoPct(product)}%</span>}
       </div>
       <div className="mt-2.5 flex items-center gap-1.5 text-xs">
         {nivel && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PUNTO_NIVEL[nivel.id]}`} aria-hidden="true" />}
@@ -72,7 +75,10 @@ export default function ProductCard({ product, showAddToCart = true, onClick }: 
         ? <button onClick={onClick} className="cursor-pointer text-left">{Contenido}</button>
         : <Link href={href} className="block">{Contenido}</Link>}
       <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-        <span className="min-w-0 truncate text-base font-bold tabular-nums sm:text-lg">{formatPrice(product.basePrice)}</span>
+        <span className="min-w-0">
+          {oferta && <span className="block truncate text-xs text-tenue line-through tabular-nums"><span className="sr-only">Antes </span>{formatPrice(product.basePrice)}</span>}
+          <span className={`block truncate text-base font-bold tabular-nums sm:text-lg ${oferta ? 'text-profe' : ''}`}>{formatPrice(precioVenta(product))}</span>
+        </span>
         {showAddToCart && (
           <button onClick={agregar} disabled={agotado} aria-label={`Agregar ${product.name} al carrito`}
             className={`inline-flex h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-2.5 sm:px-3 text-sm font-bold transition-[background-color,transform] active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 ${

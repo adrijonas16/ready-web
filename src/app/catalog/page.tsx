@@ -1,6 +1,6 @@
 'use client';
 
-import { API } from '@/lib/api-base';
+import { API, apiFetch } from '@/lib/api-base';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -9,6 +9,8 @@ import { productsApi } from '@/services/api';
 import { Product } from '@/lib/types';
 import ProductCard from '@/components/ProductCard';
 import { TIERS } from '@/lib/lista';
+import { coincide as coincideBusqueda } from '@/lib/buscar';
+import { precioVenta } from '@/lib/precio';
 
 /** Categorías internas que no se venden sueltas en la tienda */
 const OCULTAS = new Set(['Servicios']);
@@ -47,7 +49,7 @@ function Catalogo() {
   useEffect(() => {
     Promise.all([
       productsApi.getAll({ limit: 1000 }),
-      fetch(`${API}/campaigns?activeOnly=true`).then(r => r.json()).then(d => d.data || []).catch(() => []),
+      apiFetch(`${API}/campaigns?activeOnly=true`).then(r => r.json()).then(d => d.data || []).catch(() => []),
     ]).then(([ps, cs]) => {
       setTodos((ps as Product[]).filter(p => !OCULTAS.has(p.category)));
       setCampanas(cs);
@@ -63,7 +65,7 @@ function Catalogo() {
   }
   useEffect(() => {
     if (!campana) return;
-    fetch(`${API}/campaigns/${campana}`).then(r => r.json())
+    apiFetch(`${API}/campaigns/${campana}`).then(r => r.json())
       .then(res => setIdsCampana(new Set<string>(res.data?.products?.map((p: { id: string }) => p.id) || [])))
       .catch(() => setIdsCampana(new Set()));
   }, [campana]);
@@ -78,25 +80,25 @@ function Catalogo() {
     router.replace(`/catalog${q.size ? `?${q}` : ''}`, { scroll: false });
   }, [categoria, busqueda, nivel, campana, router]);
 
-  const precioTope = useMemo(() => Math.ceil(Math.max(10, ...todos.map(p => p.basePrice))), [todos]);
+  const precioTope = useMemo(() => Math.ceil(Math.max(10, ...todos.map(p => precioVenta(p)))), [todos]);
   const tope = precioMax ?? precioTope;
 
   const coincide = (p: Product, ignorar?: 'categoria' | 'marca' | 'nivel') => {
-    const q = busqueda.trim().toLowerCase();
-    if (q && !`${p.name} ${p.brand ?? ''} ${p.category}`.toLowerCase().includes(q)) return false;
+    // Sin importar tildes ni plurales: "lapiz" y "lapices" encuentran "Lápiz"
+    if (busqueda.trim() && !coincideBusqueda(`${p.name} ${p.brand ?? ''} ${p.category}`, busqueda)) return false;
     if (ignorar !== 'categoria' && categoria && p.category !== categoria) return false;
     if (ignorar !== 'marca' && marca && p.brand !== marca) return false;
     if (ignorar !== 'nivel' && nivel && p.tier !== nivel) return false;
     if (idsCampana && !idsCampana.has(p.id)) return false;
-    return p.basePrice <= tope;
+    return precioVenta(p) <= tope;
   };
 
   const visibles = useMemo(() => {
     const lista = todos.filter(p => coincide(p));
-    if (orden === 'precio-asc') lista.sort((a, b) => a.basePrice - b.basePrice);
-    else if (orden === 'precio-desc') lista.sort((a, b) => b.basePrice - a.basePrice);
+    if (orden === 'precio-asc') lista.sort((a, b) => precioVenta(a) - precioVenta(b));
+    else if (orden === 'precio-desc') lista.sort((a, b) => precioVenta(b) - precioVenta(a));
     else if (orden === 'nombre') lista.sort((a, b) => a.name.localeCompare(b.name));
-    else lista.sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0) || a.category.localeCompare(b.category) || a.basePrice - b.basePrice);
+    else lista.sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0) || a.category.localeCompare(b.category) || precioVenta(a) - precioVenta(b));
     return lista;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todos, busqueda, categoria, marca, nivel, idsCampana, tope, orden]);
@@ -190,7 +192,13 @@ function Catalogo() {
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-tenue" aria-hidden="true" />
           <input value={busqueda} onChange={e => setBusqueda(e.target.value)} name="q" type="search" autoComplete="off"
             placeholder="Busca cuadernos, colores, una marca…"
-            className="w-full rounded-xl border border-linea bg-papel py-3 pl-11 pr-4 focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
+            className="buscador w-full rounded-xl border border-linea bg-papel py-3 pl-11 pr-12 focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
+          {busqueda && (
+            <button type="button" onClick={() => setBusqueda('')} aria-label="Limpiar búsqueda" title="Limpiar búsqueda"
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-tenue hover:bg-fondo hover:text-grafito">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
         </label>
         <button onClick={() => setFiltrosMovil(true)} aria-label="Filtros"
           className="relative flex h-[50px] w-[50px] cursor-pointer items-center justify-center rounded-xl border border-linea bg-papel md:hidden">
@@ -233,9 +241,12 @@ function Catalogo() {
             </div>
           ) : visibles.length === 0 ? (
             <div className="rounded-2xl border border-linea bg-papel px-6 py-14 text-center">
-              <h2 className="text-lg font-bold">No encontramos productos con esos filtros</h2>
+              <h2 className="text-lg font-bold">{busqueda.trim() ? `No encontramos «${busqueda.trim()}»` : 'No encontramos productos con esos filtros'}</h2>
               <p className="mt-1 text-tenue">Prueba con otra palabra o quita algún filtro.</p>
-              {activos > 0 && <button onClick={limpiar} className="mt-4 cursor-pointer rounded-xl bg-primario px-4 py-2.5 font-bold text-white">Quitar filtros</button>}
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {busqueda && <button onClick={() => setBusqueda('')} className="cursor-pointer rounded-xl border-2 border-grafito px-4 py-2 font-bold">Limpiar búsqueda</button>}
+                {activos > 0 && <button onClick={limpiar} className="cursor-pointer rounded-xl bg-primario px-4 py-2.5 font-bold text-white">Quitar filtros</button>}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">

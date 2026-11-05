@@ -38,7 +38,7 @@ export default function Header() {
   const isActive = (href: string) => (href === '/' || href === '/lists' ? pathname === href : pathname.startsWith(href));
 
   return (
-    <header className="sticky top-0 z-50 border-b border-linea bg-papel/95 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-linea bg-papel/95 backdrop-blur print:hidden">
       <nav className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6" aria-label="Principal">
         <Logo />
 
@@ -85,9 +85,11 @@ export default function Header() {
 
           {user ? (
             <div className="hidden md:flex items-center gap-1">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primario-claro text-sm font-bold text-primario" title={user.name}>
+              <Link href="/profile" aria-label={`Mi perfil (${user.name})`} title="Mi perfil"
+                aria-current={pathname === '/profile' ? 'page' : undefined}
+                className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold transition-[box-shadow] hover:ring-2 hover:ring-primario ${pathname === '/profile' ? 'bg-primario text-white' : 'bg-primario-claro text-primario'}`}>
                 {user.name.charAt(0).toUpperCase()}
-              </span>
+              </Link>
               <button onClick={logout} className="rounded-xl p-2 text-tenue hover:text-profe" title="Cerrar sesión" aria-label="Cerrar sesión">
                 <LogOut className="h-4 w-4" />
               </button>
@@ -116,7 +118,10 @@ export default function Header() {
             </Link>
           ))}
           {user ? (
-            <button onClick={() => { logout(); setOpen(false); }} className="rounded-lg px-3 py-2.5 text-left font-medium text-profe">Cerrar sesión</button>
+            <>
+              <Link href="/profile" onClick={() => setOpen(false)} className={`rounded-lg px-3 py-2.5 font-medium ${isActive('/profile') ? 'bg-primario-claro text-primario' : 'text-grafito'}`}>Mi perfil</Link>
+              <button onClick={() => { logout(); setOpen(false); }} className="rounded-lg px-3 py-2.5 text-left font-medium text-profe">Cerrar sesión</button>
+            </>
           ) : (
             <Link href="/login" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 font-medium text-primario">Iniciar sesión</Link>
           )}

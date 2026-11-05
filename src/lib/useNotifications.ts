@@ -38,7 +38,7 @@ export function useRealtimeNotifications(role?: string, userId?: string) {
     const hubUrl = API.replace(/\/api\/?$/, '') + '/hub/notifications';
     const connection = new signalR.HubConnectionBuilder()
       // Sin cookies: la API permite cualquier origen (AllowAnyOrigin), que no admite credenciales
-      .withUrl(hubUrl, { withCredentials: false })
+      .withUrl(hubUrl, { withCredentials: false, accessTokenFactory: () => localStorage.getItem('token') ?? '' })
       .configureLogging(signalR.LogLevel.None)
       .withAutomaticReconnect()
       .build();

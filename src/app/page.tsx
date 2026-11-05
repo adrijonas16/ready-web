@@ -10,8 +10,8 @@ import Categorias from '@/components/home/Categorias';
 import { FotoLista, Mochila, TodoListo, TresOpciones } from '@/components/home/Ilustraciones';
 
 export const metadata: Metadata = {
-  title: 'Ready - Utiles Escolares en Arequipa | Envio a Domicilio',
-  description: 'Sube la foto de la lista de útiles de tu colegio y te la armamos completa. Elige económico, estándar o premium y recíbela en casa en Arequipa.',
+  title: 'Ready - Útiles escolares en Arequipa | Envío a domicilio',
+  description: 'Sube la foto de la lista de útiles de tu colegio y te la armamos completa. Elige económico, normal o premium y recíbela en casa en Arequipa.',
 };
 
 /** Tres productos del catálogo que se abren en abanico al pasar el mouse */

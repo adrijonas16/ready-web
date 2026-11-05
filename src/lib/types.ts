@@ -15,7 +15,10 @@ export interface User {
   name: string;
   phone?: string;
   address?: string;
+  /** DNI (8 dígitos) o RUC (11) para la boleta o factura */
+  documento?: string;
   role: 'USER' | 'ADMIN' | 'OPERATOR';
+  createdAt?: string;
 }
 
 export interface AuthResponse {
@@ -43,7 +46,7 @@ export interface Section {
   sortOrder: number;
 }
 
-export type ListStatus = 'PENDIENTE_REVISION' | 'EN_REVISION' | 'OBSERVADA' | 'VALIDADA' | 'PROCESADA';
+export type ListStatus = 'PENDIENTE_REVISION' | 'EN_REVISION' | 'OBSERVADA' | 'RECHAZADA' | 'VALIDADA' | 'PROCESADA';
 
 export interface SupplyList {
   id: string;
@@ -71,6 +74,8 @@ export interface SupplyList {
   iaMensaje?: string;
   /** JSON de ListExtras guardado en la lista */
   extras?: string;
+  /** Id de la lista original si es una copia propia de una familia */
+  copiaDe?: string | null;
   createdAt: string;
 }
 
@@ -121,7 +126,7 @@ export interface VariantType {
 
 export interface ProductDetail extends Product {
   variants?: VariantType[];
-  images?: { id: string; image_url: string; alt_text?: string | null }[];
+  images?: { id: string; image_url: string; alt_text?: string | null; imageUrl?: string; isPrimary?: boolean }[];
 }
 
 export interface SupplyItem {
@@ -175,27 +180,63 @@ export interface Product {
   attributes?: string;
   rating?: number;
   tier?: string;
+  isActive?: boolean;
+  /** Precio con la campaña activa que incluye al producto (null si no está en oferta) */
+  salePrice?: number | null;
+  campaignSlug?: string | null;
 }
 
+/**
+ * Línea del carrito. Se identifica por producto + notas (diseño, color…) + precio unitario + para quién.
+ * Las líneas que vienen de una lista llevan `para` (nombre del alumno o "Colegio, Grado") y `listaId`.
+ */
 export interface CartItem {
+  id: string;
   product: Product;
   quantity: number;
+  /** Precio que se cobra por unidad (con oferta y recargo de diseño o color) */
+  unitPrice: number;
+  /** Precio sin oferta (con el mismo recargo), para mostrarlo tachado */
+  listPrice?: number;
+  /** Recargo del diseño o color elegido */
+  recargo?: number;
   notes?: string;
-  originalItem?: SupplyItem;
+  para?: string;
+  listaId?: string;
 }
 
-export type OrderStatus = 'RECIBIDO' | 'EN_PREPARACION' | 'ARMADO' | 'EN_CAMINO' | 'ENTREGADO';
+/** Algo del pedido que aún no tiene precio (libros por cotizar, útiles por conseguir…) */
+export interface NotaPedido {
+  texto: string;
+  listaId?: string;
+  para?: string;
+}
+
+export type OrderStatus = 'RECIBIDO' | 'EN_PREPARACION' | 'ARMADO' | 'EN_CAMINO' | 'ENTREGADO' | 'CANCELADO';
+
+export interface Entrega { fecha?: string; franja?: string }
+export interface Comprobante { tipo: 'boleta' | 'factura'; documento: string; razonSocial?: string }
 
 export interface Order {
   id: string;
   userId: string;
   supplyListId?: string;
+  supplyListIds?: string[];
   total: number;
   status: OrderStatus;
   shippingAddress: string;
   shippingPhone: string;
   trackingNumber?: string;
   createdAt: string;
+  contactNotes?: string | null;
+  userName?: string | null;
+  userEmail?: string | null;
+  pago?: { metodo: string; operacion: string; estado: string };
+  entrega?: Entrega | null;
+  costoEnvio?: number | null;
+  comprobante?: Comprobante | null;
+  cupon?: string | null;
+  descuento?: number;
   items: OrderItem[];
   statusHistory: OrderStatusHistory[];
 }
@@ -204,9 +245,23 @@ export interface OrderItem {
   id: string;
   productId: string;
   productName: string;
+  imageUrl?: string;
   quantity: number;
   unitPrice: number;
+  recargo?: number;
   notes?: string;
+  /** Para quién es el útil (hermanos con listas distintas) */
+  para?: string | null;
+}
+
+export interface Settings {
+  costoEnvio: number;
+  envioGratisDesde: number | null;
+  whatsapp: string;
+  telefono: string;
+  horarioEntrega: string;
+  diasEntrega: number;
+  zonas?: string;
 }
 
 export interface OrderStatusHistory {

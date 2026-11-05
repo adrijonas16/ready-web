@@ -10,6 +10,10 @@ import { useAuth } from '@/lib/auth-context';
 import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
 import { School, Section } from '@/lib/types';
 
+// Solo el año escolar en curso y el siguiente (las listas viejas no sirven para comprar)
+const AÑO_ACTUAL = new Date().getFullYear();
+const AÑOS = [AÑO_ACTUAL, AÑO_ACTUAL + 1];
+
 export default function UploadPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -110,7 +114,7 @@ export default function UploadPage() {
             <div>
               <label className="mb-1 block text-sm font-medium text-tenue">Año escolar</label>
               <SearchSelect value={String(year)} onChange={v => setYear(parseInt(v))}
-                options={[2025, 2026, 2027].map(y => ({ value: String(y), label: String(y) }))} />
+                options={AÑOS.map(y => ({ value: String(y), label: String(y) }))} />
             </div>
           </div>
         </section>

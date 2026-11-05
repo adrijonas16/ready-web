@@ -22,6 +22,8 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
     initialLat && initialLng ? [initialLat, initialLng] : AREQUIPA_CENTER
   );
   const [, setLoaded] = useState(false);
+  // Si Leaflet o los mosaicos del mapa no cargan (sin internet, bloqueados), se explica qué hacer
+  const [fallo, setFallo] = useState(false);
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -30,6 +32,10 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
     let cancelado = false;
 
     // Dynamic import of leaflet
+    let mosaicoListo = false;
+    let errores = 0;
+    const espera = setTimeout(() => { if (!cancelado && !mosaicoListo) setFallo(true); }, 12000);
+
     import('leaflet').then((L) => {
       if (cancelado || !mapRef.current || mapInstanceRef.current) return;
       // Fix default icon
@@ -47,9 +53,11 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
         minZoom: 12,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      const capa = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap'
       }).addTo(map);
+      capa.on('tileload', () => { mosaicoListo = true; setFallo(false); });
+      capa.on('tileerror', () => { errores++; if (!mosaicoListo && errores >= 4) setFallo(true); });
 
       const marker = L.marker(coords, { draggable: true }).addTo(map);
       markerRef.current = marker;
@@ -77,10 +85,11 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
       });
 
       setLoaded(true);
-    });
+    }).catch(() => { if (!cancelado) setFallo(true); });
 
     return () => {
       cancelado = true;
+      clearTimeout(espera);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -91,13 +100,24 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
   return (
     <div>
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      <div ref={mapRef} className="w-full h-48 rounded-xl overflow-hidden border border-slate-200" />
-      <div className="flex items-center gap-2 mt-2">
-        <MapPin className="h-3 w-3 text-blue-500" />
-        <span className="text-[10px] text-neutral-400">
-          {coords[0].toFixed(4)}, {coords[1].toFixed(4)} — Solo entregas en Arequipa
-        </span>
+      <div className="relative">
+        <div ref={mapRef} className="w-full h-48 rounded-xl overflow-hidden border border-linea" aria-label="Mapa para marcar la ubicación de entrega" role="application" />
+        {fallo && (
+          <div role="status" className="absolute inset-0 z-[500] flex flex-col items-center justify-center gap-1 rounded-xl border border-linea bg-fondo px-6 text-center">
+            <MapPin className="h-6 w-6 text-tenue" aria-hidden="true" />
+            <p className="text-sm font-semibold">No pudimos cargar el mapa</p>
+            <p className="text-xs text-tenue">No pasa nada: escribe tu dirección con una referencia y te llamamos si hace falta.</p>
+          </div>
+        )}
       </div>
+      {!fallo && (
+        <div className="flex items-center gap-2 mt-2">
+          <MapPin className="h-3 w-3 text-primario" aria-hidden="true" />
+          <span className="text-xs text-tenue">
+            {coords[0].toFixed(4)}, {coords[1].toFixed(4)} · Solo entregas en Arequipa
+          </span>
+        </div>
+      )}
     </div>
   );
 }

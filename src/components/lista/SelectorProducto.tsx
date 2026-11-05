@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/utils';
 import { ItemVariante, Product, ProductDetail, SupplyItem, VariantValue } from '@/lib/types';
 import { Tier, TIERS, tierLabel, tierProduct } from '@/lib/lista';
 import { ESTILO_NIVEL } from './Paquetes';
+import { precioVenta } from '@/lib/precio';
 
 const esNivel = (t?: string): t is Tier => t === 'economico' || t === 'medio' || t === 'premium';
 
@@ -96,7 +97,7 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
 
   // Más parecidos primero (Fuse sobre el nombre del útil)
   const ordenados = useMemo(() => {
-    if (!item) return [...candidatos].sort((a, b) => a.category.localeCompare(b.category) || a.basePrice - b.basePrice);
+    if (!item) return [...candidatos].sort((a, b) => a.category.localeCompare(b.category) || precioVenta(a) - precioVenta(b));
     const consulta = (item.nombreDetectado || item.nombreOriginal).replace(/\d+/g, ' ');
     const fuse = new Fuse(candidatos, { keys: ['name', 'brand'], threshold: 0.6, ignoreLocation: true, includeScore: true });
     const puntaje = new Map(fuse.search(consulta).map(r => [r.item.id, r.score ?? 1]));
@@ -105,7 +106,7 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
       (b.id === actual?.id ? 1 : 0) - (a.id === actual?.id ? 1 : 0)
       || (destacados.has(b.id) ? 1 : 0) - (destacados.has(a.id) ? 1 : 0)
       || (puntaje.get(a.id) ?? 1) - (puntaje.get(b.id) ?? 1)
-      || a.basePrice - b.basePrice);
+      || precioVenta(a) - precioVenta(b));
   }, [candidatos, item, actual]);
 
   // Búsqueda: primero dentro de la categoría, luego en todo el catálogo
@@ -186,7 +187,7 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
                 </div>
                 <h3 className="mt-1 font-bold leading-snug sm:text-lg">{elegido.name}</h3>
                 <p className="mt-1 text-xl font-bold tabular-nums sm:text-2xl">
-                  {formatPrice(elegido.basePrice + recargo)}
+                  {formatPrice(precioVenta(elegido) + recargo)}
                   {recargo > 0 && <span className="ml-2 text-sm font-medium text-tenue">incluye {formatPrice(recargo)} por el diseño</span>}
                 </p>
                 {(detalle?.description || elegido.description) && (
@@ -307,7 +308,7 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
                         </span>
                         <span className="mt-0.5 line-clamp-2 text-sm leading-snug">{p.name}</span>
                         <span className="mt-auto flex items-baseline justify-between gap-2 pt-1.5">
-                          <span className="font-bold tabular-nums">{formatPrice(p.basePrice)}</span>
+                          <span className="font-bold tabular-nums">{formatPrice(precioVenta(p))}</span>
                           {esActual && <span className="text-xs text-tenue">Actual</span>}
                         </span>
                       </button>
@@ -343,8 +344,8 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
             className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primario py-3.5 font-bold text-white transition-colors hover:bg-primario-oscuro disabled:cursor-not-allowed disabled:opacity-40">
             {mismoQueActual ? 'Es el que ya tienes'
               : !elegido ? 'Elige un producto'
-              : agregar ? `Agregar a la lista, ${formatPrice((elegido.basePrice + recargo) * cantidad)}`
-              : `Usar este, ${formatPrice(elegido.basePrice + recargo)} c/u`}
+              : agregar ? `Agregar a la lista, ${formatPrice((precioVenta(elegido) + recargo) * cantidad)}`
+              : `Usar este, ${formatPrice(precioVenta(elegido) + recargo)} c/u`}
           </button>
         </div>
       </div>
