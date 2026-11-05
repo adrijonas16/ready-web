@@ -25,7 +25,7 @@ export async function validateImage(file: File): Promise<ImageValidationResult> 
 
       // Check minimum resolution — only reject very tiny images
       if (width < 200 || height < 200) {
-        errors.push('La imagen es muy pequena. Intenta con una foto de mejor calidad.');
+        errors.push('La imagen es muy pequeña. Intenta con una foto de mejor calidad.');
       }
 
       // Calculate brightness and blur
@@ -63,12 +63,12 @@ export async function validateImage(file: File): Promise<ImageValidationResult> 
 
         // Only warn for extremely dark images
         if (brightness < 20) {
-          errors.push('La imagen esta muy oscura. Intenta con mejor iluminacion.');
+          errors.push('La imagen está muy oscura. Intenta con mejor iluminación.');
         }
 
         // Only warn for extremely blurry images
         if (blurScore < 15) {
-          errors.push('La imagen parece muy borrosa. Intenta una foto mas nitida.');
+          errors.push('La imagen parece muy borrosa. Intenta con una foto más nítida.');
         }
       }
 
@@ -127,6 +127,7 @@ export function getStatusColor(status: string): string {
     ARMADO: 'bg-indigo-100 text-indigo-800',
     EN_CAMINO: 'bg-cyan-100 text-cyan-800',
     ENTREGADO: 'bg-green-100 text-green-800',
+    CANCELADO: 'bg-red-100 text-red-800',
   };
   return colors[status] || 'bg-gray-100 text-gray-800';
 }
@@ -143,6 +144,7 @@ export function getStatusLabel(status: string): string {
     ARMADO: 'Armado',
     EN_CAMINO: 'En camino',
     ENTREGADO: 'Entregado',
+    CANCELADO: 'Cancelado',
   };
   return labels[status] || status;
 }

@@ -96,6 +96,7 @@
   --t-superficie: #FFFFFF;
   --t-texto-2: #334155;
   --t-primario-texto: #1D4ED8;
+  --t-eco-texto: #047857;
   color-scheme: light;
 }
 
@@ -122,6 +123,7 @@
   --t-cuadricula: #1B2741;
   --t-linea: #26324B;
   --t-linea-fuerte: #34425F;
+  --t-eco-texto: #2DD4A0;
   color-scheme: dark;
 }
 
@@ -136,6 +138,11 @@
 [data-theme="dark"] .text-blue-600,
 [data-theme="dark"] .text-blue-700 {
   color: var(--t-primario-texto);
+}
+
+/* Texto verde (precios con cupón, "en stock"): versión más oscura para 4.5:1 sobre fondos claros */
+.text-eco {
+  color: var(--t-eco-texto);
 }
 
 /* Botones de color claro: texto oscuro para que se lea en ambos temas */
@@ -454,4 +461,16 @@ img {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-escaneo-hoja, .animate-voltear, .animate-flotar { animation: none !important; }
+}
+
+/* Buscador del catálogo: se usa nuestro botón "Limpiar búsqueda" en vez del del navegador */
+.buscador::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+/* Impresión: solo el contenido (la lista se imprime con su versión en tabla) */
+@media print {
+  @page { margin: 14mm; }
+  html, body { background: #fff !important; color: #000 !important; }
+  [data-theme="dark"] { color-scheme: light; }
+  main { padding: 0 !important; }
+  .animate-entrada-pagina { animation: none !important; }
 }

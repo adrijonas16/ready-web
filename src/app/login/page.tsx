@@ -51,7 +51,7 @@ export default function LoginPage() {
         <div className="bg-white p-5 sm:p-8 rounded-[20px] shadow-[0px_6px_20px_-2px_rgba(0,0,0,0.10)]">
           <div className="flex gap-2 mb-6">
             <Link href="/login" className="flex-1 py-2.5 text-center rounded-xl font-medium text-sm bg-blue-500 text-white shadow-md shadow-blue-500/20">
-              Iniciar Sesion
+              Iniciar sesión
             </Link>
             <Link href="/register" className="flex-1 py-2.5 text-center rounded-xl font-medium text-sm bg-white text-blue-500 border border-slate-200 hover:bg-slate-50 transition-colors duration-150">
               Registrarse
@@ -120,7 +120,7 @@ export default function LoginPage() {
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-[box-shadow,border-color] duration-150 pr-11 text-sm placeholder-neutral-400"
                   placeholder="Tu contraseña"
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-slate-600 p-1 rounded transition-colors">
+                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-slate-600 p-1 rounded transition-colors">
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>

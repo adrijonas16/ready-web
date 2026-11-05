@@ -1,9 +1,9 @@
 'use client';
 
 import { API } from '@/lib/api-base';
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '@/lib/types';
-import { authApi } from '@/services/api';
+import { authApi, PerfilInput } from '@/services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -12,6 +12,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
+  /** Guarda el perfil (PUT /auth/me) y actualiza la sesión */
+  guardarPerfil: (datos: PerfilInput) => Promise<User>;
   isAdmin: boolean;
   loginWithGoogle: () => void;
   loginWithToken: (token: string, userId: string) => void;
@@ -31,11 +33,40 @@ interface Notification {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Las notificaciones de la campanita se guardan en este navegador, una lista por usuario
+const MAX_AVISOS = 30;
+const claveAvisos = (uid: string) => `ready-avisos-${uid}`;
+function leerAvisos(uid: string): Notification[] {
+  try {
+    const crudo = JSON.parse(localStorage.getItem(claveAvisos(uid)) || '[]') as (Omit<Notification, 'createdAt'> & { createdAt: string })[];
+    return crudo.map(n => ({ ...n, createdAt: new Date(n.createdAt) })).filter(n => !isNaN(n.createdAt.getTime()));
+  } catch { return []; }
+}
+const recientes = (lista: Notification[]) => lista.filter(n => Date.now() - n.createdAt.getTime() < 4000);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  // Se guarda junto con el dueño para no escribir los avisos de un usuario en la lista de otro
+  const [avisos, setAvisos] = useState<{ uid: string | null; lista: Notification[] }>({ uid: null, lista: [] });
+  const notifications = avisos.lista;
+  const uid = user?.id ?? null;
+
+  useEffect(() => {
+    // Al cambiar de usuario: sus avisos guardados + los que se acaban de crear (p. ej. "¡Bienvenido!")
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura de localStorage al cambiar de sesión
+    setAvisos(prev => {
+      const guardados = uid ? leerAvisos(uid) : [];
+      const ids = new Set(guardados.map(n => n.id));
+      return { uid, lista: [...recientes(prev.lista).filter(n => !ids.has(n.id)), ...guardados].slice(0, MAX_AVISOS) };
+    });
+  }, [uid]);
+
+  useEffect(() => {
+    if (!avisos.uid || avisos.uid !== uid) return;
+    try { localStorage.setItem(claveAvisos(avisos.uid), JSON.stringify(avisos.lista)); } catch { /* sin espacio */ }
+  }, [avisos, uid]);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -58,27 +89,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     validacion.finally(() => setIsLoading(false));
   }, []);
 
-  const addNotification = (message: string, type: 'success' | 'error' | 'info') => {
-    const newNotification: Notification = {
-      id: Date.now().toString(),
-      message,
-      type,
-      createdAt: new Date(),
-      read: false,
-    };
-    setNotifications(prev => [newNotification, ...prev]);
-    
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== newNotification.id));
-    }, 5000);
-  };
+  const addNotification = useCallback((message: string, type: 'success' | 'error' | 'info') => {
+    const nueva: Notification = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, message, type, createdAt: new Date(), read: false };
+    setAvisos(prev => ({ ...prev, lista: [nueva, ...prev.lista].slice(0, MAX_AVISOS) }));
+  }, []);
 
   const markAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setAvisos(prev => ({ ...prev, lista: prev.lista.map(n => n.id === id ? { ...n, read: true } : n) }));
   };
 
   const clearNotifications = () => {
-    setNotifications([]);
+    setAvisos(prev => ({ ...prev, lista: [] }));
+  };
+
+  const guardarPerfil = async (datos: PerfilInput) => {
+    const actualizado = await authApi.updateMe(datos);
+    setUser(actualizado);
+    localStorage.setItem('user', JSON.stringify(actualizado));
+    return actualizado;
   };
 
   const login = async (email: string, password: string) => {
@@ -120,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.success && data.data) {
           setUser(data.data);
           localStorage.setItem('user', JSON.stringify(data.data));
-          addNotification('Bienvenido!', 'success');
+          addNotification('¡Bienvenido!', 'success');
         }
       })
       .catch(console.error);
@@ -135,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        guardarPerfil,
         isAdmin: user?.role === 'ADMIN' || user?.role === 'OPERATOR',
         loginWithGoogle,
         loginWithToken,
