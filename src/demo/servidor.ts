@@ -4,9 +4,11 @@
 
 import {
   productos as catalogo, servicios, variantes as variantesBase, marcas, categorias, secciones, colegios,
-  plantillaPrimaria, plantillaInicial, plantillaSecundaria, imagenListaEjemplo,
+  plantillaPrimaria, plantillaPrimaria3, plantillaInicial, plantillaSecundaria, imagenListaEjemplo,
   type Linea, type ProductoDemo, type Tier, type TipoVariante,
 } from './catalogo';
+import { coincideAlguna } from '@/lib/buscar';
+import { aplicarCupon, redondear } from '@/lib/precio';
 
 const CLAVE = 'ready-demo-v1';
 const SEG = 1000;
@@ -16,7 +18,7 @@ export const TIEMPO_APROBACION = 14 * SEG;
 
 type Json = Record<string, unknown>;
 
-interface Usuario { id: string; email: string; name: string; role: string; phone?: string; address?: string }
+interface Usuario { id: string; email: string; name: string; role: string; phone?: string; address?: string; documento?: string }
 interface Grado { id: string; schoolId: string; name: string; year: number }
 interface ItemGuardado {
   id: string; nombreOriginal: string; cantidad: number; notas?: string;
@@ -29,16 +31,23 @@ interface Lista {
   estado: string; esOficial: boolean; iaEstado: string; iaMensaje?: string; plan?: string | null;
   extras?: string | null; observaciones?: string; userObservaciones?: string;
   estudianteNombre?: string; estudianteGrado?: string; creada: number; fechaValidacion?: number;
-  plantilla: 'primaria' | 'inicial' | 'secundaria'; items: ItemGuardado[];
+  plantilla: Plantilla; items: ItemGuardado[];
   copiaDe?: string;
 }
+type Plantilla = 'primaria' | 'primaria3' | 'inicial' | 'secundaria';
 interface Pedido {
-  id: string; userId: string; supplyListId?: string; total: number; status: string;
+  id: string; userId: string; supplyListId?: string; supplyListIds?: string[]; total: number; status: string;
   shippingAddress: string; shippingPhone: string; contactNotes?: string; createdAt: string;
   pago: { metodo: string; operacion: string; estado: string };
-  items: { id: string; productId: string; productName: string; imageUrl?: string; quantity: number; unitPrice: number; notes?: string }[];
+  entrega?: { fecha?: string; franja?: string } | null;
+  costoEnvio?: number;
+  comprobante?: { tipo: 'boleta' | 'factura'; documento: string; razonSocial?: string } | null;
+  cupon?: string | null; descuento?: number;
+  items: { id: string; productId: string; productName: string; imageUrl?: string; quantity: number; unitPrice: number; recargo?: number; notes?: string; para?: string | null }[];
   statusHistory: { status: string; notes?: string; createdAt: string }[];
 }
+interface Ajustes { costoEnvio: number; envioGratisDesde: number | null; whatsapp: string; telefono: string; horarioEntrega: string; diasEntrega: number; zonas?: string }
+const AJUSTES_DEMO: Ajustes = { costoEnvio: 8, envioGratisDesde: 150, whatsapp: '51959000111', telefono: '959 000 111', horarioEntrega: 'Lunes a sábado, 9:00 a 18:00', diasEntrega: 2 };
 interface Campana { id: string; name: string; slug: string; description?: string; discount_percent: number; discount_fixed: number; start_date?: string | null; end_date?: string | null; is_active: boolean; image_url?: string | null; productIds: string[] }
 interface Noticia { id: string; title: string; content?: string; image_url?: string | null; campaign_slug?: string | null; is_active: boolean; created_at: string }
 
@@ -58,6 +67,7 @@ interface Estado {
   campanas: Campana[];
   noticias: Noticia[];
   avisos: { tipo: string; mensaje: string; userId?: string; admin?: boolean }[];
+  ajustes: Ajustes;
 }
 
 const nuevoId = (prefijo: string) => `${prefijo}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -88,7 +98,7 @@ function estadoInicial(): Estado {
     listas: [
       listaOficial('lista-alamos-2p', 'col-1', '2do Primaria', 'primaria'),
       listaOficial('lista-alamos-5i', 'col-1', 'Inicial - 5 años', 'inicial'),
-      listaOficial('lista-santarosa-3p', 'col-2', '3ro Primaria', 'primaria'),
+      listaOficial('lista-santarosa-3p', 'col-2', '3ro Primaria', 'primaria3'),
       listaOficial('lista-arcoiris-1s', 'col-3', '1ro Secundaria', 'secundaria'),
       listaOficial('lista-sanmartin-4i', 'col-4', 'Inicial - 4 años', 'inicial'),
     ],
@@ -96,12 +106,15 @@ function estadoInicial(): Estado {
     campanas: [{ id: 'camp-1', name: 'Regreso a clases', slug: 'regreso-a-clases', description: '10% en cuadernos y colores', discount_percent: 10, discount_fixed: 0, is_active: true, productIds: ['cu-m', 'cu-dibujos', 'co-m', 'co-p', 'ra-m'] }],
     noticias: [],
     avisos: [],
+    ajustes: { ...AJUSTES_DEMO },
   };
 }
 
-const PLANTILLAS: Record<Lista['plantilla'], Linea[]> = { primaria: plantillaPrimaria, inicial: plantillaInicial, secundaria: plantillaSecundaria };
+const PLANTILLAS: Record<Plantilla, Linea[]> = { primaria: plantillaPrimaria, primaria3: plantillaPrimaria3, inicial: plantillaInicial, secundaria: plantillaSecundaria };
+const plantillaDe = (gradoNombre: string): Plantilla =>
+  /inicial/i.test(gradoNombre) ? 'inicial' : /secundaria/i.test(gradoNombre) ? 'secundaria' : /^(3|4|5|6)/.test(gradoNombre.trim()) ? 'primaria3' : 'primaria';
 
-function crearItems(listaId: string, plantilla: Lista['plantilla']): ItemGuardado[] {
+function crearItems(listaId: string, plantilla: Plantilla): ItemGuardado[] {
   return PLANTILLAS[plantilla].map(([texto, cantidad, niveles, notas], i) => ({ id: `${listaId}-i${i}`, nombreOriginal: texto, cantidad, notas, niveles: { ...niveles } }));
 }
 
@@ -111,7 +124,10 @@ function cargar(): Estado {
   if (estado) return estado;
   try {
     const crudo = typeof localStorage !== 'undefined' ? localStorage.getItem(CLAVE) : null;
-    if (crudo) { const e = JSON.parse(crudo) as Estado; if (e.version === 1) return (estado = e); }
+    if (crudo) {
+      const e = JSON.parse(crudo) as Estado;
+      if (e.version === 1) { e.ajustes = { ...AJUSTES_DEMO, ...e.ajustes }; return (estado = e); }
+    }
   } catch { /* datos dañados: se empieza de cero */ }
   return (estado = estadoInicial());
 }
@@ -145,7 +161,7 @@ export function avanzar() {
       l.extras = JSON.stringify({
         forro: { activo: true, color: 'Azul' }, etiquetas: { activo: false, nombre: '', grado: '', diseno: 'lisa' },
         caratulas: { activo: false, cursos: [] }, forrarLibros: false,
-        libros: l.plantilla === 'primaria' ? [
+        libros: l.plantilla === 'primaria' || l.plantilla === 'primaria3' ? [
           { id: 'ia-1', titulo: 'Matemática 2 – Cuaderno de trabajo', editorial: 'Santillana', cantidad: 1, productoId: 'li-mat2', precio: 64.9 },
           { id: 'ia-2', titulo: 'Plan lector: El principito', editorial: 'Norma', cantidad: 1 },
         ] : [],
@@ -163,7 +179,23 @@ export function avanzar() {
 }
 
 // ── Armado de respuestas ──
-const producto = (id?: string | null) => (id ? cargar().productos.find(p => p.id === id) : undefined);
+const vigente = (c: Campana) => {
+  const hoy = Date.now();
+  return c.is_active && (!c.start_date || Date.parse(c.start_date) <= hoy) && (!c.end_date || Date.parse(c.end_date) + 86400000 > hoy);
+};
+/** Producto con salePrice y campaignSlug de la campaña activa más conveniente que lo incluye. */
+function conOferta(p: ProductoDemo): ProductoDemo & { salePrice: number | null; campaignSlug: string | null } {
+  let mejor: { precio: number; slug: string } | null = null;
+  for (const c of cargar().campanas) {
+    if (!vigente(c) || !c.productIds.includes(p.id)) continue;
+    const precio = Math.max(0, redondear(p.basePrice * (1 - (Number(c.discount_percent) || 0) / 100) - (Number(c.discount_fixed) || 0)));
+    if (precio < p.basePrice && (!mejor || precio < mejor.precio)) mejor = { precio, slug: c.slug };
+  }
+  return { ...p, salePrice: mejor?.precio ?? null, campaignSlug: mejor?.slug ?? null };
+}
+const precioVentaDe = (p: ProductoDemo) => conOferta(p).salePrice ?? p.basePrice;
+const productoBase = (id?: string | null) => (id ? cargar().productos.find(p => p.id === id) : undefined);
+const producto = (id?: string | null) => { const p = productoBase(id); return p ? conOferta(p) : undefined; };
 const ORDEN: Record<Tier, Tier[]> = { economico: ['economico', 'medio', 'premium'], medio: ['medio', 'economico', 'premium'], premium: ['premium', 'medio', 'economico'] };
 const nivelDe = (plan?: string | null): Tier => (plan === 'economico' || plan === 'premium' ? plan : 'medio');
 
@@ -194,7 +226,7 @@ function listaRespuesta(l: Lista) {
   const usuario = e.usuarios.find(u => u.id === l.userId);
   return {
     id: l.id, userId: l.userId ?? null, schoolId: l.schoolId, schoolName: col?.name ?? 'Colegio', gradeId: l.gradeId, gradeName: gr?.name ?? '',
-    year: l.year, imageUrl: l.imageUrl, estado: l.estado, esOficial: l.esOficial, observaciones: l.observaciones, userObservaciones: l.userObservaciones,
+    year: l.year, imageUrl: l.imageUrl, estado: l.estado, esOficial: l.esOficial, copiaDe: l.copiaDe ?? null, observaciones: l.observaciones, userObservaciones: l.userObservaciones,
     submittedBy: usuario?.name, plan: l.plan ?? null, estudianteNombre: l.estudianteNombre, estudianteGrado: l.estudianteGrado,
     iaEstado: l.iaEstado, iaMensaje: l.iaMensaje, extras: l.extras ?? null,
     fechaSubida: new Date(l.creada).toISOString(), fechaValidacion: l.fechaValidacion ? new Date(l.fechaValidacion).toISOString() : null,
@@ -252,9 +284,33 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       e.usuarios.push(u);
       return cambia(sesion(u));
     }
-    if (r1 === 'me') { if (!yo) throw new ErrorDemo('Sesión vencida', 401); return yo; }
+    if (r1 === 'me') {
+      if (!yo) throw new ErrorDemo('Sesión vencida', 401);
+      if (M === 'PUT') {
+        // Perfil del cliente: nombre, celular, dirección y DNI/RUC (null o ausente = no cambiar)
+        const nombre = texto(bj.name)?.trim();
+        if (nombre) yo.name = nombre;
+        for (const k of ['phone', 'address', 'documento'] as const) if (bj[k] !== undefined && bj[k] !== null) yo[k] = String(bj[k]).trim();
+        return cambia(yo);
+      }
+      return yo;
+    }
     if (r1 === 'users' && !r2) return e.usuarios;
     if (r1 === 'users' && r3 === 'role') { const u = e.usuarios.find(x => x.id === r2); if (u) u.role = String(bj.role); return cambia(true); }
+  }
+
+  // Configuración pública de la tienda (envío, WhatsApp, días de entrega)
+  if (r0 === 'settings') {
+    if (M === 'GET') return e.ajustes;
+    if (M === 'PUT') {
+      if (!yo || (yo.role !== 'ADMIN' && yo.role !== 'OPERATOR')) throw new ErrorDemo('Solo el administrador puede cambiar la configuración', 403);
+      const a = e.ajustes;
+      if (bj.costoEnvio !== undefined) a.costoEnvio = Number(bj.costoEnvio) || 0;
+      if (bj.envioGratisDesde !== undefined) a.envioGratisDesde = bj.envioGratisDesde === null || bj.envioGratisDesde === '' ? null : Number(bj.envioGratisDesde);
+      if (bj.diasEntrega !== undefined) a.diasEntrega = Math.max(0, Number(bj.diasEntrega) || 0);
+      for (const k of ['whatsapp', 'telefono', 'horarioEntrega', 'zonas'] as const) if (bj[k] !== undefined) a[k] = String(bj[k] ?? '');
+      return cambia(a);
+    }
   }
 
   // Colegios y grados
@@ -300,6 +356,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
     if (!r1 && M === 'POST') { const c: Campana = { id: nuevoId('camp'), name: String(bj.name), slug: String(bj.slug), description: texto(bj.description), discount_percent: Number(bj.discountPercent) || 0, discount_fixed: Number(bj.discountFixed) || 0, start_date: texto(bj.startDate) ?? null, end_date: texto(bj.endDate) ?? null, is_active: true, productIds: [] }; e.campanas.push(c); return cambia(sinProductos(c)); }
     const c = e.campanas.find(x => x.id === r1 || x.slug === r1);
     if (r1 && !r2 && M === 'GET') return c ? { ...sinProductos(c), products: c.productIds.map(id => producto(id)).filter(Boolean) } : null;
+    if (r2 === 'products' && M === 'POST' && c && Array.isArray(bj.productIds)) { for (const id of bj.productIds as string[]) if (!c.productIds.includes(id)) c.productIds.push(id); return cambia(true); }
     if (r1 && !r2 && M === 'PUT' && c) { Object.assign(c, { name: bj.name ?? c.name, slug: bj.slug ?? c.slug, description: bj.description ?? c.description, discount_percent: Number(bj.discountPercent ?? c.discount_percent) }); return cambia(true); }
     if (r2 === 'products' && M === 'POST' && c) { const id = String(bj.productId); if (!c.productIds.includes(id)) c.productIds.push(id); return cambia(true); }
     if (r2 === 'products' && M === 'DELETE' && c) { c.productIds = c.productIds.filter(x => x !== r3); return cambia(true); }
@@ -321,19 +378,18 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       const cat = query.get('category'), marca = query.get('brand');
       let res = activos.filter(x => (cat ? x.category === cat : x.category !== 'Servicios') && (!marca || x.brand === marca));
       const lim = Number(query.get('limit')); if (lim > 0) res = res.slice(0, lim);
-      return res;
+      return res.map(conOferta);
     }
     if (r1 === 'search') {
-      const q = (query.get('q') || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      const palabras = q.split(/\s+/).filter(w => w.length > 2 && !/^\d+$/.test(w));
+      // Sin importar tildes ni plurales: "lapices" encuentra "Lápiz", "tijeras" encuentra "Tijera"
+      const q = query.get('q') || '';
       const cat = query.get('category');
-      const sinTilde = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      return activos.filter(x => x.category !== 'Servicios' && (!cat || x.category === cat) && (palabras.length === 0 || palabras.some(w => sinTilde(`${x.name} ${x.brand} ${x.category}`).includes(w.replace(/e?s$/, '')))));
+      return activos.filter(x => x.category !== 'Servicios' && (!cat || x.category === cat) && (!q.trim() || coincideAlguna(`${x.name} ${x.brand} ${x.category}`, q))).map(conOferta);
     }
     if (r1 === 'categories') return Array.from(new Set(activos.filter(x => x.category !== 'Servicios').map(x => x.category)));
     if (!r1 && M === 'POST') { const x: ProductoDemo = { id: nuevoId('p'), name: String(bj.name), description: texto(bj.description), category: String(bj.category || 'Útiles'), brand: texto(bj.brand), sku: String(bj.sku || nuevoId('SKU')), basePrice: Number(bj.basePrice) || 0, imageUrl: texto(bj.imageUrl), stock: Number(bj.stock) || 0, rating: 4.5, tier: (bj.tier as Tier) || 'medio', isActive: true }; e.productos.push(x); return cambia(x); }
     const prod = e.productos.find(x => x.id === r1);
-    if (r1 && !r2 && M === 'GET') { if (!prod) throw new ErrorDemo('Producto no encontrado', 404); return { ...prod, variants: e.variantes[prod.id] ?? [], images: [] }; }
+    if (r1 && !r2 && M === 'GET') { if (!prod) throw new ErrorDemo('Producto no encontrado', 404); return { ...conOferta(prod), variants: e.variantes[prod.id] ?? [], images: [] }; }
     if (r1 && !r2 && M === 'PUT' && prod) { const { id: _ignorado, ...resto } = bj; void _ignorado; Object.assign(prod, resto); return cambia(prod); }
     if (r1 && !r2 && M === 'DELETE' && prod) { prod.isActive = false; return cambia(true); }
     if (r2 === 'images') { if (M === 'POST' && prod && b instanceof FormData) { const f = b.get('file') ?? b.get('image'); if (f instanceof File) prod.imageUrl = await leerArchivo(f); guardar(); } return []; }
@@ -359,7 +415,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
         id: nuevoId('lista'), userId: texto(b.get('userId')) || yo?.id, schoolId: String(b.get('schoolId')), gradeId, year: Number(b.get('year')),
         imageUrl: archivo && archivo.type.startsWith('image/') ? await leerArchivo(archivo) : imagenListaEjemplo,
         estado: 'PENDIENTE_REVISION', esOficial: false, iaEstado: 'PROCESANDO', creada: Date.now(),
-        plantilla: /inicial/i.test(gradoNombre) ? 'inicial' : /secundaria/i.test(gradoNombre) ? 'secundaria' : 'primaria', items: [],
+        plantilla: plantillaDe(gradoNombre), items: [],
       };
       e.listas.unshift(l);
       avisar('NewList', 'Llegó una lista nueva para revisar', { admin: true });
@@ -397,8 +453,9 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
     if (r2 === 'reprocess') { l.iaEstado = 'PROCESANDO'; l.creada = Date.now(); l.items = []; return cambia(true); }
     if (r2 === 'auto-match') { l.items.forEach(it => { delete it.elegido; }); return cambia(true); }
     if (r2 === 'copia' && M === 'POST') {
-      const uid = texto(bj.userId);
-      const previa = uid ? e.listas.find(x => x.copiaDe === l.id && x.userId === uid) : undefined;
+      const uid = texto(bj.userId) ?? yo?.id;
+      // nueva=true: otra copia aunque ya exista una (mellizos, hermanos del mismo grado)
+      const previa = uid && !bj.nueva ? e.listas.find(x => x.copiaDe === l.id && x.userId === uid) : undefined;
       if (previa) return { id: previa.id, existente: true };
       const nueva: Lista = {
         ...JSON.parse(JSON.stringify(l)) as Lista, id: nuevoId('lista'), userId: uid, esOficial: false, estado: 'VALIDADA',
@@ -415,7 +472,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       const elegido = bj.productId ? producto(String(bj.productId)) : undefined;
       const porCliente = !!bj.porCliente || !!elegido;
       // Si lo agrega el admin al revisar, se busca un producto parecido como hace la lectura
-      const parecido = porCliente ? undefined : (responder.buscar(nombre) as ProductoDemo[])[0];
+      const parecido = porCliente ? undefined : responder.buscar(nombre)[0];
       const it: ItemGuardado = {
         id: nuevoId('it'), nombreOriginal: nombre.trim(), cantidad: Number(bj.cantidad) || 1, notas: texto(bj.notas),
         niveles: parecido ? { [parecido.tier]: parecido.id } : {}, agregado: porCliente, ...(porCliente ? { elegido: elegido?.id ?? null } : {}),
@@ -441,40 +498,80 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
 
   // Pedidos (pago de prueba: nunca se cobra nada)
   if (r0 === 'orders') {
+    const esAdmin = yo?.role === 'ADMIN' || yo?.role === 'OPERATOR';
     if (!r1 && M === 'POST') {
+      if (!yo) throw new ErrorDemo('Inicia sesión para comprar', 401);
+      // El precio lo pone la tienda: precio de venta (con campaña) + recargo del diseño o color
       const items = ((bj.items as Json[]) ?? []).map((x, i) => {
-        const pr = producto(String(x.productId ?? x.ProductId));
-        const unit = Number(x.unitPrice ?? pr?.basePrice ?? 0);
-        return { id: `oi-${i}`, productId: String(x.productId), productName: String(x.productName ?? pr?.name ?? 'Producto'), imageUrl: pr?.imageUrl, quantity: Number(x.quantity) || 1, unitPrice: unit, notes: texto(x.notes) };
+        const pr = productoBase(String(x.productId ?? x.ProductId));
+        const base = pr ? precioVentaDe(pr) : Number(x.unitPrice) || 0;
+        const recargo = x.recargo !== undefined ? Math.max(0, Number(x.recargo) || 0) : Math.max(0, redondear((Number(x.unitPrice) || base) - base));
+        return {
+          id: `oi-${i}`, productId: String(x.productId), productName: String(pr?.name ?? x.productName ?? 'Producto'), imageUrl: pr?.imageUrl,
+          quantity: Math.max(1, Number(x.quantity) || 1), unitPrice: redondear(base + recargo), recargo: recargo || undefined,
+          notes: texto(x.notes), para: texto(x.para) ?? null,
+        };
       });
       if (items.length === 0) throw new ErrorDemo('El carrito está vacío');
+      for (const it of items) {
+        const pr = productoBase(it.productId);
+        if (pr && pr.category !== 'Servicios' && pr.stock < it.quantity) throw new ErrorDemo(`Solo quedan ${pr.stock} de ${pr.name}`, 409);
+      }
+      const subtotal = redondear(items.reduce((s, x) => s + x.unitPrice * x.quantity, 0));
+      const cupon = aplicarCupon(texto(bj.cupon), subtotal);
+      const a = e.ajustes;
+      const costoEnvio = a.envioGratisDesde != null && subtotal >= a.envioGratisDesde ? 0 : a.costoEnvio;
       const pago = (bj.pago as Pedido['pago']) ?? { metodo: 'tarjeta', operacion: nuevoId('OP').toUpperCase(), estado: 'APROBADO' };
+      const listas = Array.from(new Set([...((bj.supplyListIds as string[]) ?? []), texto(bj.supplyListId)].filter(Boolean) as string[]));
+      const comp = bj.comprobante as Pedido['comprobante'];
       const ped: Pedido = {
-        id: `RD-${String(1000 + e.pedidos.length + 1)}`, userId: String(bj.userId || yo?.id), supplyListId: texto(bj.supplyListId),
-        total: Math.round(items.reduce((s, x) => s + x.unitPrice * x.quantity, 0) * 100) / 100, status: 'RECIBIDO',
+        id: `RD-${String(1000 + e.pedidos.length + 1)}`, userId: yo.id, supplyListId: listas[0], supplyListIds: listas,
+        total: redondear(subtotal - (cupon?.descuento ?? 0) + costoEnvio), status: 'RECIBIDO',
         shippingAddress: String(bj.shippingAddress || ''), shippingPhone: String(bj.shippingPhone || ''), contactNotes: texto(bj.contactNotes), createdAt: ahora(), pago, items,
+        entrega: (bj.entrega as Pedido['entrega']) ?? null, costoEnvio,
+        comprobante: comp?.tipo ? { tipo: comp.tipo === 'factura' ? 'factura' : 'boleta', documento: String(comp.documento ?? ''), ...(comp.razonSocial ? { razonSocial: String(comp.razonSocial) } : {}) } : null,
+        cupon: cupon?.codigo ?? null, descuento: cupon?.descuento ?? 0,
         statusHistory: [{ status: 'RECIBIDO', notes: `Pago de prueba aprobado (${pago.metodo}, operación ${pago.operacion})`, createdAt: ahora() }],
       };
+      // Se descuenta el stock (vuelve si se cancela)
+      for (const it of items) { const pr = productoBase(it.productId); if (pr && pr.category !== 'Servicios') pr.stock -= it.quantity; }
       e.pedidos.unshift(ped);
       avisar('NewOrder', `Nuevo pedido ${ped.id}`, { admin: true });
       return cambia(pedidoRespuesta(ped));
     }
     if (r1 === 'stats') {
       const activos = e.productos.filter(x => x.isActive !== false && x.category !== 'Servicios');
+      const validos = e.pedidos.filter(x => x.status !== 'CANCELADO');
       return {
-        totalOrders: e.pedidos.length, totalRevenue: e.pedidos.reduce((s, x) => s + x.total, 0), pendingOrders: e.pedidos.filter(x => x.status === 'RECIBIDO').length,
+        totalOrders: e.pedidos.length, totalRevenue: validos.reduce((s, x) => s + x.total, 0), pendingOrders: e.pedidos.filter(x => x.status === 'RECIBIDO').length,
         totalProducts: activos.length, lowStockCount: activos.filter(x => x.stock <= 5).length, outOfStockCount: activos.filter(x => x.stock === 0).length,
         totalLists: e.listas.length, pendingLists: e.listas.filter(x => x.estado === 'PENDIENTE_REVISION').length, totalUsers: e.usuarios.length,
         lowStockProducts: activos.filter(x => x.stock <= 10).map(x => ({ name: x.name, stock: x.stock, basePrice: x.basePrice })),
       };
     }
-    if (r1 === 'user') return e.pedidos.filter(x => x.userId === r2).map(pedidoRespuesta);
+    if (r1 === 'user') {
+      if (!yo) throw new ErrorDemo('Inicia sesión', 401);
+      if (yo.id !== r2 && !esAdmin) throw new ErrorDemo('No tienes acceso a estos pedidos', 403);
+      return e.pedidos.filter(x => x.userId === r2).map(pedidoRespuesta);
+    }
     if (!r1 && M === 'GET') return e.pedidos.map(pedidoRespuesta);
     const ped = e.pedidos.find(x => x.id === r1);
     if (!ped) throw new ErrorDemo('Pedido no encontrado', 404);
+    if (yo && yo.id !== ped.userId && !esAdmin) throw new ErrorDemo('Pedido no encontrado', 404);
     if (!r2 && M === 'GET') return pedidoRespuesta(ped);
+    if (r2 === 'cancel' && M === 'PUT') {
+      if (!yo || (yo.id !== ped.userId && !esAdmin)) throw new ErrorDemo('No puedes cancelar este pedido', 403);
+      if (ped.status !== 'RECIBIDO') throw new ErrorDemo('Este pedido ya se está preparando: escríbenos por WhatsApp para cambiarlo.', 409);
+      ped.status = 'CANCELADO';
+      ped.statusHistory.push({ status: 'CANCELADO', notes: texto(bj.motivo) ?? 'Cancelado por el cliente', createdAt: ahora() });
+      for (const it of ped.items) { const pr = productoBase(it.productId); if (pr && pr.category !== 'Servicios') pr.stock += it.quantity; }
+      avisar('NewMessage', `El cliente canceló el pedido ${ped.id}`, { admin: true });
+      return cambia(pedidoRespuesta(ped));
+    }
     if (r2 === 'status') {
+      const antes = ped.status;
       ped.status = String(bj.status); ped.statusHistory.push({ status: ped.status, notes: texto(bj.notes), createdAt: ahora() });
+      if (ped.status === 'CANCELADO' && antes !== 'CANCELADO') for (const it of ped.items) { const pr = productoBase(it.productId); if (pr && pr.category !== 'Servicios') pr.stock += it.quantity; }
       avisar('OrderUpdate', `Tu pedido ${ped.id} ahora está: ${ped.status.toLowerCase().replace(/_/g, ' ')}`, { userId: ped.userId });
       return cambia(true);
     }
@@ -486,8 +583,5 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
 }
 
 // Búsqueda reutilizada al agregar útiles a mano
-responder.buscar = (q: string) => {
-  const sinTilde = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const palabras = sinTilde(q).split(/\s+/).filter(w => w.length > 2 && !/^\d+$/.test(w)).map(w => w.replace(/e?s$/, ''));
-  return cargar().productos.filter(x => x.category !== 'Servicios' && x.isActive !== false && palabras.some(w => sinTilde(x.name).includes(w)));
-};
+responder.buscar = (q: string): ProductoDemo[] =>
+  cargar().productos.filter(x => x.category !== 'Servicios' && x.isActive !== false && coincideAlguna(x.name, q));

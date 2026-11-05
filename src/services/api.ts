@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import type { ApiResponse, User, School, Grade, Section, SupplyList, SupplyItem, ListDetail, Product, ProductDetail, Order } from '@/lib/types';
+import type { ApiResponse, User, School, Grade, Section, SupplyList, SupplyItem, ListDetail, Product, ProductDetail, Order, Settings, Entrega, Comprobante } from '@/lib/types';
 import { API, MODO_DEMO, llamarDemo } from '@/lib/api-base';
 
 const API_BASE_URL = API;
@@ -99,12 +99,21 @@ export interface Category {
 
 export interface CreateOrderInput {
   userId?: string;
+  /** Compatibilidad: la primera de supplyListIds */
   supplyListId?: string;
+  supplyListIds?: string[];
   shippingAddress: string;
   shippingPhone: string;
-  items: { productId: string; quantity: number; notes?: string }[];
-  [key: string]: unknown;
+  contactNotes?: string;
+  items: { productId: string; productName?: string; quantity: number; unitPrice: number; recargo?: number; notes?: string; para?: string }[];
+  pago?: { metodo: string; operacion: string; estado: string };
+  entrega?: Entrega;
+  costoEnvio?: number;
+  comprobante?: Comprobante;
+  cupon?: string;
 }
+
+export interface PerfilInput { name?: string; phone?: string; address?: string; documento?: string }
 
 export interface OrderStats {
   [key: string]: unknown;
@@ -117,6 +126,13 @@ export const authApi = {
   login: (email: string, password: string) =>
     api.post<{ token: string; user: User }>('/auth/login', { email, password }),
   getCurrentUser: () => api.get<User>('/auth/me'),
+  /** Guarda nombre, celular, dirección y DNI/RUC del usuario logueado */
+  updateMe: (data: PerfilInput) => api.put<User>('/auth/me', data),
+};
+
+// Configuración pública de la tienda
+export const settingsApi = {
+  get: () => api.get<Settings>('/settings'),
 };
 
 // Schools API
@@ -164,7 +180,7 @@ export const listsApi = {
   addItem: (listId: string, data: { nombreOriginal: string; cantidad: number; notas?: string; productId?: string; porCliente?: boolean }) =>
     api.post<SupplyItem>(`/lists/${listId}/items`, data),
   /** Copia personal de una lista (la del colegio) para ajustarla sin cambiar la de los demás */
-  copiar: (listId: string, data: { userId?: string; plan?: string }) =>
+  copiar: (listId: string, data: { userId?: string; plan?: string; nueva?: boolean }) =>
     api.post<{ id: string; existente: boolean }>(`/lists/${listId}/copia`, data),
   deleteItem: (listId: string, itemId: string) =>
     api.delete<boolean>(`/lists/${listId}/items/${itemId}`),
@@ -211,6 +227,8 @@ export const ordersApi = {
   getByUserId: (userId: string) => api.get<Order[]>(`/orders/user/${userId}`),
   updateStatus: (id: string, status: string, notes?: string) =>
     api.put<boolean>(`/orders/${id}/status`, { status, notes }),
+  /** El cliente cancela su pedido (solo si está RECIBIDO) */
+  cancel: (id: string) => api.put<Order>(`/orders/${id}/cancel`),
   getAll: () => api.get<Order[]>('/orders'),
   getStats: () => api.get<OrderStats>('/orders/stats'),
 };

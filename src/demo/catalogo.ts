@@ -236,6 +236,23 @@ export const plantillaPrimaria: Linea[] = [
   ['1 plumón indeleble negro', 1, { economico: 'pi-e', medio: 'pi-m', premium: 'pi-p' }, 'Marcado con el nombre'],
   ['1 limpiatipo', 1, {}],
 ];
+// 3ro de primaria (I.E. Santa Rosa): más cuadernos, lapicero y plumones, sin crayones ni témperas
+export const plantillaPrimaria3: Linea[] = [
+  ['6 cuadernos A4 cuadriculados de 100 h.', 6, { economico: 'cu-e', medio: 'cu-m', premium: 'cu-p' }, 'Forrados de rojo'],
+  ['3 cuadernos A4 rayados', 3, { economico: 'ra-e', medio: 'ra-m', premium: 'ra-p' }],
+  ['1 caja de colores x24', 1, { economico: 'co-e', medio: 'co-m', premium: 'co-p' }],
+  ['1 estuche de plumones x12', 1, { economico: 'pl-e', medio: 'pl-m', premium: 'pl-p' }],
+  ['2 lápices 2B', 2, { economico: 'la-e', medio: 'la-m', premium: 'la-p' }],
+  ['2 lapiceros azules', 2, { economico: 'lp-e', medio: 'lp-m' }],
+  ['1 borrador blanco', 1, { economico: 'bo-e', medio: 'bo-m', premium: 'bo-p' }],
+  ['1 tajador con depósito', 1, { economico: 'ta-e', medio: 'ta-m', premium: 'ta-p' }],
+  ['1 regla de 30 cm', 1, { economico: 're-e', medio: 're-m' }],
+  ['1 goma en barra', 1, { economico: 'go-e', medio: 'go-m', premium: 'go-p' }],
+  ['1 paquete de cartulinas de colores', 1, { economico: 'ct-e', medio: 'ct-m' }],
+  ['1 block de dibujo A4', 1, { medio: 'bl-m', premium: 'bl-p' }],
+  ['2 folders con fastener', 2, { economico: 'fo-e', medio: 'fo-m' }],
+  ['1 diccionario escolar', 1, {}],
+];
 export const plantillaInicial: Linea[] = [
   ['1 caja de crayones jumbo', 1, { economico: 'cr-e', medio: 'cr-m' }],
   ['2 cajas de plastilina', 2, { economico: 'pa-e', medio: 'pa-m' }],
