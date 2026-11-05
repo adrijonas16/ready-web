@@ -14,7 +14,8 @@ export const ESTILO_NIVEL: Record<Tier, { fondo: string; punto: string; anillo: 
 
 export function totalPaquete(items: SupplyItem[], tier: Tier, qty: (i: SupplyItem) => number) {
   return items.reduce((s, i) => {
-    const p = tierProduct(i, tier);
+    // Lo que agregó el cliente cuesta lo mismo en cualquier opción
+    const p = i.agregado ? i.matchedProduct : tierProduct(i, tier);
     return s + (p ? p.basePrice * qty(i) : 0);
   }, 0);
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Fuse from 'fuse.js';
-import { Check, Package, Search, X } from 'lucide-react';
+import { Check, Minus, Package, Plus, Search, Send, X } from 'lucide-react';
 import { productsApi } from '@/services/api';
 import { formatPrice } from '@/lib/utils';
 import { ItemVariante, Product, ProductDetail, SupplyItem, VariantValue } from '@/lib/types';
@@ -18,16 +18,21 @@ function Foto({ src, alt, className }: { src?: string | null; alt: string; class
 }
 
 /**
- * Panel para ver el producto elegido (foto, marca, diseños) y cambiarlo por cualquier otro
- * del catálogo de la misma categoría.
+ * Panel con foto, marca y diseños de los productos.
+ * - Con `item`: cambia el producto de ese útil por otro de la misma categoría.
+ * - Sin `item`: agrega a la lista cualquier producto de la tienda, o pide uno que no está.
  */
-export default function SelectorProducto({ item, variantesActuales, onElegir, onClose }: {
-  item: SupplyItem;
-  variantesActuales: ItemVariante[];
-  onElegir: (producto: Product, valores: ItemVariante[]) => void;
+export default function SelectorProducto({ item, variantesActuales = [], onElegir, onPedirTexto, onClose }: {
+  item?: SupplyItem;
+  variantesActuales?: ItemVariante[];
+  onElegir: (producto: Product, valores: ItemVariante[], cantidad: number) => void;
+  onPedirTexto?: (nombre: string, cantidad: number) => void;
   onClose: () => void;
 }) {
-  const actual = item.matchedProduct;
+  const agregar = !item;
+  const actual = item?.matchedProduct;
+  const [cantidad, setCantidad] = useState(1);
+  const [categoria, setCategoria] = useState<string | null>(null);
   const [candidatos, setCandidatos] = useState<Product[]>([]);
   const [cargando, setCargando] = useState(true);
   const [nivel, setNivel] = useState<Tier | 'todos'>('todos');
@@ -38,6 +43,7 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
   const [detalle, setDetalle] = useState<ProductDetail | null>(null);
   const [valores, setValores] = useState<Record<string, VariantValue>>({});
   const cerrarRef = useRef<HTMLButtonElement>(null);
+  const cuerpo = useRef<HTMLDivElement>(null);
   const previas = useRef(variantesActuales);
   const clavePrevias = variantesActuales.map(v => v.valueId).join(',');
   useEffect(() => { previas.current = variantesActuales; }, [variantesActuales]);
@@ -54,11 +60,13 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
 
   // Opciones: los 3 niveles que eligió la IA + todo el catálogo de esa categoría
   useEffect(() => {
-    const niveles = TIERS.map(t => tierProduct(item, t.id, true)).filter(Boolean) as Product[];
-    const categoria = actual?.category ?? niveles[0]?.category;
-    const pedir = categoria
-      ? productsApi.getAll({ category: categoria, limit: 300 })
-      : productsApi.search(item.nombreOriginal).catch(() => [] as Product[]);
+    const niveles = item ? TIERS.map(t => tierProduct(item, t.id, true)).filter(Boolean) as Product[] : [];
+    const cat = actual?.category ?? niveles[0]?.category;
+    const pedir = !item
+      ? productsApi.getAll({ limit: 300 }).then((l: Product[]) => l.filter(p => p.category !== 'Servicios'))
+      : cat
+        ? productsApi.getAll({ category: cat, limit: 300 })
+        : productsApi.search(item.nombreOriginal).catch(() => [] as Product[]);
     pedir
       .then((lista: Product[]) => {
         const todos = [...(actual ? [actual] : []), ...niveles, ...lista];
@@ -88,6 +96,7 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
 
   // Más parecidos primero (Fuse sobre el nombre del útil)
   const ordenados = useMemo(() => {
+    if (!item) return [...candidatos].sort((a, b) => a.category.localeCompare(b.category) || a.basePrice - b.basePrice);
     const consulta = (item.nombreDetectado || item.nombreOriginal).replace(/\d+/g, ' ');
     const fuse = new Fuse(candidatos, { keys: ['name', 'brand'], threshold: 0.6, ignoreLocation: true, includeScore: true });
     const puntaje = new Map(fuse.search(consulta).map(r => [r.item.id, r.score ?? 1]));
@@ -117,17 +126,19 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
         { keys: ['name', 'brand', 'description'], threshold: 0.4, ignoreLocation: true });
       lista = fuse.search(q).map(r => r.item);
     }
+    if (categoria) lista = lista.filter(p => p.category === categoria);
     if (nivel !== 'todos') lista = lista.filter(p => p.tier === nivel);
     if (marca) lista = lista.filter(p => p.brand === marca);
     return lista;
-  }, [ordenados, busqueda, extraBusqueda, nivel, marca]);
+  }, [ordenados, busqueda, extraBusqueda, nivel, marca, categoria]);
 
-  const marcas = useMemo(() => [...new Set(candidatos.map(p => p.brand).filter(Boolean) as string[])].sort(), [candidatos]);
+  const marcas = useMemo(() => [...new Set(candidatos.filter(p => !categoria || p.category === categoria).map(p => p.brand).filter(Boolean) as string[])].sort(), [candidatos, categoria]);
+  const categorias = useMemo(() => [...new Set(candidatos.map(p => p.category))], [candidatos]);
 
   const recargo = Object.values(valores).reduce((s, v) => s + (v.price_modifier || 0), 0);
   const imagenVariante = Object.values(valores).find(v => v.image_url)?.image_url;
   const fotoGrande = imagenVariante || detalle?.images?.[0]?.image_url || elegido?.imageUrl;
-  const mismoQueActual = elegido?.id === actual?.id
+  const mismoQueActual = !agregar && elegido?.id === actual?.id
     && Object.values(valores).every(v => variantesActuales.some(a => a.valueId === v.id))
     && Object.keys(valores).length === variantesActuales.length;
 
@@ -140,8 +151,9 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
       valueId: v.id,
       precio: v.price_modifier || 0,
       imagen: v.image_url,
-    })));
+    })), cantidad);
   };
+  const pedirTexto = () => { const t = busqueda.trim(); if (t.length >= 3 && onPedirTexto) onPedirTexto(t, cantidad); };
 
   return (
     <div className="animate-fondo fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
@@ -150,15 +162,15 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
         {/* Encabezado */}
         <div className="flex items-start gap-3 border-b border-linea px-5 py-4">
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-tenue">La lista pide</p>
-            <h2 id="selector-titulo" className="truncate text-xl font-bold">{item.nombreOriginal}</h2>
+            <p className="text-sm text-tenue">{agregar ? 'Algo que no está en la lista del colegio' : 'La lista pide'}</p>
+            <h2 id="selector-titulo" className="truncate text-xl font-bold">{agregar ? 'Agregar a tu lista' : item.nombreOriginal}</h2>
           </div>
           <button ref={cerrarRef} onClick={onClose} className="cursor-pointer rounded-xl p-2 hover:bg-fondo" aria-label="Cerrar">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain">
+        <div ref={cuerpo} className="flex-1 overflow-y-auto overscroll-contain">
           {/* Producto elegido */}
           {elegido && (
             <section aria-label="Producto elegido" className="grid grid-cols-[112px_1fr] gap-4 border-b border-linea bg-fondo px-5 py-5 sm:grid-cols-[220px_1fr] sm:gap-5">
@@ -226,7 +238,7 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
           {/* Todas las opciones */}
           <section aria-labelledby="otras" className="px-5 py-5">
             <div className="flex items-baseline justify-between gap-3">
-              <h3 id="otras" className="text-lg font-bold">Todas las opciones</h3>
+              <h3 id="otras" className="text-lg font-bold">{agregar ? 'Productos de la tienda' : 'Todas las opciones'}</h3>
               <span className="text-sm text-tenue">{cargando ? 'Cargando…' : `${visibles.length} productos`}</span>
             </div>
 
@@ -237,6 +249,17 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
                 placeholder="Buscar marca, diseño o tipo, ej.: dinosaurios…"
                 className="w-full rounded-xl border border-linea py-2.5 pl-9 pr-3 text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
             </label>
+
+            {agregar && categorias.length > 1 && (
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Filtrar por categoría">
+                {[null, ...categorias].map(c => (
+                  <button key={c ?? 'todas'} onClick={() => { setCategoria(c); setMarca(null); }} aria-pressed={categoria === c}
+                    className={`shrink-0 cursor-pointer rounded-full border px-3 py-1 text-sm font-semibold transition-colors ${categoria === c ? 'border-acento bg-acento text-slate-900' : 'border-linea hover:border-tenue'}`}>
+                    {c ?? 'Todo'}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrar por nivel">
               {(['todos', ...TIERS.map(t => t.id)] as const).map(n => (
@@ -262,7 +285,11 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
                 {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton aspect-[3/4]" />)}
               </div>
             ) : visibles.length === 0 ? (
-              <p className="mt-6 rounded-xl bg-fondo px-4 py-6 text-center text-tenue">No hay productos con ese filtro. Prueba con otra marca o búsqueda.</p>
+              <p className="mt-6 rounded-xl bg-fondo px-4 py-6 text-center text-tenue">
+                {agregar && busqueda.trim().length >= 3
+                  ? <>No tenemos «{busqueda.trim()}» en la tienda. Pídelo abajo y lo conseguimos.</>
+                  : 'No hay productos con ese filtro. Prueba con otra marca o búsqueda.'}
+              </p>
             ) : (
               <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {visibles.map(p => {
@@ -270,7 +297,7 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
                   const esActual = actual?.id === p.id;
                   return (
                     <li key={p.id}>
-                      <button onClick={() => setElegido(p)} aria-pressed={sel}
+                      <button onClick={() => { setElegido(p); if (agregar) cuerpo.current?.scrollTo({ top: 0, behavior: 'smooth' }); }} aria-pressed={sel}
                         className={`relative flex h-full w-full cursor-pointer flex-col rounded-2xl border-2 bg-papel p-2 text-left transition-[border-color,box-shadow] ${sel ? 'border-primario shadow-[0_6px_20px_-10px_rgba(29,78,216,0.6)]' : 'border-linea hover:border-tenue'}`}>
                         {sel && <span className="absolute right-2 top-2 z-10 rounded-full bg-primario p-1 text-white"><Check className="h-3.5 w-3.5" aria-hidden="true" /></span>}
                         <Foto src={p.imageUrl} alt={p.name} className="aspect-square w-full rounded-xl bg-fondo" />
@@ -289,14 +316,35 @@ export default function SelectorProducto({ item, variantesActuales, onElegir, on
                 })}
               </ul>
             )}
+            {agregar && onPedirTexto && (
+              <div className="mt-6 rounded-2xl border border-dashed border-linea-fuerte p-4">
+                <p className="text-sm font-semibold">¿No lo encuentras?</p>
+                <p className="text-sm text-tenue">Escríbelo en el buscador de arriba y lo agregamos a tu pedido para conseguirlo. Te confirmamos el precio.</p>
+                <button onClick={pedirTexto} disabled={busqueda.trim().length < 3}
+                  className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border-2 border-grafito px-3 py-2 text-sm font-bold hover:bg-fondo disabled:cursor-not-allowed disabled:opacity-40">
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                  {busqueda.trim().length >= 3 ? `Pedir «${busqueda.trim()}»` : 'Pedir un útil por su nombre'}
+                </button>
+              </div>
+            )}
           </section>
         </div>
 
         {/* Confirmar */}
-        <div className="border-t border-linea px-5 py-4">
+        <div className="flex items-center gap-3 border-t border-linea px-5 py-4">
+          {agregar && (
+            <div className="flex items-center rounded-xl border border-linea" aria-label="Cantidad">
+              <button onClick={() => setCantidad(c => Math.max(1, c - 1))} className="cursor-pointer p-3 hover:text-primario" aria-label="Uno menos"><Minus className="h-4 w-4" /></button>
+              <span className="w-7 text-center font-bold tabular-nums">{cantidad}</span>
+              <button onClick={() => setCantidad(c => Math.min(99, c + 1))} className="cursor-pointer p-3 hover:text-primario" aria-label="Uno más"><Plus className="h-4 w-4" /></button>
+            </div>
+          )}
           <button onClick={confirmar} disabled={!elegido || mismoQueActual}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primario py-3.5 font-bold text-white transition-colors hover:bg-primario-oscuro disabled:cursor-not-allowed disabled:opacity-40">
-            {mismoQueActual ? 'Es el que ya tienes' : elegido ? `Usar este, ${formatPrice(elegido.basePrice + recargo)} c/u` : 'Elige un producto'}
+            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primario py-3.5 font-bold text-white transition-colors hover:bg-primario-oscuro disabled:cursor-not-allowed disabled:opacity-40">
+            {mismoQueActual ? 'Es el que ya tienes'
+              : !elegido ? 'Elige un producto'
+              : agregar ? `Agregar a la lista, ${formatPrice((elegido.basePrice + recargo) * cantidad)}`
+              : `Usar este, ${formatPrice(elegido.basePrice + recargo)} c/u`}
           </button>
         </div>
       </div>
