@@ -5,14 +5,17 @@ import { ItemVariante, SupplyItem } from '@/lib/types';
 import { Tier, currentTier, tierLabel } from '@/lib/lista';
 import { ESTILO_NIVEL } from './Paquetes';
 import PrecioAnimado from '@/components/PrecioAnimado';
+import { formatPrice } from '@/lib/utils';
 
 /** Un útil: foto, marca, producto, diseño elegido, cantidad y precio. Tocarlo abre las opciones. */
-export default function FilaUtil({ item, indice = 0, incluido, qty, precio, variantes, onIncluir, onQty, onAbrir, onQuitar }: {
+export default function FilaUtil({ item, indice = 0, incluido, qty, precio, precioOriginal, variantes, onIncluir, onQty, onAbrir, onQuitar }: {
   item: SupplyItem;
   indice?: number;
   incluido: boolean;
   qty: number;
   precio: number;
+  /** Precio sin la oferta, si está en campaña: se muestra tachado */
+  precioOriginal?: number;
   variantes: ItemVariante[];
   onIncluir: (v: boolean) => void;
   onQty: (q: number) => void;
@@ -77,7 +80,11 @@ export default function FilaUtil({ item, indice = 0, incluido, qty, precio, vari
             )}
           </button>
           <span className={`shrink-0 pt-4 text-right font-bold tabular-nums ${incluido ? '' : 'line-through'}`}>
-            {product ? <PrecioAnimado valor={precio * qty} /> : '—'}
+            {product && precioOriginal && precioOriginal > precio && (
+              <span className="block text-xs font-medium text-tenue line-through"><span className="sr-only">Antes </span>{formatPrice(precioOriginal * qty)}</span>
+            )}
+            {product ? <PrecioAnimado valor={precio * qty} className={precioOriginal && precioOriginal > precio ? 'text-profe' : ''} /> : '—'}
+            {product && qty > 1 && <span className="block text-xs font-normal text-tenue">{formatPrice(precio)} c/u</span>}
           </span>
         </div>
 

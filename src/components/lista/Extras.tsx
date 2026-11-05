@@ -4,8 +4,9 @@ import { useState, ReactNode } from 'react';
 import { BookOpen, Tag, NotebookPen, FileText, Plus, Trash2, Minus, Star, Flower2, Rocket, Trophy, Heart, Circle } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { ListBook, ListExtras, Product } from '@/lib/types';
-import { OpcionesServicios, buscarOpcion, precioServicio } from '@/lib/lista';
+import { OpcionesServicios, PreciosServicios, buscarOpcion, precioServicio } from '@/lib/lista';
 import PrecioAnimado from '@/components/PrecioAnimado';
+import { precioVenta } from '@/lib/precio';
 
 export interface ConteoExtras {
   cuadernos: number;
@@ -14,12 +15,7 @@ export interface ConteoExtras {
   caratulas: number;
 }
 
-export interface PreciosServicios {
-  forroCuaderno?: Product;
-  forroLibro?: Product;
-  etiqueta?: Product;
-  caratula?: Product;
-}
+export type { PreciosServicios };
 
 const ICONO_DISENO: Record<string, typeof Star> = {
   lisa: Circle, estrellas: Star, flores: Flower2, espacio: Rocket, deportes: Trophy, corazones: Heart,
@@ -59,7 +55,7 @@ function Tarjeta({ icono, titulo, detalle, monto, activo, onToggle, children }: 
   );
 }
 
-const precio = (p?: Product) => (p ? formatPrice(p.basePrice) : 'precio por confirmar');
+const precio = (p?: Product) => (p ? formatPrice(precioVenta(p)) : 'precio por confirmar');
 
 export default function Extras({ extras, onChange, conteo, servicios, opciones }: {
   extras: ListExtras;
@@ -76,7 +72,7 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
   const colorElegido = buscarOpcion(opciones.colores, extras.forro.color);
   const disenoElegido = buscarOpcion(opciones.disenos, extras.etiquetas.diseno);
   const montoForro = precioServicio(servicios.forroCuaderno, colorElegido) * conteo.cuadernos
-    + (extras.forrarLibros ? (servicios.forroLibro?.basePrice ?? 0) * conteo.libros : 0);
+    + (extras.forrarLibros ? precioVenta(servicios.forroLibro) * conteo.libros : 0);
   const cursos = Array.from(new Set([...opciones.cursos, ...extras.caratulas.cursos]));
   const librosConPrecio = extras.libros.reduce((s, l) => s + (l.precio ? l.precio * l.cantidad : 0), 0);
   const porCotizar = extras.libros.filter(l => !l.precio).length;
@@ -88,8 +84,8 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
         <p className="text-tenue">Lo dejamos listo para que solo lo lleve al colegio.</p>
       </div>
 
-      {/* Forrado */}
-      <Tarjeta icono={<NotebookPen className="h-5 w-5" />} titulo="Forrado de cuadernos"
+      {/* Forrado (solo si hay cuadernos o libros que forrar) */}
+      {(conteo.cuadernos > 0 || conteo.libros > 0) && <Tarjeta icono={<NotebookPen className="h-5 w-5" />} titulo="Forrado de cuadernos"
         detalle={`${precio(servicios.forroCuaderno)} por cuaderno, ${conteo.cuadernos} ${conteo.cuadernos === 1 ? 'cuaderno' : 'cuadernos'}`}
         monto={montoForro} activo={extras.forro.activo} onToggle={v => set({ forro: { ...extras.forro, activo: v } })}>
         <p className="mb-2 text-sm font-semibold">Color del forro</p>
@@ -110,10 +106,10 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
         {conteo.libros > 0 && (
           <label className="mt-3 flex items-center gap-2 text-sm">
             <input type="checkbox" className="h-4 w-4 accent-primario" checked={extras.forrarLibros} onChange={e => set({ forrarLibros: e.target.checked })} />
-            Forrar también los {conteo.libros} libros ({precio(servicios.forroLibro)} c/u)
+            {conteo.libros === 1 ? 'Forrar también el libro' : `Forrar también los ${conteo.libros} libros`} ({precio(servicios.forroLibro)} c/u)
           </label>
         )}
-      </Tarjeta>
+      </Tarjeta>}
 
       {/* Etiquetas */}
       <Tarjeta icono={<Tag className="h-5 w-5" />} titulo="Etiquetas personalizadas"
@@ -154,7 +150,7 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
       {/* Carátulas */}
       <Tarjeta icono={<FileText className="h-5 w-5" />} titulo="Carátulas por curso"
         detalle={`${precio(servicios.caratula)} por curso${extras.caratulas.activo ? `, ${conteo.caratulas} elegidos` : ''}`}
-        monto={(servicios.caratula?.basePrice ?? 0) * conteo.caratulas}
+        monto={precioVenta(servicios.caratula) * conteo.caratulas}
         activo={extras.caratulas.activo} onToggle={v => set({ caratulas: { ...extras.caratulas, activo: v } })}>
         <p className="mb-2 text-sm font-semibold">¿Para qué cursos?</p>
         <div className="flex flex-wrap gap-2">

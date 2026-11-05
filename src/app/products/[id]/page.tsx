@@ -6,7 +6,11 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, ShoppingCart, Star, Check, Package, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Star, Check, Package, Minus, Plus, Truck } from 'lucide-react';
+import Link from 'next/link';
+import { tierLabel, Tier } from '@/lib/lista';
+import { descuentoPct, enOferta, precioVenta, redondear } from '@/lib/precio';
+import { fechaLarga, fechasEntrega, textoEnvio, useAjustes } from '@/lib/ajustes';
 
 
 interface VariantValue { id: string; value: string; image_url?: string; price_modifier: number; stock: number; is_active: boolean; color_hex?: string }
@@ -16,6 +20,7 @@ interface ProductDetail {
   id: string; name: string; description?: string; category: string; brand?: string;
   sku: string; basePrice: number; imageUrl?: string; stock: number; rating: number;
   tier: string; variants: VariantType[]; images: ProductImage[];
+  salePrice?: number | null; campaignSlug?: string | null;
 }
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -28,6 +33,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [activeImage, setActiveImage] = useState('');
+  const ajustes = useAjustes();
 
   useEffect(() => {
     fetch(`${API}/products/${id}`).then(r => r.json()).then(d => {
@@ -35,17 +41,32 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         setProduct(d.data);
         setActiveImage(d.data.images?.[0]?.image_url || d.data.imageUrl || '');
         const defaults: Record<string, VariantValue> = {};
-        d.data.variants?.forEach((vt: VariantType) => { if (vt.values.length > 0) defaults[vt.id] = vt.values[0]; });
+        // Por defecto, el primer valor activo con stock
+        d.data.variants?.forEach((vt: VariantType) => {
+          const v = vt.values.find(x => x.is_active && x.stock > 0) ?? vt.values.find(x => x.is_active);
+          if (v) defaults[vt.id] = v;
+        });
         setSelectedVariants(defaults);
       }
     }).catch(console.error).finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <div className="min-h-screen bg-sky-100 flex items-center justify-center"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
-  if (!product) return <div className="min-h-screen bg-sky-100 flex items-center justify-center"><p className="text-slate-900 font-bold">Producto no encontrado</p></div>;
+  if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><div className="w-8 h-8 border-2 border-primario border-t-transparent rounded-full animate-spin" /></div>;
+  if (!product) return (
+    <div className="mx-auto max-w-md px-4 py-24 text-center">
+      <Package className="mx-auto h-10 w-10 text-tenue" aria-hidden="true" />
+      <h1 className="mt-4 text-2xl font-extrabold">No encontramos este producto</h1>
+      <Link href="/catalog" className="mt-6 inline-block rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Ver el catálogo</Link>
+    </div>
+  );
 
-  const priceModifier = Object.values(selectedVariants).reduce((sum, v) => sum + (v.price_modifier || 0), 0);
-  const finalPrice = product.basePrice + priceModifier;
+  const priceModifier = redondear(Object.values(selectedVariants).reduce((sum, v) => sum + (v.price_modifier || 0), 0));
+  const oferta = enOferta(product);
+  const finalPrice = redondear(precioVenta(product) + priceModifier);
+  const precioSinOferta = redondear(product.basePrice + priceModifier);
+  const stockElegido = Math.min(product.stock, ...Object.values(selectedVariants).map(v => v.stock));
+  const agotado = stockElegido <= 0;
+  const primeraEntrega = fechasEntrega(ajustes.diasEntrega, 1)[0];
 
   // Build all available images: product gallery + selected variant images
   const allImages: { url: string; label: string }[] = [];
@@ -67,18 +88,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const handleAddToCart = () => {
-    const notes = Object.values(selectedVariants).map(v => v.value).join(', ');
+    // Cada diseño o color es su propia línea del carrito, con su precio (recargo incluido)
+    const notes = Object.entries(selectedVariants).map(([tipo, v]) => `${product!.variants?.find(x => x.id === tipo)?.name ?? 'Opción'}: ${v.value}`).join(', ');
     volarAlCarrito(document.getElementById('foto-producto'), activeImage || product!.imageUrl);
-    addItem({ ...product!, basePrice: finalPrice }, quantity, notes || undefined);
+    const imagenVariante = Object.values(selectedVariants).find(v => v.image_url)?.image_url;
+    addItem({ ...product!, imageUrl: imagenVariante || product!.imageUrl }, quantity, {
+      notes: notes || undefined, unitPrice: finalPrice, listPrice: precioSinOferta, recargo: priceModifier || undefined,
+    });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
 
   return (
-    <div className="min-h-screen bg-sky-100">
+    <div className="min-h-screen">
       <div className="max-w-5xl mx-auto py-6 px-4">
-        <button onClick={() => router.back()} className="flex items-center gap-1.5 text-neutral-400 hover:text-slate-700 mb-4 text-sm">
-          <ArrowLeft className="h-4 w-4" /> Volver al catalogo
+        <button onClick={() => router.back()} className="flex items-center gap-1.5 text-tenue hover:text-grafito mb-4 text-sm">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al catálogo
         </button>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -117,10 +142,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-6">
               {/* Badge + Category */}
               <div className="flex items-center gap-2 mb-2">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                  product.tier === 'premium' ? 'bg-amber-100 text-amber-700' : product.tier === 'economico' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                }`}>{product.tier}</span>
-                <span className="text-xs text-neutral-400">{product.category}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                  product.tier === 'premium' ? 'bg-premium-claro text-premium' : product.tier === 'economico' ? 'bg-eco-claro text-eco' : 'bg-primario-claro text-primario'
+                }`}>{tierLabel((['economico', 'medio', 'premium'].includes(product.tier) ? product.tier : 'medio') as Tier)}</span>
+                <span className="text-xs text-tenue">{product.category}</span>
+                {oferta && <span className="rounded-full bg-profe px-2 py-0.5 text-xs font-bold text-white">−{descuentoPct(product)}% Oferta</span>}
               </div>
 
               {/* Name + Brand */}
@@ -139,12 +165,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
               {/* Price */}
               <div className="mb-5 pb-5 border-b border-slate-100">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-slate-900">{formatPrice(finalPrice)}</span>
-                  {priceModifier !== 0 && <span className="text-sm text-neutral-400 line-through">{formatPrice(product.basePrice)}</span>}
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className={`text-3xl font-bold ${oferta ? 'text-profe' : 'text-slate-900'}`}>{formatPrice(finalPrice)}</span>
+                  {oferta && <span className="text-base text-tenue line-through"><span className="sr-only">Antes </span>{formatPrice(precioSinOferta)}</span>}
+                  {priceModifier > 0 && <span className="text-xs text-tenue">incluye {formatPrice(priceModifier)} por el diseño</span>}
                 </div>
                 <p className="text-xs mt-1">
-                  {product.stock > 0 ? <span className="text-green-600 font-medium">En stock ({product.stock})</span> : <span className="text-red-500 font-medium">Agotado</span>}
+                  {!agotado ? <span className="text-eco font-medium">En stock ({stockElegido})</span> : <span className="text-profe font-medium">Agotado{Object.keys(selectedVariants).length ? ' en esta opción' : ''}</span>}
                 </p>
               </div>
 
@@ -158,8 +185,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   {vt.values.some(v => v.color_hex) ? (
                     <div className="flex flex-wrap gap-2.5">
                       {vt.values.filter(v => v.is_active).map(v => (
-                        <button key={v.id} onClick={() => selectVariant(vt.id, v)} title={v.value}
-                          className={`relative w-9 h-9 rounded-full transition-all duration-150 ${
+                        <button key={v.id} onClick={() => selectVariant(vt.id, v)} title={v.stock > 0 ? v.value : `${v.value} (agotado)`}
+                          aria-label={v.stock > 0 ? v.value : `${v.value}, agotado`} aria-pressed={selectedVariants[vt.id]?.id === v.id} disabled={v.stock <= 0}
+                          className={`relative w-9 h-9 rounded-full transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed ${
                             selectedVariants[vt.id]?.id === v.id ? 'ring-2 ring-blue-500 ring-offset-2 scale-110' : 'hover:scale-105 ring-1 ring-slate-200'
                           }`} style={{ backgroundColor: v.color_hex || '#ccc' }}>
                           {selectedVariants[vt.id]?.id === v.id && (
@@ -173,8 +201,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {vt.values.filter(v => v.is_active).map(v => (
-                        <button key={v.id} onClick={() => selectVariant(vt.id, v)}
-                          className={`rounded-xl text-sm font-medium transition-all duration-150 flex items-center gap-2 overflow-hidden ${
+                        <button key={v.id} onClick={() => selectVariant(vt.id, v)} disabled={v.stock <= 0} aria-pressed={selectedVariants[vt.id]?.id === v.id}
+                          className={`rounded-xl text-sm font-medium transition-all duration-150 flex items-center gap-2 overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed ${
                             selectedVariants[vt.id]?.id === v.id ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                           }`}>
                           {v.image_url && (
@@ -187,6 +215,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                 {v.price_modifier > 0 ? `+${formatPrice(v.price_modifier)}` : formatPrice(v.price_modifier)}
                               </span>
                             )}
+                            {v.stock <= 0 && <span className="ml-1 text-xs">(agotado)</span>}
                           </span>
                         </button>
                       ))}
@@ -201,12 +230,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <button onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     className="w-9 h-9 rounded-xl border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50"><Minus className="h-4 w-4" /></button>
                   <span className="w-8 text-center text-lg font-bold">{quantity}</span>
-                  <button onClick={() => setQuantity(quantity + 1)}
+                  <button onClick={() => setQuantity(Math.min(Math.max(1, stockElegido), quantity + 1))}
                     className="w-9 h-9 rounded-xl bg-blue-500 text-white flex items-center justify-center hover:shadow-md hover:shadow-blue-500/25"><Plus className="h-4 w-4" /></button>
                 </div>
-                <button onClick={handleAddToCart} disabled={product.stock === 0}
+                <button onClick={handleAddToCart} disabled={agotado}
                   className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 ${
-                    added ? 'bg-green-500 text-white' : product.stock === 0 ? 'bg-slate-200 text-slate-400' : 'bg-blue-500 text-white hover:shadow-lg hover:shadow-blue-500/25'
+                    added ? 'bg-eco text-white' : agotado ? 'bg-slate-200 text-tenue' : 'bg-blue-500 text-white hover:shadow-lg hover:shadow-blue-500/25'
                   }`}>
                   {added ? <><Check className="h-4 w-4" /> Agregado</> : <><ShoppingCart className="h-4 w-4" /> Agregar - {formatPrice(finalPrice * quantity)}</>}
                 </button>
@@ -215,10 +244,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               {/* Selected summary */}
               {Object.keys(selectedVariants).length > 0 && (
                 <div className="mt-4 pt-4 border-t border-slate-100">
-                  <p className="text-[10px] text-neutral-400 mb-1">Tu seleccion:</p>
+                  <p className="text-xs text-tenue mb-1">Tu selección:</p>
                   <div className="flex flex-wrap gap-1.5">
                     {Object.entries(selectedVariants).map(([typeId, val]) => (
-                      <span key={typeId} className="text-[10px] px-2 py-1 bg-slate-100 rounded-full text-slate-600">
+                      <span key={typeId} className="text-xs px-2 py-1 bg-fondo rounded-full text-slate-600">
                         {product.variants?.find(v => v.id === typeId)?.name}: <span className="font-bold">{val.value}</span>
                       </span>
                     ))}
@@ -227,23 +256,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               )}
             </div>
 
-            {/* Shipping info */}
+            {/* Envío (mismo costo que en el carrito y el pago) */}
             <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 mt-4">
               <div className="flex items-center gap-3">
-                {/* Arequipa flag */}
-                <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 relative bg-red-600 flex items-center justify-center">
-                  <div className="absolute inset-0 flex flex-col">
-                    <div className="flex-1 bg-red-600" />
-                    <div className="flex-1 bg-white" />
-                    <div className="flex-1 bg-red-600" />
-                  </div>
-                  <div className="relative z-10 w-5 h-5 border-2 border-yellow-400 rounded-full bg-white flex items-center justify-center">
-                    <span className="text-[6px]">🏔️</span>
-                  </div>
-                </div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primario-claro text-primario"><Truck className="h-5 w-5" aria-hidden="true" /></span>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Envio en Arequipa</p>
-                  <p className="text-xs text-neutral-400">Entrega en 24-48 horas en la ciudad</p>
+                  <p className="text-sm font-bold text-slate-900">Envío en Arequipa</p>
+                  <p className="text-xs text-tenue">{textoEnvio(ajustes, formatPrice)}. Si lo pides hoy, llega desde el {fechaLarga(primeraEntrega?.valor)}.</p>
                 </div>
               </div>
             </div>

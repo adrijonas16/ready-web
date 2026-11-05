@@ -5,6 +5,7 @@ import { formatPrice } from '@/lib/utils';
 import { SupplyItem } from '@/lib/types';
 import { Tier, TIERS, tierProduct } from '@/lib/lista';
 import PrecioAnimado from '@/components/PrecioAnimado';
+import { enOferta, precioVenta } from '@/lib/precio';
 
 export const ESTILO_NIVEL: Record<Tier, { fondo: string; punto: string; anillo: string; boton: string }> = {
   economico: { fondo: 'bg-eco-claro', punto: 'bg-eco', anillo: 'ring-eco', boton: 'bg-eco text-grafito hover:brightness-95' },
@@ -16,8 +17,23 @@ export function totalPaquete(items: SupplyItem[], tier: Tier, qty: (i: SupplyIte
   return items.reduce((s, i) => {
     // Lo que agregó el cliente cuesta lo mismo en cualquier opción
     const p = i.agregado ? i.matchedProduct : tierProduct(i, tier);
-    return s + (p ? p.basePrice * qty(i) : 0);
+    return s + (p ? precioVenta(p) * qty(i) : 0);
   }, 0);
+}
+
+/** Útiles de la lista que no tenemos en esa opción (los conseguimos aparte). */
+export const faltantes = (items: SupplyItem[], tier: Tier) => items.filter(i => !(i.agregado ? i.matchedProduct : tierProduct(i, tier)));
+
+function TextoFaltantes({ items, tier }: { items: SupplyItem[]; tier: Tier }) {
+  const f = faltantes(items, tier);
+  if (f.length === 0) return <p className="text-sm text-tenue">Los {items.length} útiles de la lista</p>;
+  const nombres = f.slice(0, 2).map(i => i.nombreOriginal.replace(/^\d+\s+/, '')).join(', ') + (f.length > 2 ? ` y ${f.length - 2} más` : '');
+  return (
+    <p className="text-sm text-tenue">
+      {items.length - f.length} de {items.length} útiles. <span className="text-grafito">{f.length === 1 ? 'Falta' : 'Faltan'}: {nombres}</span>
+      <span className="block text-xs">Te lo cotizamos aparte.</span>
+    </p>
+  );
 }
 
 /** Primera vista: la lista ya armada en 3 paquetes para elegir. */
@@ -27,8 +43,6 @@ export function ElegirPaquete({ items, qty, onElegir, eligiendo }: {
   onElegir: (t: Tier) => void;
   eligiendo: Tier | null;
 }) {
-  const conProducto = (t: Tier) => items.filter(i => tierProduct(i, t)).length;
-
   return (
     <section aria-labelledby="paquetes">
       <h1 id="paquetes" className="text-3xl font-extrabold tracking-[-0.03em] sm:text-4xl">Tu lista ya está armada en 3 opciones</h1>
@@ -59,13 +73,14 @@ export function ElegirPaquete({ items, qty, onElegir, eligiendo }: {
                 </div>
                 <p className="mt-1 text-sm text-tenue">{t.desc}</p>
                 <p className="mt-4 text-4xl font-extrabold tracking-tight tabular-nums">{formatPrice(totalPaquete(items, t.id, qty))}</p>
-                <p className="text-sm text-tenue">{conProducto(t.id)} de {items.length} útiles</p>
+                <TextoFaltantes items={items} tier={t.id} />
               </div>
               <ul className="hidden flex-1 space-y-1.5 px-5 py-4 text-sm md:block">
                 {muestra.map(({ i, p }) => (
                   <li key={i.id} className="flex gap-2">
                     <span className="min-w-0 flex-1 truncate">{p!.name}</span>
-                    <span className="shrink-0 tabular-nums text-tenue">{formatPrice(p!.basePrice * qty(i))}</span>
+                    {enOferta(p) && <span className="shrink-0 tabular-nums text-xs text-tenue line-through">{formatPrice(p!.basePrice * qty(i))}</span>}
+                    <span className={`shrink-0 tabular-nums ${enOferta(p) ? 'font-semibold text-profe' : 'text-tenue'}`}>{formatPrice(precioVenta(p) * qty(i))}</span>
                   </li>
                 ))}
                 {items.length > muestra.length && <li className="text-tenue">y {items.length - muestra.length} más</li>}
