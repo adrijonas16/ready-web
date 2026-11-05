@@ -8,7 +8,7 @@ import { listsApi, productsApi } from '@/services/api';
 import { ItemVariante, ListDetail, ListExtras, Product, ProductDetail, SupplyItem } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, MessageSquare, Check, X, Loader2, ShoppingBag, RotateCcw, Info, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Check, X, Loader2, ShoppingBag, RotateCcw, Info, Image as ImageIcon, Plus, Copy } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import Toast from '@/components/Toast';
 import { Tier, TIERS, SKU, OPCIONES_POR_DEFECTO, OpcionesServicios, OpcionServicio, buscarOpcion, esCuaderno, parseExtras, precioServicio, precioUnitario, tierProduct, variantesDe } from '@/lib/lista';
@@ -18,6 +18,7 @@ import Extras, { PreciosServicios } from '@/components/lista/Extras';
 import SelectorProducto from '@/components/lista/SelectorProducto';
 import PrecioAnimado from '@/components/PrecioAnimado';
 import { lanzarConfeti, volarAlCarrito } from '@/lib/efectos';
+import { copiaDe, esMiCopia, guardarCopia } from '@/lib/copias';
 
 // ── Observations Box ──
 function ObservationBox({ listId, existing, onSaved }: { listId: string; existing?: string; onSaved: () => void }) {
@@ -201,6 +202,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [verFotos, setVerFotos] = useState(false);
   const [eligiendo, setEligiendo] = useState<Tier | null>(null);
   const [agregando, setAgregando] = useState(false);
+  const [panelAgregar, setPanelAgregar] = useState(false);
+  const [copiando, setCopiando] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [pollStart] = useState(() => Date.now());
@@ -279,12 +282,33 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
+  // Lista del colegio (o de otra familia): se ve, pero al ajustarla se trabaja sobre una copia propia,
+  // así lo que cambia una familia no le cambia la lista a las demás.
+  const compartida = !!data && user?.role !== 'ADMIN' && !(user && data.list.userId === user.id) && !esMiCopia(id);
+  const copiaPrevia = compartida ? copiaDe(id) : undefined;
+
+  const copiarYAbrir = async (plan?: Tier) => {
+    if (copiando) return;
+    setCopiando(true);
+    try {
+      const r = await listsApi.copiar(id, { userId: user?.id, plan });
+      guardarCopia(id, r.id);
+      if (r.existente) showToast('Ya tenías tu versión de esta lista. La abrimos.');
+      router.replace(`/lists/${r.id}`);
+    } catch {
+      showToast('No pudimos preparar tu lista. Intenta de nuevo.', 'error');
+      setCopiando(false);
+      setEligiendo(null);
+    }
+  };
+
   const patchItem = (itemId: string, patch: Partial<SupplyItem>) =>
     setData(d => d ? { ...d, items: d.items.map(i => i.id === itemId ? { ...i, ...patch } : i) } : d);
 
   const getQty = useCallback((item: SupplyItem) => localQty[item.id] ?? (item.userCustomQuantity || item.matchedQuantity || item.cantidad), [localQty]);
 
   const setQty = (item: SupplyItem, q: number) => {
+    if (compartida) { copiarYAbrir(); return; }
     setLocalQty(prev => ({ ...prev, [item.id]: q }));
     clearTimeout(qtyTimers.current[item.id]);
     qtyTimers.current[item.id] = setTimeout(() => {
@@ -293,6 +317,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   };
 
   const cambiarExtras = (e: ListExtras) => {
+    if (compartida) { copiarYAbrir(); return; }
     setExtras(e);
     clearTimeout(extrasTimer.current);
     extrasTimer.current = setTimeout(() => {
@@ -301,6 +326,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   };
 
   const elegirProducto = async (item: SupplyItem, p: Product, valores: ItemVariante[]) => {
+    if (compartida) { setAbierto(null); copiarYAbrir(); return; }
     const antes = { matchedProductId: item.matchedProductId, matchedProduct: item.matchedProduct, priceAtMatch: item.priceAtMatch };
     patchItem(item.id, { matchedProductId: p.id, matchedProduct: p, priceAtMatch: p.basePrice });
     const variantes = { ...(extras.variantes ?? {}) };
@@ -320,6 +346,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const elegirPaquete = async (tier: Tier) => {
     if (!data) return;
     setEligiendo(tier);
+    if (compartida) { await copiarYAbrir(tier); return; }
     const anterior = data;
     setData({
       ...data,
@@ -349,7 +376,55 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   };
 
   const excluidos = useMemo(() => new Set(extras.excluidos ?? []), [extras.excluidos]);
+  // Agregar a la lista algo que no pide el colegio (de la tienda o pedido por su nombre)
+  const abrirAgregar = () => { if (compartida) copiarYAbrir(); else setPanelAgregar(true); };
+
+  const sumarItem = (nuevo: SupplyItem, cantidad: number) => {
+    setData(d => d ? { ...d, items: [...d.items, nuevo] } : d);
+    setLocalQty(prev => ({ ...prev, [nuevo.id]: cantidad }));
+    setPanelAgregar(false);
+    setTimeout(() => document.getElementById(`util-${nuevo.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+  };
+
+  const agregarUtil = async (p: Product, valores: ItemVariante[], cantidad: number) => {
+    try {
+      const r = await listsApi.addItem(id, { nombreOriginal: p.name, cantidad, productId: p.id, porCliente: true });
+      sumarItem({ ...r, matchedProductId: p.id, matchedProduct: p, priceAtMatch: p.basePrice, matchedQuantity: cantidad, agregado: true }, cantidad);
+      if (valores.length) cambiarExtras({ ...extras, variantes: { ...(extras.variantes ?? {}), [r.id]: { productId: p.id, valores } } });
+      showToast(`Agregaste ${p.name}`);
+    } catch {
+      showToast('No se pudo agregar', 'error');
+    }
+  };
+
+  const pedirUtil = async (nombre: string, cantidad: number) => {
+    try {
+      const r = await listsApi.addItem(id, { nombreOriginal: nombre, cantidad, porCliente: true });
+      sumarItem({ ...r, agregado: true }, cantidad);
+      showToast('Lo agregamos. Te confirmamos el precio al revisar tu pedido.');
+    } catch {
+      showToast('No se pudo agregar', 'error');
+    }
+  };
+
+  const quitarUtil = async (item: SupplyItem) => {
+    const anterior = data;
+    setData(d => d ? { ...d, items: d.items.filter(i => i.id !== item.id) } : d);
+    try {
+      await listsApi.deleteItem(id, item.id);
+      if (extras.variantes?.[item.id]) {
+        const variantes = { ...extras.variantes };
+        delete variantes[item.id];
+        cambiarExtras({ ...extras, variantes });
+      }
+    } catch {
+      setData(anterior);
+      showToast('No se pudo quitar', 'error');
+    }
+  };
+
   const incluir = (item: SupplyItem, v: boolean) => {
+    if (compartida) { copiarYAbrir(); return; }
     const set = new Set(excluidos);
     if (v) set.delete(item.id); else set.add(item.id);
     cambiarExtras({ ...extras, excluidos: [...set] });
@@ -378,7 +453,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const items = data.items;
   const incluidos = items.filter(i => !excluidos.has(i.id));
   const hayNiveles = items.some(i => i.productEconomicoId || i.productMedioId || i.productPremiumId);
-  const plan = (TIERS.some(t => t.id === data.list.plan) ? data.list.plan : null) as Tier | null;
+  // En una lista compartida siempre se empieza eligiendo la opción (se guarda en la copia propia)
+  const plan = (!compartida && TIERS.some(t => t.id === data.list.plan) ? data.list.plan : null) as Tier | null;
   const imagenes = (data.list.imageUrl || '').split('|').filter(Boolean);
 
   // Totales
@@ -437,11 +513,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         conteo.caratulas > 0 && !s.caratula && `Carátulas: ${extras.caratulas.cursos.join(', ')}`,
       ].filter(Boolean) as string[];
       const pendientes = librosPorCotizar.map(l => `${l.titulo}${l.editorial ? ` (${l.editorial})` : ''} x${l.cantidad}`);
+      const porConseguir = incluidos.filter(i => !i.matchedProduct).map(i => `${i.nombreOriginal} x${getQty(i)}`);
       const otras = notasPedido.filter(n => !n.includes(origen));
       setNotasPedido([
         ...otras,
         ...(pendientes.length ? [`Libros por cotizar, ${origen}: ${pendientes.join('; ')}`] : []),
         ...(sinPrecio.length ? [`Servicios por confirmar, ${origen}: ${sinPrecio.join('; ')}`] : []),
+        ...(porConseguir.length ? [`Útiles por conseguir, ${origen}: ${porConseguir.join('; ')}`] : []),
       ]);
       setListaId(id);
       await new Promise(r => setTimeout(r, 750));
@@ -479,8 +557,23 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           <p className={`mb-5 rounded-xl px-4 py-3 text-sm ${data.list.iaEstado === 'DEMO' ? 'bg-eco-claro' : 'bg-primario-claro text-primario-oscuro'}`}>{data.list.iaMensaje}</p>
         )}
 
+        {copiaPrevia && (
+          <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-acento bg-acento-claro px-4 py-3">
+            <Copy className="h-5 w-5 shrink-0 text-slate-900" aria-hidden="true" />
+            <p className="min-w-0 flex-1 text-sm text-slate-900">Ya armaste esta lista antes, con tus cambios.</p>
+            <Link href={`/lists/${copiaPrevia}`} className="rounded-xl bg-grafito px-4 py-2 text-sm font-bold text-papel hover:opacity-90">Abrir la mía</Link>
+          </div>
+        )}
+
         {!plan && hayNiveles ? (
-          <ElegirPaquete items={items} qty={getQty} onElegir={elegirPaquete} eligiendo={eligiendo} />
+          <>
+            <ElegirPaquete items={items} qty={getQty} onElegir={elegirPaquete} eligiendo={eligiendo} />
+            {compartida && (
+              <p className="mt-4 text-sm text-tenue">
+                Al elegir, guardamos tu propia versión de esta lista: puedes cambiar productos, quitar lo que ya tienes y agregar más. La lista del colegio no cambia para los demás.
+              </p>
+            )}
+          </>
         ) : (
           <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
             <div className="min-w-0 space-y-8">
@@ -496,9 +589,20 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   {items.map((item, i) => (
                     <FilaUtil key={item.id} indice={i} item={item} incluido={!excluidos.has(item.id)} qty={getQty(item)}
                       precio={precioUnitario(item, extras)} variantes={variantesDe(item, extras)}
-                      onIncluir={v => incluir(item, v)} onQty={q => setQty(item, q)} onAbrir={() => setAbierto(item)} />
+                      onIncluir={v => incluir(item, v)} onQty={q => setQty(item, q)} onAbrir={() => setAbierto(item)}
+                      onQuitar={() => quitarUtil(item)} />
                   ))}
                 </ul>
+                <button onClick={abrirAgregar}
+                  className="group mt-3 flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-dashed border-linea-fuerte px-4 py-4 text-left transition-colors hover:border-primario hover:bg-primario-claro">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-acento text-slate-900 transition-transform group-hover:rotate-90">
+                    <Plus className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span>
+                    <span className="block font-bold">Agregar otro útil</span>
+                    <span className="block text-sm text-tenue">Algo que no pide el colegio: más cuadernos, una mochila, colores extra…</span>
+                  </span>
+                </button>
               </section>
 
               <Extras extras={extras} onChange={cambiarExtras} conteo={conteo} servicios={servicios} opciones={opciones} />
@@ -553,6 +657,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       {abierto && (
         <SelectorProducto item={abierto} variantesActuales={variantesDe(abierto, extras)}
           onElegir={(p, valores) => elegirProducto(abierto, p, valores)} onClose={cerrarSelector} />
+      )}
+      {panelAgregar && (
+        <SelectorProducto onElegir={agregarUtil} onPedirTexto={pedirUtil} onClose={() => setPanelAgregar(false)} />
       )}
     </div>
   );

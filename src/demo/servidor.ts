@@ -22,6 +22,7 @@ interface ItemGuardado {
   id: string; nombreOriginal: string; cantidad: number; notas?: string;
   niveles: Partial<Record<Tier, string>>; elegido?: string | null;
   userCustomQuantity?: number | null; userNotas?: string | null;
+  agregado?: boolean;
 }
 interface Lista {
   id: string; userId?: string; schoolId: string; gradeId: string; year: number; imageUrl?: string;
@@ -29,6 +30,7 @@ interface Lista {
   extras?: string | null; observaciones?: string; userObservaciones?: string;
   estudianteNombre?: string; estudianteGrado?: string; creada: number; fechaValidacion?: number;
   plantilla: 'primaria' | 'inicial' | 'secundaria'; items: ItemGuardado[];
+  copiaDe?: string;
 }
 interface Pedido {
   id: string; userId: string; supplyListId?: string; total: number; status: string;
@@ -181,7 +183,7 @@ function itemRespuesta(l: Lista, it: ItemGuardado) {
     productEconomicoId: eco?.id ?? null, productEconomico: eco ?? null, priceEconomico: eco?.basePrice ?? null,
     productMedioId: med?.id ?? null, productMedio: med ?? null, priceMedio: med?.basePrice ?? null,
     productPremiumId: pre?.id ?? null, productPremium: pre ?? null, pricePremium: pre?.basePrice ?? null,
-    forro: false, etiquetaDibujo: false, caratula: false,
+    forro: false, etiquetaDibujo: false, caratula: false, agregado: !!it.agregado,
   };
 }
 
@@ -387,17 +389,37 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       const nuevo = nivelDe(texto(bj.plan));
       const aplicar = bj.aplicarATodos ?? nuevo !== l.plan;
       l.plan = nuevo; l.estudianteNombre = texto(bj.estudianteNombre) ?? l.estudianteNombre; l.estudianteGrado = texto(bj.estudianteGrado) ?? l.estudianteGrado;
-      if (aplicar) l.items.forEach(it => { delete it.elegido; });
+      if (aplicar) l.items.forEach(it => { if (!it.agregado) delete it.elegido; });
       return cambia(true);
     }
     if (r2 === 'extras') { l.extras = JSON.stringify(cuerpo ?? {}); return cambia(true); }
     if (r2 === 'observaciones') { l.userObservaciones = [l.userObservaciones, texto(bj.observacion)].filter(Boolean).join('\n'); avisar('NewMessage', 'Un cliente dejó una observación en su lista', { admin: true }); return cambia(true); }
     if (r2 === 'reprocess') { l.iaEstado = 'PROCESANDO'; l.creada = Date.now(); l.items = []; return cambia(true); }
     if (r2 === 'auto-match') { l.items.forEach(it => { delete it.elegido; }); return cambia(true); }
+    if (r2 === 'copia' && M === 'POST') {
+      const uid = texto(bj.userId);
+      const previa = uid ? e.listas.find(x => x.copiaDe === l.id && x.userId === uid) : undefined;
+      if (previa) return { id: previa.id, existente: true };
+      const nueva: Lista = {
+        ...JSON.parse(JSON.stringify(l)) as Lista, id: nuevoId('lista'), userId: uid, esOficial: false, estado: 'VALIDADA',
+        creada: Date.now(), fechaValidacion: Date.now(), copiaDe: l.id, plan: null, userObservaciones: undefined,
+      };
+      nueva.items = l.items.map((it, i) => ({ ...JSON.parse(JSON.stringify(it)) as ItemGuardado, id: `${nueva.id}-i${i}` }));
+      if (bj.plan) { nueva.plan = nivelDe(texto(bj.plan)); nueva.items.forEach(it => { if (!it.agregado) delete it.elegido; }); }
+      e.listas.unshift(nueva);
+      return cambia({ id: nueva.id, existente: false });
+    }
     if (r2 === 'items' && !r3 && M === 'POST') {
       const nombre = String(bj.nombreOriginal || '');
-      const parecido = (responder.buscar(nombre) as ProductoDemo[])[0];
-      const it: ItemGuardado = { id: nuevoId('it'), nombreOriginal: nombre, cantidad: Number(bj.cantidad) || 1, notas: texto(bj.notas), niveles: parecido ? { [parecido.tier]: parecido.id } : {} };
+      if (!nombre.trim()) throw new ErrorDemo('Escribe el nombre del útil');
+      const elegido = bj.productId ? producto(String(bj.productId)) : undefined;
+      const porCliente = !!bj.porCliente || !!elegido;
+      // Si lo agrega el admin al revisar, se busca un producto parecido como hace la lectura
+      const parecido = porCliente ? undefined : (responder.buscar(nombre) as ProductoDemo[])[0];
+      const it: ItemGuardado = {
+        id: nuevoId('it'), nombreOriginal: nombre.trim(), cantidad: Number(bj.cantidad) || 1, notas: texto(bj.notas),
+        niveles: parecido ? { [parecido.tier]: parecido.id } : {}, agregado: porCliente, ...(porCliente ? { elegido: elegido?.id ?? null } : {}),
+      };
       l.items.push(it);
       return cambia(itemRespuesta(l, it));
     }

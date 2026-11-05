@@ -161,8 +161,11 @@ export const listsApi = {
   delete: (id: string) => api.delete<boolean>(`/lists/${id}`),
   addObservacion: (id: string, observacion: string) =>
     api.post<boolean>(`/lists/${id}/observaciones`, { observacion }),
-  addItem: (listId: string, data: { nombreOriginal: string; cantidad: number; notas?: string }) =>
+  addItem: (listId: string, data: { nombreOriginal: string; cantidad: number; notas?: string; productId?: string; porCliente?: boolean }) =>
     api.post<SupplyItem>(`/lists/${listId}/items`, data),
+  /** Copia personal de una lista (la del colegio) para ajustarla sin cambiar la de los demás */
+  copiar: (listId: string, data: { userId?: string; plan?: string }) =>
+    api.post<{ id: string; existente: boolean }>(`/lists/${listId}/copia`, data),
   deleteItem: (listId: string, itemId: string) =>
     api.delete<boolean>(`/lists/${listId}/items/${itemId}`),
   createFromText: (data: {

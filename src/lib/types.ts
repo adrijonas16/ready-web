@@ -125,6 +125,8 @@ export interface ProductDetail extends Product {
 }
 
 export interface SupplyItem {
+  /** Lo agregó el cliente por su cuenta: no viene en la lista del colegio */
+  agregado?: boolean;
   id: string;
   supplyListId: string;
   nombreOriginal: string;

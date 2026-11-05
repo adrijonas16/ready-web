@@ -1,13 +1,13 @@
 'use client';
 
-import { ChevronRight, Minus, Plus, Package } from 'lucide-react';
+import { ChevronRight, Minus, Plus, Package, Trash2 } from 'lucide-react';
 import { ItemVariante, SupplyItem } from '@/lib/types';
 import { Tier, currentTier, tierLabel } from '@/lib/lista';
 import { ESTILO_NIVEL } from './Paquetes';
 import PrecioAnimado from '@/components/PrecioAnimado';
 
 /** Un útil: foto, marca, producto, diseño elegido, cantidad y precio. Tocarlo abre las opciones. */
-export default function FilaUtil({ item, indice = 0, incluido, qty, precio, variantes, onIncluir, onQty, onAbrir }: {
+export default function FilaUtil({ item, indice = 0, incluido, qty, precio, variantes, onIncluir, onQty, onAbrir, onQuitar }: {
   item: SupplyItem;
   indice?: number;
   incluido: boolean;
@@ -17,6 +17,8 @@ export default function FilaUtil({ item, indice = 0, incluido, qty, precio, vari
   onIncluir: (v: boolean) => void;
   onQty: (q: number) => void;
   onAbrir: () => void;
+  /** Solo para lo que agregó el cliente: lo saca de la lista */
+  onQuitar?: () => void;
 }) {
   const product = item.matchedProduct;
   const tier: Tier | null = currentTier(item)
@@ -25,10 +27,17 @@ export default function FilaUtil({ item, indice = 0, incluido, qty, precio, vari
   const foto = fotoVariante || product?.imageUrl;
 
   return (
-    <li className={`animate-slide-up flex gap-3 py-4 transition-opacity duration-200 ${incluido ? '' : 'opacity-55'}`} style={{ animationDelay: `${Math.min(indice, 12) * 35}ms` }}>
-      <input type="checkbox" checked={incluido} onChange={e => onIncluir(e.target.checked)}
-        aria-label={incluido ? `Ya tengo: ${item.nombreOriginal}` : `Volver a agregar: ${item.nombreOriginal}`}
-        className="mt-6 h-5 w-5 shrink-0 cursor-pointer rounded accent-primario" />
+    <li id={`util-${item.id}`} className={`animate-slide-up flex gap-3 py-4 transition-opacity duration-200 ${incluido ? '' : 'opacity-55'}`} style={{ animationDelay: `${Math.min(indice, 12) * 35}ms` }}>
+      {item.agregado && onQuitar ? (
+        <button onClick={onQuitar} aria-label={`Quitar ${product?.name ?? item.nombreOriginal} de la lista`}
+          className="mt-5 -ml-1 h-7 w-7 shrink-0 cursor-pointer rounded-lg p-1 text-tenue transition-colors hover:bg-profe-claro hover:text-profe">
+          <Trash2 className="h-5 w-5" aria-hidden="true" />
+        </button>
+      ) : (
+        <input type="checkbox" checked={incluido} onChange={e => onIncluir(e.target.checked)}
+          aria-label={incluido ? `Ya tengo: ${item.nombreOriginal}` : `Volver a agregar: ${item.nombreOriginal}`}
+          className="mt-6 h-5 w-5 shrink-0 cursor-pointer rounded accent-primario" />
+      )}
 
       <button onClick={onAbrir} disabled={!incluido} aria-label={`Ver opciones para ${item.nombreOriginal}`}
         className="h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-linea bg-fondo transition-[border-color] hover:border-primario disabled:cursor-default sm:h-20 sm:w-20">
@@ -54,12 +63,16 @@ export default function FilaUtil({ item, indice = 0, incluido, qty, precio, vari
                 {variantes.length > 0 && (
                   <span className="mt-0.5 block text-sm text-grafito">{variantes.map(v => `${v.tipo}: ${v.valor}`).join(', ')}</span>
                 )}
-                <span className="mt-0.5 block truncate text-sm text-tenue" title={item.nombreOriginal}>Lista: {item.nombreOriginal}</span>
+                {item.agregado
+                  ? <span className="mt-1 inline-block rounded-full bg-acento-claro px-2 py-0.5 text-xs font-semibold text-slate-900">Lo agregaste tú</span>
+                  : <span className="mt-0.5 block truncate text-sm text-tenue" title={item.nombreOriginal}>Lista: {item.nombreOriginal}</span>}
               </>
             ) : (
               <>
                 <span className="block font-semibold leading-snug">{item.nombreOriginal}</span>
-                <span className="mt-1 inline-block rounded-full bg-profe-claro px-2 py-0.5 text-xs font-semibold text-profe">Aún no lo tenemos, toca para buscar</span>
+                <span className="mt-1 inline-block rounded-full bg-profe-claro px-2 py-0.5 text-xs font-semibold text-profe">
+                  {item.agregado ? 'Lo pediste tú: te confirmamos el precio' : 'Aún no lo tenemos, toca para buscar'}
+                </span>
               </>
             )}
           </button>

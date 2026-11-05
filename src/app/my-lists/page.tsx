@@ -85,7 +85,7 @@ export default function MyListsPage() {
           </section>
 
           <section className="mt-10" aria-labelledby="titulo-listas">
-            <h2 id="titulo-listas" className="text-lg font-bold">Listas que subiste</h2>
+            <h2 id="titulo-listas" className="text-lg font-bold">Tus listas</h2>
             {lists.length === 0 ? (
               <div className="mt-3 rounded-2xl border border-dashed border-linea-fuerte px-5 py-8 text-center">
                 <ClipboardList className="mx-auto h-8 w-8 text-tenue" aria-hidden="true" />
