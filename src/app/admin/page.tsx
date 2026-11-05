@@ -1,6 +1,8 @@
 'use client';
 
-import { API } from '@/lib/api-base';
+import { apiJson } from '@/lib/api-base';
+import StatusBadge from '@/components/StatusBadge';
+import { useAvisos } from './_ui';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useRealtimeNotifications } from '@/lib/useNotifications';
@@ -28,17 +30,16 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const { notifications, connected, unreadCount, markAsRead, clearAll } = useRealtimeNotifications(user?.role, user?.id);
   const [showNotifs, setShowNotifs] = useState(false);
+  const avisos = useAvisos();
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/orders/stats`).then(r => r.json()),
-      fetch(`${API}/orders`).then(r => r.json()),
-    ]).then(([statsRes, ordersRes]) => {
-      if (statsRes.success) setStats(statsRes.data);
-      if (ordersRes.success) setOrders(ordersRes.data || []);
-    }).catch(err => { console.error(err); })
+      apiJson<DashboardStats>('/orders/stats'),
+      apiJson<Order[]>('/orders'),
+    ]).then(([s, o]) => { setStats(s); setOrders(o || []); })
+      .catch(err => avisos.error(err, 'No pudimos cargar el resumen'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [avisos]);
 
   const getNotifIcon = (type: string) => {
     switch (type) {
@@ -61,13 +62,13 @@ export default function AdminDashboard() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-slate-900">Dashboard</h1>
+        <h1 className="text-xl font-bold text-slate-900">Resumen</h1>
         <div className="flex items-center gap-3">
           <div className={`flex items-center gap-1.5 text-xs ${connected ? 'text-green-600' : 'text-red-500'}`}>
             <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
             {connected ? 'En vivo' : 'Desconectado'}
           </div>
-          <button onClick={() => setShowNotifs(!showNotifs)} className="relative p-2 bg-white rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
+          <button onClick={() => setShowNotifs(!showNotifs)} aria-label={`Notificaciones${unreadCount ? ` (${unreadCount} sin leer)` : ''}`} className="relative p-2 bg-white rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
             <Bell className="h-4 w-4 text-slate-600" />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
@@ -89,7 +90,7 @@ export default function AdminDashboard() {
             </div>
           </div>
           {notifications.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-4">Sin notificaciones. Las nuevas apareceran aqui en tiempo real.</p>
+            <p className="text-xs text-slate-400 text-center py-4">Sin notificaciones. Las nuevas aparecerán aquí en tiempo real.</p>
           ) : (
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {notifications.map(n => (
@@ -98,7 +99,7 @@ export default function AdminDashboard() {
                   {getNotifIcon(n.type)}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-slate-700">{n.message}</p>
-                    <p className="text-[10px] text-slate-400">{new Date(n.timestamp).toLocaleTimeString()}</p>
+                    <p className="text-[10px] text-slate-400">{new Date(n.timestamp).toLocaleTimeString('es-PE')}</p>
                   </div>
                 </div>
               ))}
@@ -133,7 +134,7 @@ export default function AdminDashboard() {
 
       {/* Second row stats */}
       {stats && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
@@ -197,26 +198,21 @@ export default function AdminDashboard() {
       <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 mb-6">
         <h2 className="text-sm font-bold text-slate-900 mb-3">Pedidos recientes</h2>
         {orders.length === 0 ? (
-          <p className="text-xs text-neutral-400 text-center py-6">No hay pedidos aun</p>
+          <p className="text-xs text-neutral-400 text-center py-6">No hay pedidos aún</p>
         ) : (
           <div className="space-y-2">
             {orders.slice(0, 10).map(order => (
               <div key={order.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                 <div>
-                  <p className="text-sm font-medium text-slate-900">#{order.id.slice(0, 8)}</p>
-                  <p className="text-xs text-neutral-400">{order.items?.length || 0} productos - {order.shippingPhone}</p>
+                  <p className="text-sm font-medium text-slate-900">#{order.id.slice(0, 8)}{order.userName ? ` · ${order.userName}` : ''}</p>
+                  <p className="text-xs text-neutral-400">{order.items?.length || 0} productos · {order.shippingPhone}</p>
                   {order.statusHistory?.[0]?.notes && (
                     <p className="text-xs text-blue-500 mt-0.5">Obs: {order.statusHistory[0].notes}</p>
                   )}
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-slate-900">{formatPrice(order.total)}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    order.status === 'RECIBIDO' ? 'bg-purple-100 text-purple-700' :
-                    order.status === 'EN_PREPARACION' ? 'bg-blue-100 text-blue-700' :
-                    order.status === 'ENTREGADO' ? 'bg-green-100 text-green-700' :
-                    'bg-slate-100 text-slate-700'
-                  }`}>{order.status}</span>
+                  <StatusBadge status={order.status} size="sm" />
                 </div>
               </div>
             ))}

@@ -1,7 +1,7 @@
 'use client';
 
 import { volarAlCarrito } from '@/lib/efectos';
-import { API } from '@/lib/api-base';
+import { API, apiFetch } from '@/lib/api-base';
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/cart-context';
@@ -30,7 +30,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [activeImage, setActiveImage] = useState('');
 
   useEffect(() => {
-    fetch(`${API}/products/${id}`).then(r => r.json()).then(d => {
+    apiFetch(`${API}/products/${id}`).then(r => r.json()).then(d => {
       if (d.success) {
         setProduct(d.data);
         setActiveImage(d.data.images?.[0]?.image_url || d.data.imageUrl || '');

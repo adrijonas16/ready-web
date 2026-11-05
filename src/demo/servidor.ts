@@ -16,7 +16,7 @@ export const TIEMPO_APROBACION = 14 * SEG;
 
 type Json = Record<string, unknown>;
 
-interface Usuario { id: string; email: string; name: string; role: string; phone?: string; address?: string }
+interface Usuario { id: string; email: string; name: string; role: string; phone?: string; address?: string; createdAt?: string }
 interface Grado { id: string; schoolId: string; name: string; year: number }
 interface ItemGuardado {
   id: string; nombreOriginal: string; cantidad: number; notas?: string;
@@ -31,6 +31,9 @@ interface Lista {
   estudianteNombre?: string; estudianteGrado?: string; creada: number; fechaValidacion?: number;
   plantilla: 'primaria' | 'inicial' | 'secundaria'; items: ItemGuardado[];
   copiaDe?: string;
+  /** El admin ya cambió su estado: la demo deja de aprobarla sola */
+  tocadaPorAdmin?: boolean;
+  fechaInicioRevision?: number;
 }
 interface Pedido {
   id: string; userId: string; supplyListId?: string; total: number; status: string;
@@ -40,7 +43,10 @@ interface Pedido {
   statusHistory: { status: string; notes?: string; createdAt: string }[];
 }
 interface Campana { id: string; name: string; slug: string; description?: string; discount_percent: number; discount_fixed: number; start_date?: string | null; end_date?: string | null; is_active: boolean; image_url?: string | null; productIds: string[] }
-interface Noticia { id: string; title: string; content?: string; image_url?: string | null; campaign_slug?: string | null; is_active: boolean; created_at: string }
+interface Noticia { id: string; title: string; content?: string; image_url?: string | null; link_url?: string | null; campaign_id?: string | null; campaign_slug?: string | null; display_order?: number; is_active: boolean; created_at: string }
+interface Imagen { id: string; imageUrl: string; altText?: string | null; isPrimary: boolean; displayOrder: number }
+interface Ajustes { costoEnvio: number; envioGratisDesde: number | null; whatsapp: string; telefono: string; horarioEntrega: string; diasEntrega: number; zonas?: string }
+const AJUSTES_DEMO: Ajustes = { costoEnvio: 8, envioGratisDesde: 150, whatsapp: '51959000111', telefono: '959 000 111', horarioEntrega: 'Lunes a sábado, 9:00 a 18:00', diasEntrega: 2 };
 
 interface Estado {
   version: 1;
@@ -58,6 +64,9 @@ interface Estado {
   campanas: Campana[];
   noticias: Noticia[];
   avisos: { tipo: string; mensaje: string; userId?: string; admin?: boolean }[];
+  /** Fotos de cada producto (si falta, se arma con imageUrl) */
+  imagenes?: Record<string, Imagen[]>;
+  ajustes?: Ajustes;
 }
 
 const nuevoId = (prefijo: string) => `${prefijo}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -75,7 +84,7 @@ function estadoInicial(): Estado {
   return {
     version: 1,
     usuarios: [
-      { id: 'u-admin', email: 'admin@ready.pe', name: 'Admin Ready', role: 'ADMIN', phone: '959 000 111' },
+      { id: 'u-admin', email: 'admin@ready.pe', name: 'Admin Ready', role: 'ADMIN', phone: '959 000 111', createdAt: new Date(Date.now() - 86400000 * 30).toISOString() },
     ],
     productos: todas.map(p => ({ ...p })),
     variantes: JSON.parse(JSON.stringify(variantesBase)),
@@ -152,7 +161,8 @@ export function avanzar() {
       });
       cambio = true;
     }
-    if (l.estado === 'PENDIENTE_REVISION' && l.iaEstado === 'LISTO' && edad >= TIEMPO_APROBACION) {
+    // Solo se aprueba sola si nadie del equipo la empezó a revisar
+    if (l.estado === 'PENDIENTE_REVISION' && !l.tocadaPorAdmin && l.iaEstado === 'LISTO' && edad >= TIEMPO_APROBACION) {
       l.estado = 'VALIDADA';
       l.fechaValidacion = Date.now();
       cambio = true;
@@ -198,7 +208,8 @@ function listaRespuesta(l: Lista) {
     submittedBy: usuario?.name, plan: l.plan ?? null, estudianteNombre: l.estudianteNombre, estudianteGrado: l.estudianteGrado,
     iaEstado: l.iaEstado, iaMensaje: l.iaMensaje, extras: l.extras ?? null,
     fechaSubida: new Date(l.creada).toISOString(), fechaValidacion: l.fechaValidacion ? new Date(l.fechaValidacion).toISOString() : null,
-    createdAt: new Date(l.creada).toISOString(), totalItems: l.items.length,
+    createdAt: new Date(l.creada).toISOString(), totalItems: l.items.length, copiaDe: l.copiaDe ?? null,
+    fechaInicioRevision: l.fechaInicioRevision ? new Date(l.fechaInicioRevision).toISOString() : null,
   };
 }
 
@@ -224,6 +235,56 @@ function leerArchivo(f: File): Promise<string> {
 
 const sesion = (u: Usuario) => ({ token: `demo.${u.id}`, user: u });
 
+// ── Permisos (igual que el backend: el panel exige ADMIN u OPERATOR) ──
+const esEquipo = (u?: Usuario) => u?.role === 'ADMIN' || u?.role === 'OPERATOR';
+function exigirEquipo(u?: Usuario) {
+  if (!u) throw new ErrorDemo('Inicia sesión para continuar', 401);
+  if (!esEquipo(u)) throw new ErrorDemo('No tienes permiso para hacer esto', 403);
+}
+function exigirAdmin(u?: Usuario) {
+  exigirEquipo(u);
+  if (u!.role !== 'ADMIN') throw new ErrorDemo('Solo un administrador puede hacer esto', 403);
+}
+
+/** Dirección web sin tildes, ñ ni símbolos: "Útiles de Año Nuevo" → "utiles-de-ano-nuevo" */
+const aSlug = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+/** Fecha "AAAA-MM-DD" (o ISO) → "AAAA-MM-DD"; vacío → null. Sin zonas horarias para no correr un día. */
+const soloFecha = (v: unknown) => { const t = texto(v)?.trim(); return t ? t.slice(0, 10) : null; };
+const cambiaSi = <T,>(v: unknown, actual: T): T => (v === undefined || v === null ? actual : v as T);
+
+// ── Fotos de productos ──
+function imagenesDe(prod: ProductoDemo): Imagen[] {
+  const e = cargar();
+  const guardadas = (e.imagenes ??= {})[prod.id];
+  if (guardadas) return guardadas;
+  return prod.imageUrl ? [{ id: `img-${prod.id}-0`, imageUrl: prod.imageUrl, altText: prod.name, isPrimary: true, displayOrder: 0 }] : [];
+}
+function guardarImagenes(prod: ProductoDemo, lista: Imagen[]) {
+  const e = cargar();
+  lista.forEach((im, i) => { im.displayOrder = i; });
+  if (lista.length && !lista.some(im => im.isPrimary)) lista[0].isPrimary = true;
+  (e.imagenes ??= {})[prod.id] = lista;
+  prod.imageUrl = lista.find(im => im.isPrimary)?.imageUrl;
+}
+/** Para el detalle: la principal primero, con nombres de ambas formas (la tienda lee image_url) */
+const imagenesRespuesta = (prod: ProductoDemo) => [...imagenesDe(prod)].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.displayOrder - b.displayOrder)
+  .map(im => ({ ...im, image_url: im.imageUrl, alt_text: im.altText ?? null, is_primary: im.isPrimary }));
+
+// ── Campañas y noticias: camelCase (contrato) y los nombres antiguos que aún lee la tienda ──
+const campanaRespuesta = ({ productIds, ...c }: Campana) => ({
+  ...c, productCount: productIds.length,
+  discountPercent: c.discount_percent, discountFixed: c.discount_fixed, startDate: c.start_date ?? null, endDate: c.end_date ?? null,
+  isActive: c.is_active, imageUrl: c.image_url ?? null,
+});
+function noticiaRespuesta(n: Noticia) {
+  const c = n.campaign_id ? cargar().campanas.find(x => x.id === n.campaign_id) : n.campaign_slug ? cargar().campanas.find(x => x.slug === n.campaign_slug) : undefined;
+  return {
+    ...n, campaign_slug: c?.slug ?? null, campaign_name: c?.name ?? null,
+    imageUrl: n.image_url ?? null, linkUrl: n.link_url ?? null, campaignId: c?.id ?? null, campaignName: c?.name ?? null,
+    displayOrder: n.display_order ?? 0, isActive: n.is_active, createdAt: n.created_at,
+  };
+}
+
 // ── Rutas ──
 export async function responder(metodo: string, ruta: string, query: URLSearchParams, cuerpo: unknown, token?: string | null): Promise<unknown> {
   avanzar();
@@ -242,29 +303,44 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       const email = String(bj.email || '').trim().toLowerCase();
       if (!email) throw new ErrorDemo('Escribe tu correo');
       let u = e.usuarios.find(x => x.email.toLowerCase() === email);
-      if (!u) { u = { id: nuevoId('u'), email, name: email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), role: email.startsWith('admin') ? 'ADMIN' : 'USER' }; e.usuarios.push(u); guardar(); }
+      if (!u) { u = { id: nuevoId('u'), email, name: email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), role: email.startsWith('admin') ? 'ADMIN' : email.startsWith('operador') ? 'OPERATOR' : 'USER', createdAt: ahora() }; e.usuarios.push(u); guardar(); }
       return sesion(u);
     }
     if (r1 === 'register' && M === 'POST') {
       const email = String(bj.email || '').trim().toLowerCase();
       if (e.usuarios.some(x => x.email.toLowerCase() === email)) throw new ErrorDemo('Ese correo ya tiene cuenta. Inicia sesión.');
-      const u: Usuario = { id: nuevoId('u'), email, name: String(bj.name || 'Cliente'), role: 'USER' };
+      const u: Usuario = { id: nuevoId('u'), email, name: String(bj.name || 'Cliente'), role: 'USER', createdAt: ahora() };
       e.usuarios.push(u);
       return cambia(sesion(u));
     }
     if (r1 === 'me') { if (!yo) throw new ErrorDemo('Sesión vencida', 401); return yo; }
-    if (r1 === 'users' && !r2) return e.usuarios;
-    if (r1 === 'users' && r3 === 'role') { const u = e.usuarios.find(x => x.id === r2); if (u) u.role = String(bj.role); return cambia(true); }
+    if (r1 === 'users' && !r2) { exigirAdmin(yo); return e.usuarios.map(u => ({ ...u, createdAt: u.createdAt ?? null })); }
+    if (r1 === 'users' && r3 === 'role') {
+      exigirAdmin(yo);
+      const u = e.usuarios.find(x => x.id === r2);
+      if (!u) throw new ErrorDemo('Usuario no encontrado', 404);
+      const rol = String(bj.role);
+      if (!['USER', 'OPERATOR', 'ADMIN'].includes(rol)) throw new ErrorDemo('Rol no válido');
+      if (u.id === yo!.id && rol !== 'ADMIN') throw new ErrorDemo('No puedes quitarte tu propio rol de administrador', 409);
+      u.role = rol; return cambia(true);
+    }
   }
 
   // Colegios y grados
   if (r0 === 'schools') {
     const col = r1 ? e.colegios.find(c => c.id === r1) : undefined;
     if (!r1 && M === 'GET') return e.colegios;
+    // El cliente, al subir su lista, crea (o reutiliza) el grado de su colegio: eso sigue abierto a cualquier sesión
+    if (M !== 'GET' && !(r2 === 'grades' && !r3 && M === 'POST')) exigirEquipo(yo);
+    if (r2 === 'grades' && !r3 && M === 'POST' && !yo) throw new ErrorDemo('Inicia sesión para continuar', 401);
     if (!r1 && M === 'POST') { const c = { id: nuevoId('col'), name: String(bj.name), address: texto(bj.address) }; e.colegios.push(c); e.seccionesColegio[c.id] = e.secciones.map(s => s.id); return cambia(c); }
     if (r1 && !r2 && M === 'GET') return col ?? null;
     if (r1 && !r2 && M === 'PUT') { if (col) Object.assign(col, { name: bj.name ?? col.name, address: bj.address ?? col.address }); return cambia(true); }
-    if (r1 && !r2 && M === 'DELETE') { e.colegios = e.colegios.filter(c => c.id !== r1); return cambia(true); }
+    if (r1 && !r2 && M === 'DELETE') {
+      const n = e.listas.filter(l => l.schoolId === r1).length;
+      if (n) throw new ErrorDemo(`No se puede eliminar: el colegio tiene ${n} ${n === 1 ? 'lista' : 'listas'}. Elimina o mueve esas listas primero.`, 409);
+      e.colegios = e.colegios.filter(c => c.id !== r1); e.grados = e.grados.filter(g => g.schoolId !== r1); return cambia(true);
+    }
     if (r2 === 'grades' && M === 'GET') return e.grados.filter(g => g.schoolId === r1);
     if (r2 === 'grades' && M === 'POST') {
       const name = String(bj.name), year = Number(bj.year) || new Date().getFullYear();
@@ -272,46 +348,148 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       if (!g) { g = { id: nuevoId('gr'), schoolId: r1, name, year }; e.grados.push(g); }
       return cambia(g);
     }
-    if (r2 === 'grades' && r3 && M === 'DELETE') { e.grados = e.grados.filter(g => g.id !== r3); return cambia(true); }
+    if (r2 === 'grades' && r3 && M === 'DELETE') {
+      const n = e.listas.filter(l => l.gradeId === r3).length;
+      if (n) throw new ErrorDemo(`No se puede eliminar: el grado tiene ${n} ${n === 1 ? 'lista' : 'listas'}.`, 409);
+      e.grados = e.grados.filter(g => g.id !== r3); return cambia(true);
+    }
     if (r2 === 'sections' && M === 'GET') { const ids = e.seccionesColegio[r1] ?? []; return e.secciones.filter(s => ids.includes(s.id)); }
     if (r2 === 'sections' && M === 'PUT') { e.seccionesColegio[r1] = (bj.sectionIds as string[]) ?? []; return cambia(true); }
   }
   if (r0 === 'sections') {
-    if (M === 'GET') return e.secciones;
+    if (M === 'GET') return [...e.secciones].sort((a, b) => a.sortOrder - b.sortOrder);
+    exigirEquipo(yo);
+    if (M === 'PUT') {
+      const s = e.secciones.find(x => x.id === r1);
+      if (!s) throw new ErrorDemo('Grado no encontrado', 404);
+      const nombre = String(bj.name ?? s.name).trim();
+      if (!nombre) throw new ErrorDemo('Escribe el nombre del grado');
+      const anterior = s.name;
+      Object.assign(s, { name: nombre, groupName: String(bj.groupName ?? s.groupName), sortOrder: Number(bj.sortOrder ?? s.sortOrder) });
+      // Los grados de los colegios con el nombre anterior también se renombran
+      if (anterior !== nombre) e.grados.forEach(g => { if (g.name === anterior) g.name = nombre; });
+      return cambia(s);
+    }
     if (M === 'POST') { const s = { id: nuevoId('sec'), groupName: String(bj.groupName), name: String(bj.name), sortOrder: Number(bj.sortOrder) || 0 }; e.secciones.push(s); return cambia(s); }
     if (M === 'DELETE') { e.secciones = e.secciones.filter(s => s.id !== r1); return cambia(true); }
   }
   if (r0 === 'categories') {
     if (M === 'GET') return e.categorias;
-    if (M === 'POST') { const c = { id: nuevoId('cat'), name: String(bj.name) }; e.categorias.push(c); return cambia(c); }
-    if (M === 'DELETE') { e.categorias = e.categorias.filter(c => c.id !== r1); return cambia(true); }
+    exigirEquipo(yo);
+    const nombre = String(bj.name ?? '').trim();
+    if (M === 'POST') {
+      if (!nombre) throw new ErrorDemo('Escribe el nombre de la categoría');
+      if (e.categorias.some(c => c.name.toLowerCase() === nombre.toLowerCase())) throw new ErrorDemo('Ya existe una categoría con ese nombre', 409);
+      const c = { id: nuevoId('cat'), name: nombre }; e.categorias.push(c); return cambia(c);
+    }
+    const cat = e.categorias.find(c => c.id === r1);
+    if (!cat) throw new ErrorDemo('Categoría no encontrada', 404);
+    if (M === 'PUT') {
+      if (!nombre) throw new ErrorDemo('Escribe el nombre de la categoría');
+      if (e.categorias.some(c => c.id !== cat.id && c.name.toLowerCase() === nombre.toLowerCase())) throw new ErrorDemo('Ya existe una categoría con ese nombre', 409);
+      e.productos.forEach(x => { if (x.category === cat.name) x.category = nombre; });
+      cat.name = nombre; return cambia(cat);
+    }
+    if (M === 'DELETE') {
+      const n = e.productos.filter(x => x.category === cat.name).length;
+      if (n) throw new ErrorDemo(`No se puede eliminar "${cat.name}": la usan ${n} ${n === 1 ? 'producto' : 'productos'}. Cámbialos de categoría primero.`, 409);
+      e.categorias = e.categorias.filter(c => c.id !== r1); return cambia(true);
+    }
   }
   if (r0 === 'brands') {
     if (M === 'GET') return e.marcas;
-    if (M === 'POST' && !r1) { const m = { id: nuevoId('b'), name: String(bj.name), logoUrl: texto(bj.logoUrl) ?? null }; e.marcas.push(m); return cambia(m); }
-    if (M === 'PUT') { const m = e.marcas.find(x => x.id === r1); if (m) m.name = String(bj.name); return cambia(true); }
-    if (r2 === 'logo' && b instanceof FormData) { const f = b.get('file') ?? b.get('logo'); const m = e.marcas.find(x => x.id === r1); if (m && f instanceof File) m.logoUrl = await leerArchivo(f); return cambia(true); }
+    exigirEquipo(yo);
+    if (M === 'POST' && !r1) {
+      const nombre = String(bj.name ?? '').trim();
+      if (!nombre) throw new ErrorDemo('Escribe el nombre de la marca');
+      if (e.marcas.some(x => x.name.toLowerCase() === nombre.toLowerCase())) throw new ErrorDemo('Ya existe una marca con ese nombre', 409);
+      const m = { id: nuevoId('b'), name: nombre, logoUrl: texto(bj.logoUrl) ?? null }; e.marcas.push(m); return cambia(m);
+    }
+    const m = e.marcas.find(x => x.id === r1);
+    if (!m) throw new ErrorDemo('Marca no encontrada', 404);
+    if (M === 'PUT' && !r2) {
+      const nombre = String(bj.name ?? m.name).trim();
+      if (!nombre) throw new ErrorDemo('Escribe el nombre de la marca');
+      if (nombre !== m.name) e.productos.forEach(x => { if (x.brand === m.name) x.brand = nombre; });
+      m.name = nombre; if (bj.logoUrl !== undefined && bj.logoUrl !== null) m.logoUrl = texto(bj.logoUrl) || null;
+      return cambia(m);
+    }
+    if (M === 'DELETE' && !r2) { e.marcas = e.marcas.filter(x => x.id !== m.id); return cambia(true); }
+    if (r2 === 'logo' && b instanceof FormData) { const f = b.get('file') ?? b.get('logo'); if (f instanceof File) m.logoUrl = await leerArchivo(f); return cambia(m); }
   }
 
   // Campañas y noticias
   if (r0 === 'campaigns') {
-    const sinProductos = ({ productIds, ...c }: Campana) => ({ ...c, productCount: productIds.length });
+    const sinProductos = campanaRespuesta;
     if (!r1 && M === 'GET') return e.campanas.filter(c => query.get('activeOnly') !== 'true' || c.is_active).map(sinProductos);
-    if (!r1 && M === 'POST') { const c: Campana = { id: nuevoId('camp'), name: String(bj.name), slug: String(bj.slug), description: texto(bj.description), discount_percent: Number(bj.discountPercent) || 0, discount_fixed: Number(bj.discountFixed) || 0, start_date: texto(bj.startDate) ?? null, end_date: texto(bj.endDate) ?? null, is_active: true, productIds: [] }; e.campanas.push(c); return cambia(sinProductos(c)); }
-    const c = e.campanas.find(x => x.id === r1 || x.slug === r1);
+    const c = r1 ? e.campanas.find(x => x.id === r1 || x.slug === r1) : undefined;
     if (r1 && !r2 && M === 'GET') return c ? { ...sinProductos(c), products: c.productIds.map(id => producto(id)).filter(Boolean) } : null;
-    if (r1 && !r2 && M === 'PUT' && c) { Object.assign(c, { name: bj.name ?? c.name, slug: bj.slug ?? c.slug, description: bj.description ?? c.description, discount_percent: Number(bj.discountPercent ?? c.discount_percent) }); return cambia(true); }
-    if (r2 === 'products' && M === 'POST' && c) { const id = String(bj.productId); if (!c.productIds.includes(id)) c.productIds.push(id); return cambia(true); }
-    if (r2 === 'products' && M === 'DELETE' && c) { c.productIds = c.productIds.filter(x => x !== r3); return cambia(true); }
-    if (r2 === 'image') return true;
+    exigirEquipo(yo);
+    const unica = (slug: string, id?: string) => { if (e.campanas.some(x => x.slug === slug && x.id !== id)) throw new ErrorDemo('Ya hay una campaña con esa dirección web', 409); return slug; };
+    if (!r1 && M === 'POST') {
+      const name = String(bj.name ?? '').trim();
+      if (!name) throw new ErrorDemo('Escribe el nombre de la campaña');
+      const nueva: Campana = {
+        id: nuevoId('camp'), name, slug: unica(aSlug(texto(bj.slug) || name)), description: texto(bj.description),
+        discount_percent: Number(bj.discountPercent) || 0, discount_fixed: Number(bj.discountFixed) || 0,
+        start_date: soloFecha(bj.startDate), end_date: soloFecha(bj.endDate), is_active: bj.isActive === undefined ? true : !!bj.isActive,
+        image_url: texto(bj.imageUrl) ?? null, productIds: [],
+      };
+      e.campanas.push(nueva); return cambia(sinProductos(nueva));
+    }
+    if (!c) throw new ErrorDemo('Campaña no encontrada', 404);
+    if (!r2 && M === 'PUT') {
+      Object.assign(c, {
+        name: cambiaSi(bj.name, c.name), slug: bj.slug ? unica(aSlug(String(bj.slug)), c.id) : c.slug, description: cambiaSi(bj.description, c.description),
+        discount_percent: Number(cambiaSi(bj.discountPercent, c.discount_percent)), discount_fixed: Number(cambiaSi(bj.discountFixed, c.discount_fixed)),
+        is_active: bj.isActive === undefined || bj.isActive === null ? c.is_active : !!bj.isActive,
+        image_url: bj.imageUrl === undefined ? c.image_url : (texto(bj.imageUrl) || null),
+      });
+      // Las fechas sí se pueden borrar (null = sin fecha)
+      if (bj.startDate !== undefined) c.start_date = soloFecha(bj.startDate);
+      if (bj.endDate !== undefined) c.end_date = soloFecha(bj.endDate);
+      return cambia(sinProductos(c));
+    }
+    if (!r2 && M === 'DELETE') { e.campanas = e.campanas.filter(x => x.id !== c.id); e.noticias.forEach(n => { if (n.campaign_id === c.id) n.campaign_id = null; }); return cambia(true); }
+    if (r2 === 'products' && M === 'POST') {
+      const ids = (Array.isArray(bj.productIds) ? bj.productIds : bj.productId ? [bj.productId] : []).map(String).filter(id => producto(id));
+      if (!ids.length) throw new ErrorDemo('Elige al menos un producto');
+      ids.forEach(id => { if (!c.productIds.includes(id)) c.productIds.push(id); });
+      return cambia(true);
+    }
+    if (r2 === 'products' && M === 'DELETE') { c.productIds = c.productIds.filter(x => x !== r3); return cambia(true); }
+    if (r2 === 'image' && b instanceof FormData) { const f = b.get('file') ?? b.get('image'); if (f instanceof File) c.image_url = await leerArchivo(f); return cambia(sinProductos(c)); }
   }
   if (r0 === 'news') {
-    if (!r1 && M === 'GET') return e.noticias.filter(n => query.get('activeOnly') !== 'true' || n.is_active);
-    if (!r1 && M === 'POST') { const n: Noticia = { id: nuevoId('n'), title: String(bj.title), content: texto(bj.content), campaign_slug: texto(bj.campaignSlug) ?? null, is_active: true, created_at: ahora() }; e.noticias.push(n); return cambia(n); }
+    if (!r1 && M === 'GET') return e.noticias.filter(n => query.get('activeOnly') !== 'true' || n.is_active)
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)).map(noticiaRespuesta);
+    exigirEquipo(yo);
+    const campanaDe = (v: unknown) => { const id = texto(v); return id && e.campanas.some(c => c.id === id) ? id : null; };
+    if (!r1 && M === 'POST') {
+      const title = String(bj.title ?? '').trim();
+      if (!title) throw new ErrorDemo('Escribe el título de la noticia');
+      const n: Noticia = {
+        id: nuevoId('n'), title, content: texto(bj.content), image_url: texto(bj.imageUrl) || null, link_url: texto(bj.linkUrl) || null,
+        campaign_id: campanaDe(bj.campaignId), display_order: Number(bj.displayOrder) || 0, is_active: bj.isActive === undefined ? true : !!bj.isActive, created_at: ahora(),
+      };
+      e.noticias.push(n); return cambia(noticiaRespuesta(n));
+    }
     const n = e.noticias.find(x => x.id === r1);
-    if (r1 && !r2 && M === 'PUT' && n) { Object.assign(n, { title: bj.title ?? n.title, content: bj.content ?? n.content, is_active: bj.isActive ?? n.is_active }); return cambia(true); }
-    if (r1 && !r2 && M === 'DELETE') { e.noticias = e.noticias.filter(x => x.id !== r1); return cambia(true); }
-    if (r2 === 'image' && n && b instanceof FormData) { const f = b.get('file') ?? b.get('image'); if (f instanceof File) n.image_url = await leerArchivo(f); return cambia(true); }
+    if (!n) throw new ErrorDemo('Noticia no encontrada', 404);
+    if (!r2 && M === 'PUT') {
+      Object.assign(n, {
+        title: cambiaSi(bj.title, n.title), content: cambiaSi(bj.content, n.content),
+        image_url: bj.imageUrl === undefined ? n.image_url : (texto(bj.imageUrl) || null),
+        link_url: bj.linkUrl === undefined ? n.link_url : (texto(bj.linkUrl) || null),
+        campaign_id: bj.campaignId === undefined ? n.campaign_id : campanaDe(bj.campaignId),
+        display_order: Number(cambiaSi(bj.displayOrder, n.display_order ?? 0)),
+        is_active: bj.isActive === undefined || bj.isActive === null ? n.is_active : !!bj.isActive,
+      });
+      if (bj.campaignId !== undefined) n.campaign_slug = null;
+      return cambia(noticiaRespuesta(n));
+    }
+    if (!r2 && M === 'DELETE') { e.noticias = e.noticias.filter(x => x.id !== r1); return cambia(true); }
+    if (r2 === 'image' && b instanceof FormData) { const f = b.get('file') ?? b.get('image'); if (f instanceof File) n.image_url = await leerArchivo(f); return cambia(noticiaRespuesta(n)); }
   }
 
   // Productos y variantes
@@ -319,6 +497,8 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
     const activos = e.productos.filter(x => x.isActive !== false);
     if (!r1 && M === 'GET') {
       const cat = query.get('category'), marca = query.get('brand');
+      // El panel pide también los inactivos y los Servicios
+      if (query.get('includeInactive') === 'true' && esEquipo(yo)) return e.productos.filter(x => (!cat || x.category === cat) && (!marca || x.brand === marca));
       let res = activos.filter(x => (cat ? x.category === cat : x.category !== 'Servicios') && (!marca || x.brand === marca));
       const lim = Number(query.get('limit')); if (lim > 0) res = res.slice(0, lim);
       return res;
@@ -331,12 +511,47 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       return activos.filter(x => x.category !== 'Servicios' && (!cat || x.category === cat) && (palabras.length === 0 || palabras.some(w => sinTilde(`${x.name} ${x.brand} ${x.category}`).includes(w.replace(/e?s$/, '')))));
     }
     if (r1 === 'categories') return Array.from(new Set(activos.filter(x => x.category !== 'Servicios').map(x => x.category)));
-    if (!r1 && M === 'POST') { const x: ProductoDemo = { id: nuevoId('p'), name: String(bj.name), description: texto(bj.description), category: String(bj.category || 'Útiles'), brand: texto(bj.brand), sku: String(bj.sku || nuevoId('SKU')), basePrice: Number(bj.basePrice) || 0, imageUrl: texto(bj.imageUrl), stock: Number(bj.stock) || 0, rating: 4.5, tier: (bj.tier as Tier) || 'medio', isActive: true }; e.productos.push(x); return cambia(x); }
+    const nivel = (v: unknown): Tier | undefined => (v === 'economico' || v === 'medio' || v === 'premium' ? v : undefined);
+    if (!r1 && M === 'POST') {
+      exigirEquipo(yo);
+      const name = String(bj.name ?? '').trim();
+      if (!name) throw new ErrorDemo('Escribe el nombre del producto');
+      const sku = String(bj.sku || nuevoId('RD').toUpperCase());
+      if (e.productos.some(x => x.sku === sku)) throw new ErrorDemo('Ya hay un producto con ese código', 409);
+      const x: ProductoDemo = { id: nuevoId('p'), name, description: texto(bj.description), category: String(bj.category || 'Útiles'), brand: texto(bj.brand), sku, basePrice: Number(bj.basePrice) || 0, imageUrl: texto(bj.imageUrl), stock: Number(bj.stock) || 0, rating: 4.5, tier: nivel(bj.tier) ?? 'medio', isActive: bj.isActive === undefined ? true : !!bj.isActive };
+      e.productos.push(x); return cambia(x);
+    }
     const prod = e.productos.find(x => x.id === r1);
-    if (r1 && !r2 && M === 'GET') { if (!prod) throw new ErrorDemo('Producto no encontrado', 404); return { ...prod, variants: e.variantes[prod.id] ?? [], images: [] }; }
-    if (r1 && !r2 && M === 'PUT' && prod) { const { id: _ignorado, ...resto } = bj; void _ignorado; Object.assign(prod, resto); return cambia(prod); }
+    if (r1 && !r2 && M === 'GET') { if (!prod) throw new ErrorDemo('Producto no encontrado', 404); return { ...prod, variants: e.variantes[prod.id] ?? [], images: imagenesRespuesta(prod) }; }
+    if (r1 && M !== 'GET') { exigirEquipo(yo); if (!prod) throw new ErrorDemo('Producto no encontrado', 404); }
+    if (r1 && !r2 && M === 'PUT' && prod) {
+      // Solo los campos del contrato; null o ausente = no cambiar
+      const campos = ['name', 'description', 'category', 'brand', 'sku', 'imageUrl', 'attributes'] as const;
+      const x = prod as ProductoDemo & { attributes?: string };
+      for (const k of campos) if (bj[k] !== undefined && bj[k] !== null) (x as unknown as Json)[k] = String(bj[k]);
+      if (bj.basePrice !== undefined && bj.basePrice !== null) x.basePrice = Number(bj.basePrice) || 0;
+      if (bj.stock !== undefined && bj.stock !== null) x.stock = Math.max(0, Number(bj.stock) || 0);
+      if (nivel(bj.tier)) x.tier = nivel(bj.tier)!;
+      if (bj.isActive !== undefined && bj.isActive !== null) x.isActive = !!bj.isActive;
+      return cambia(prod);
+    }
     if (r1 && !r2 && M === 'DELETE' && prod) { prod.isActive = false; return cambia(true); }
-    if (r2 === 'images') { if (M === 'POST' && prod && b instanceof FormData) { const f = b.get('file') ?? b.get('image'); if (f instanceof File) prod.imageUrl = await leerArchivo(f); guardar(); } return []; }
+    if (r2 === 'images' && prod) {
+      const lista = imagenesDe(prod).map(im => ({ ...im }));
+      if (!r3 && M === 'GET') return lista;
+      if (!r3 && M === 'POST' && b instanceof FormData) {
+        const f = b.get('file') ?? b.get('image');
+        if (!(f instanceof File)) throw new ErrorDemo('Elige una imagen');
+        const nueva: Imagen = { id: nuevoId('img'), imageUrl: await leerArchivo(f), altText: prod.name, isPrimary: lista.length === 0 || b.get('isPrimary') === 'true', displayOrder: lista.length };
+        if (nueva.isPrimary) lista.forEach(im => { im.isPrimary = false; });
+        lista.push(nueva); guardarImagenes(prod, lista);
+        return cambia(nueva);
+      }
+      const im = lista.find(x => x.id === r3);
+      if (!im) throw new ErrorDemo('Imagen no encontrada', 404);
+      if (M === 'DELETE') { guardarImagenes(prod, lista.filter(x => x.id !== im.id)); return cambia(true); }
+      if (r4 === 'primary' && M === 'PUT') { lista.forEach(x => { x.isPrimary = x.id === im.id; }); guardarImagenes(prod, lista); return cambia(true); }
+    }
     if (r2 === 'variants') {
       const tipos = (e.variantes[r1] ??= []);
       if (!r3 && M === 'GET') return tipos;
@@ -344,7 +559,18 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       if (r3 === 'types' && r4 && M === 'POST') { const t = tipos.find(x => x.id === r4); const v = { id: nuevoId('vv'), value: String(bj.value), color_hex: texto(bj.colorHex) ?? null, image_url: null, price_modifier: Number(bj.priceModifier) || 0, stock: Number(bj.stock) || 0, is_active: true }; t?.values.push(v); return cambia(v); }
       if (r3 === 'types' && r4 && M === 'DELETE') { e.variantes[r1] = tipos.filter(x => x.id !== r4); return cambia(true); }
       if (r3 === 'values' && M === 'DELETE') { tipos.forEach(t => { t.values = t.values.filter(v => v.id !== r4); }); return cambia(true); }
-      if (r3 === 'values' && M === 'PUT') { tipos.forEach(t => t.values.forEach(v => { if (v.id === r4) Object.assign(v, { value: bj.value ?? v.value, stock: bj.stock ?? v.stock, price_modifier: bj.priceModifier ?? v.price_modifier }); })); return cambia(true); }
+      if (r3 === 'values' && M === 'PUT') {
+        const v = tipos.flatMap(t => t.values).find(x => x.id === r4);
+        if (!v) throw new ErrorDemo('Opción no encontrada', 404);
+        const valor = String(cambiaSi(bj.value, v.value)).trim();
+        if (!valor) throw new ErrorDemo('Escribe el nombre de la opción');
+        Object.assign(v, {
+          value: valor, stock: Math.max(0, Number(cambiaSi(bj.stock, v.stock)) || 0), price_modifier: Number(cambiaSi(bj.priceModifier, v.price_modifier)) || 0,
+          color_hex: bj.colorHex === undefined ? v.color_hex : (texto(bj.colorHex) || null),
+          is_active: bj.isActive === undefined || bj.isActive === null ? v.is_active : !!bj.isActive,
+        });
+        return cambia(true);
+      }
       if (r3 === 'values' && p[5] === 'image' && b instanceof FormData) { const f = b.get('file') ?? b.get('image'); if (f instanceof File) { const url = await leerArchivo(f); tipos.forEach(t => t.values.forEach(v => { if (v.id === r4) v.image_url = url; })); } return cambia(true); }
     }
   }
@@ -379,10 +605,34 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
     const l = e.listas.find(x => x.id === r1);
     if (!l) throw new ErrorDemo('Lista no encontrada', 404);
     if (!r2 && M === 'GET') return { list: listaRespuesta(l), items: l.items.map(it => itemRespuesta(l, it)) };
-    if (!r2 && M === 'DELETE') { e.listas = e.listas.filter(x => x.id !== l.id); return cambia(true); }
+    if (!r2 && M === 'DELETE') { exigirEquipo(yo); e.listas = e.listas.filter(x => x.id !== l.id); return cambia(true); }
+    if (!r2 && M === 'PUT') {
+      // (admin) Corregir colegio, grado o año
+      exigirEquipo(yo);
+      const schoolId = texto(bj.schoolId) ?? l.schoolId, gradeId = texto(bj.gradeId) ?? l.gradeId;
+      if (!e.colegios.some(c => c.id === schoolId)) throw new ErrorDemo('Colegio no encontrado', 404);
+      const g = e.grados.find(x => x.id === gradeId);
+      if (!g || g.schoolId !== schoolId) throw new ErrorDemo('Elige un grado de ese colegio');
+      const year = bj.year !== undefined && bj.year !== null ? Number(bj.year) : l.year;
+      if (!Number.isInteger(year) || year < 2000 || year > 2100) throw new ErrorDemo('Año no válido');
+      Object.assign(l, { schoolId, gradeId, year });
+      return cambia(listaRespuesta(l));
+    }
     if (r2 === 'status') {
-      l.estado = String(bj.status); l.observaciones = texto(bj.observaciones) ?? l.observaciones;
-      if (l.estado === 'VALIDADA') { l.fechaValidacion = Date.now(); avisar('ListReady', '¡Tu lista fue aprobada! Ya puedes elegir tu paquete.', { userId: l.userId }); }
+      exigirEquipo(yo);
+      const estados = ['PENDIENTE_REVISION', 'EN_REVISION', 'OBSERVADA', 'RECHAZADA', 'VALIDADA'];
+      const nuevo = String(bj.status);
+      if (!estados.includes(nuevo)) throw new ErrorDemo('Estado no válido');
+      const obs = texto(bj.observaciones)?.trim();
+      if ((nuevo === 'OBSERVADA' || nuevo === 'RECHAZADA') && !obs) throw new ErrorDemo('Escribe el motivo para el cliente');
+      l.tocadaPorAdmin = true;
+      if (nuevo === 'EN_REVISION' && !l.fechaInicioRevision) l.fechaInicioRevision = Date.now();
+      l.estado = nuevo;
+      if (obs !== undefined) l.observaciones = obs || undefined;
+      if (bj.esOficial !== undefined && bj.esOficial !== null) l.esOficial = !!bj.esOficial;
+      if (nuevo === 'VALIDADA') { l.fechaValidacion = Date.now(); avisar('ListReady', '¡Tu lista fue aprobada! Ya puedes elegir tu paquete.', { userId: l.userId }); }
+      else if (nuevo === 'OBSERVADA') avisar('ListObserved', `Revisamos tu lista: ${obs}`, { userId: l.userId });
+      else if (nuevo === 'RECHAZADA') avisar('ListRejected', `No pudimos aprobar tu lista: ${obs}`, { userId: l.userId });
       return cambia(true);
     }
     if (r2 === 'plan') {
@@ -460,6 +710,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       return cambia(pedidoRespuesta(ped));
     }
     if (r1 === 'stats') {
+      exigirEquipo(yo);
       const activos = e.productos.filter(x => x.isActive !== false && x.category !== 'Servicios');
       return {
         totalOrders: e.pedidos.length, totalRevenue: e.pedidos.reduce((s, x) => s + x.total, 0), pendingOrders: e.pedidos.filter(x => x.status === 'RECIBIDO').length,
@@ -469,11 +720,22 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       };
     }
     if (r1 === 'user') return e.pedidos.filter(x => x.userId === r2).map(pedidoRespuesta);
-    if (!r1 && M === 'GET') return e.pedidos.map(pedidoRespuesta);
+    if (!r1 && M === 'GET') { exigirEquipo(yo); return e.pedidos.map(pedidoRespuesta); }
     const ped = e.pedidos.find(x => x.id === r1);
     if (!ped) throw new ErrorDemo('Pedido no encontrado', 404);
     if (!r2 && M === 'GET') return pedidoRespuesta(ped);
+    if (r2 === 'cancel' && M === 'PUT') {
+      if (!yo || (yo.id !== ped.userId && !esEquipo(yo))) throw new ErrorDemo('No tienes permiso para hacer esto', 403);
+      if (ped.status !== 'RECIBIDO') throw new ErrorDemo('Solo se puede cancelar un pedido recién recibido', 409);
+      ped.status = 'CANCELADO'; ped.statusHistory.push({ status: 'CANCELADO', notes: 'Cancelado por el cliente', createdAt: ahora() });
+      avisar('OrderUpdate', `El pedido ${ped.id} fue cancelado`, { admin: true });
+      return cambia(true);
+    }
     if (r2 === 'status') {
+      // En la demo el cliente también puede "simular el siguiente paso" de su propio pedido
+      if (!yo || (yo.id !== ped.userId && !esEquipo(yo))) throw new ErrorDemo('No tienes permiso para hacer esto', 403);
+      const estados = ['RECIBIDO', 'EN_PREPARACION', 'ARMADO', 'EN_CAMINO', 'ENTREGADO', 'CANCELADO'];
+      if (!estados.includes(String(bj.status))) throw new ErrorDemo('Estado no válido');
       ped.status = String(bj.status); ped.statusHistory.push({ status: ped.status, notes: texto(bj.notes), createdAt: ahora() });
       avisar('OrderUpdate', `Tu pedido ${ped.id} ahora está: ${ped.status.toLowerCase().replace(/_/g, ' ')}`, { userId: ped.userId });
       return cambia(true);
@@ -481,6 +743,30 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
   }
 
   if (r0 === 'storage') return { totalBytes: 0, files: 0 };
+
+  // Configuración de la tienda (GET público, PUT solo admin)
+  if (r0 === 'settings' && !r1) {
+    const actual = (e.ajustes ??= { ...AJUSTES_DEMO });
+    if (M === 'GET') return actual;
+    if (M === 'PUT') {
+      exigirAdmin(yo);
+      const num = (v: unknown, d: number) => (v === undefined || v === null || v === '' ? d : Number(v));
+      const nuevo: Ajustes = {
+        costoEnvio: num(bj.costoEnvio, actual.costoEnvio),
+        envioGratisDesde: bj.envioGratisDesde === null || bj.envioGratisDesde === '' ? null : num(bj.envioGratisDesde, actual.envioGratisDesde ?? 0),
+        whatsapp: String(cambiaSi(bj.whatsapp, actual.whatsapp)).replace(/\D/g, ''),
+        telefono: String(cambiaSi(bj.telefono, actual.telefono)).trim(),
+        horarioEntrega: String(cambiaSi(bj.horarioEntrega, actual.horarioEntrega)).trim(),
+        diasEntrega: Math.round(num(bj.diasEntrega, actual.diasEntrega)),
+        ...(bj.zonas !== undefined || actual.zonas !== undefined ? { zonas: String(cambiaSi(bj.zonas, actual.zonas ?? '')) } : {}),
+      };
+      if (!Number.isFinite(nuevo.costoEnvio) || nuevo.costoEnvio < 0) throw new ErrorDemo('El costo de envío no es válido');
+      if (nuevo.envioGratisDesde !== null && (!Number.isFinite(nuevo.envioGratisDesde) || nuevo.envioGratisDesde < 0)) throw new ErrorDemo('El monto para envío gratis no es válido');
+      if (!Number.isFinite(nuevo.diasEntrega) || nuevo.diasEntrega < 0 || nuevo.diasEntrega > 60) throw new ErrorDemo('Los días de entrega no son válidos');
+      e.ajustes = nuevo;
+      return cambia(nuevo);
+    }
+  }
 
   throw new ErrorDemo(`Ruta de demo no encontrada: ${M} /${p.join('/')}`, 404);
 }

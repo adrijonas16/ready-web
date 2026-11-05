@@ -1,6 +1,6 @@
 'use client';
 
-import { API } from '@/lib/api-base';
+import { API, apiFetch } from '@/lib/api-base';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -47,7 +47,7 @@ function Catalogo() {
   useEffect(() => {
     Promise.all([
       productsApi.getAll({ limit: 1000 }),
-      fetch(`${API}/campaigns?activeOnly=true`).then(r => r.json()).then(d => d.data || []).catch(() => []),
+      apiFetch(`${API}/campaigns?activeOnly=true`).then(r => r.json()).then(d => d.data || []).catch(() => []),
     ]).then(([ps, cs]) => {
       setTodos((ps as Product[]).filter(p => !OCULTAS.has(p.category)));
       setCampanas(cs);
@@ -63,7 +63,7 @@ function Catalogo() {
   }
   useEffect(() => {
     if (!campana) return;
-    fetch(`${API}/campaigns/${campana}`).then(r => r.json())
+    apiFetch(`${API}/campaigns/${campana}`).then(r => r.json())
       .then(res => setIdsCampana(new Set<string>(res.data?.products?.map((p: { id: string }) => p.id) || [])))
       .catch(() => setIdsCampana(new Set()));
   }, [campana]);

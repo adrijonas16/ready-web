@@ -1,6 +1,6 @@
 'use client';
 
-import { API } from '@/lib/api-base';
+import { API, apiFetch } from '@/lib/api-base';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -13,7 +13,7 @@ export default function NewsCarousel() {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
-    fetch(`${API}/news?activeOnly=true`).then(r => r.json()).then(d => {
+    apiFetch(`${API}/news?activeOnly=true`).then(r => r.json()).then(d => {
       if (d.success && d.data?.length) setNews(d.data);
     }).catch(() => {});
   }, []);

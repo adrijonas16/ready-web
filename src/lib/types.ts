@@ -16,6 +16,7 @@ export interface User {
   phone?: string;
   address?: string;
   role: 'USER' | 'ADMIN' | 'OPERATOR';
+  createdAt?: string;
 }
 
 export interface AuthResponse {
@@ -43,7 +44,7 @@ export interface Section {
   sortOrder: number;
 }
 
-export type ListStatus = 'PENDIENTE_REVISION' | 'EN_REVISION' | 'OBSERVADA' | 'VALIDADA' | 'PROCESADA';
+export type ListStatus = 'PENDIENTE_REVISION' | 'EN_REVISION' | 'OBSERVADA' | 'RECHAZADA' | 'VALIDADA' | 'PROCESADA';
 
 export interface SupplyList {
   id: string;
@@ -71,6 +72,8 @@ export interface SupplyList {
   iaMensaje?: string;
   /** JSON de ListExtras guardado en la lista */
   extras?: string;
+  /** Lista original de la que se copió (o null) */
+  copiaDe?: string | null;
   createdAt: string;
 }
 
@@ -121,7 +124,7 @@ export interface VariantType {
 
 export interface ProductDetail extends Product {
   variants?: VariantType[];
-  images?: { id: string; image_url: string; alt_text?: string | null }[];
+  images?: { id: string; image_url: string; alt_text?: string | null; imageUrl?: string; isPrimary?: boolean }[];
 }
 
 export interface SupplyItem {
@@ -175,6 +178,7 @@ export interface Product {
   attributes?: string;
   rating?: number;
   tier?: string;
+  isActive?: boolean;
 }
 
 export interface CartItem {
@@ -184,7 +188,7 @@ export interface CartItem {
   originalItem?: SupplyItem;
 }
 
-export type OrderStatus = 'RECIBIDO' | 'EN_PREPARACION' | 'ARMADO' | 'EN_CAMINO' | 'ENTREGADO';
+export type OrderStatus = 'RECIBIDO' | 'EN_PREPARACION' | 'ARMADO' | 'EN_CAMINO' | 'ENTREGADO' | 'CANCELADO';
 
 export interface Order {
   id: string;
@@ -196,6 +200,13 @@ export interface Order {
   shippingPhone: string;
   trackingNumber?: string;
   createdAt: string;
+  contactNotes?: string | null;
+  userName?: string | null;
+  userEmail?: string | null;
+  pago?: { metodo: string; operacion: string; estado: string };
+  entrega?: { fecha?: string | null; franja?: string | null } | null;
+  costoEnvio?: number | null;
+  comprobante?: { tipo: 'boleta' | 'factura'; documento?: string; razonSocial?: string | null } | null;
   items: OrderItem[];
   statusHistory: OrderStatusHistory[];
 }
@@ -207,6 +218,9 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   notes?: string;
+  imageUrl?: string;
+  /** Para quién es el útil (hermanos con listas distintas) */
+  para?: string | null;
 }
 
 export interface OrderStatusHistory {
