@@ -6,6 +6,16 @@ import { Camera, ChevronRight, GraduationCap, ShoppingBag } from 'lucide-react';
 import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
 import { SupplyList, School, Section } from '@/lib/types';
 import SearchSelect from '@/components/SearchSelect';
+import Escudo from '@/components/Escudo';
+import { productos } from '@/demo/catalogo';
+
+// Útiles típicos de cada nivel para ilustrar la tarjeta
+const UTILES_NIVEL: [RegExp, string[]][] = [
+  [/inicial/i, ['cr-m', 'pa-m', 'te-m']],
+  [/secundaria/i, ['cu-p', 'lp-m', 're-m']],
+  [/./, ['cu-dibujos', 'co-m', 'ti-m']],
+];
+const utilesDe = (grado: string) => (UTILES_NIVEL.find(([r]) => r.test(grado))?.[1] ?? []).map(id => productos.find(p => p.id === id)?.imageUrl);
 
 /** Listas aprobadas por colegio: el cliente elige la suya y compra. */
 export default function ListsPage() {
@@ -89,20 +99,24 @@ export default function ListsPage() {
                 : `${aprobadas.length} listas de ${conLista.size} colegios`}
             </h2>
             <ul className="grid gap-3 sm:grid-cols-2">
-              {visibles.map(l => (
-                <li key={l.id}>
+              {visibles.map((l, i) => (
+                <li key={l.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
                   <Link href={`/lists/${l.id}`}
-                    className="group flex items-center gap-4 rounded-2xl border border-linea bg-papel p-4 transition-[border-color,box-shadow] hover:border-primario/50 hover:shadow-[0_10px_30px_-18px_rgba(15,23,42,0.45)]">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primario-claro text-primario">
-                      <GraduationCap className="h-6 w-6" aria-hidden="true" />
-                    </span>
+                    className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-linea bg-papel p-4 transition-[border-color,box-shadow,translate] duration-300 hover:-translate-y-0.5 hover:border-primario/50 hover:shadow-[0_14px_30px_-18px_rgba(15,23,42,0.5)]">
+                    <Escudo nombre={l.schoolName} className="h-14 w-12 shrink-0 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110" />
                     <span className="min-w-0 flex-1">
                       <span className="block font-bold">{l.gradeName}</span>
                       {!colegio && <span className="block truncate text-sm font-semibold text-grafito">{l.schoolName}</span>}
-                      <span className="block text-sm text-tenue">Año escolar {l.year}{l.esOficial ? ', lista oficial del colegio' : ''}</span>
+                      <span className="block text-sm text-tenue">{l.esOficial ? 'Lista oficial' : 'Lista'} {l.year}</span>
+                    </span>
+                    <span className="relative hidden h-14 w-24 shrink-0 sm:block" aria-hidden="true">
+                      {utilesDe(l.gradeName).map((src, k) => (
+                        <img key={k} src={src} alt="" className={`absolute top-1 h-12 w-12 object-contain transition-[translate] duration-500 ease-out ${['group-hover:-translate-x-2', 'group-hover:-translate-y-1.5', 'group-hover:translate-x-2'][k]}`}
+                          style={{ left: k * 22, zIndex: 3 - k, rotate: `${(k - 1) * 12}deg` }} />
+                      ))}
                     </span>
                     <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-primario">
-                      Ver lista <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                      Ver <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                     </span>
                   </Link>
                 </li>

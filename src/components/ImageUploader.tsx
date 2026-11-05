@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Camera, X, FileText } from 'lucide-react';
+import { Camera, X, FileText, Sparkles } from 'lucide-react';
+import { FotoLista } from '@/components/home/Ilustraciones';
+import { MODO_DEMO } from '@/lib/api-base';
 import { validateImage, ImageValidationResult } from '@/lib/utils';
 import { compressImage } from '@/lib/compress-image';
 
@@ -61,6 +63,19 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Demo: convierte la lista dibujada de ejemplo en una foto PNG para probar sin tener una a la mano
+  const usarEjemplo = async () => {
+    const { imagenListaEjemplo } = await import('@/demo/catalogo');
+    const img = new Image();
+    img.src = imagenListaEjemplo;
+    await img.decode();
+    const lienzo = document.createElement('canvas');
+    lienzo.width = 900; lienzo.height = 1200;
+    lienzo.getContext('2d')!.drawImage(img, 0, 0, 900, 1200);
+    const blob = await new Promise<Blob | null>(r => lienzo.toBlob(r, 'image/png'));
+    if (blob) addFiles([new File([blob], 'lista-de-ejemplo.png', { type: 'image/png' })]);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -78,8 +93,8 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
         onDragLeave={() => setIsDragging(false)}
         onClick={() => previews.length < maxFiles && fileInputRef.current?.click()}
         onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && previews.length < maxFiles) { e.preventDefault(); fileInputRef.current?.click(); } }}
-        className={`papel-cuadriculado relative cursor-pointer rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors
-          ${isDragging ? 'border-primario bg-primario-claro' : 'border-linea hover:border-primario'}
+        className={`group papel-cuadriculado relative cursor-pointer rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-[border-color,background-color,transform] duration-300
+          ${isDragging ? 'scale-[1.02] border-primario bg-primario-claro' : 'border-linea hover:border-primario'}
           ${previews.length >= maxFiles ? 'cursor-not-allowed opacity-50' : ''}`}
       >
         <input
@@ -92,25 +107,38 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
           }}
           className="hidden"
         />
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-acento shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)]">
-          {isValidating
-            ? <div className="h-6 w-6 animate-spin rounded-full border-2 border-grafito border-t-transparent" />
-            : <Camera className="h-6 w-6 text-grafito" aria-hidden="true" />}
+        <div className="relative mx-auto h-28 w-40">
+          <FotoLista className={`h-full w-full transition-transform duration-500 ${isDragging ? '-translate-y-2 scale-110' : 'group-hover:-translate-y-1'}`} />
+          <span className="absolute -bottom-1 right-2 flex h-10 w-10 items-center justify-center rounded-xl bg-acento shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] transition-transform duration-300 group-hover:scale-110">
+            {isValidating
+              ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-grafito border-t-transparent" />
+              : <Camera className="h-5 w-5 text-slate-900" aria-hidden="true" />}
+          </span>
         </div>
         <p className="mt-4 text-lg font-bold text-grafito">
-          {isValidating ? 'Preparando las fotos…' : previews.length > 0 ? 'Agregar otra hoja' : 'Toma o elige la foto de la lista'}
+          {isValidating ? 'Preparando las fotos…' : isDragging ? '¡Suéltala aquí!' : previews.length > 0 ? 'Agregar otra hoja' : 'Toma o elige la foto de la lista'}
         </p>
         <p className="mt-1 text-sm text-tenue">
           Fotos, PDF o Word. Hasta {maxFiles} archivos si la lista tiene varias hojas ({previews.length}/{maxFiles}).
         </p>
       </div>
 
+      {MODO_DEMO && previews.length === 0 && (
+        <button type="button" onClick={usarEjemplo}
+          className="mx-auto flex items-center gap-2 rounded-xl border border-dashed border-linea-fuerte px-4 py-2 text-sm font-semibold text-primario hover:border-primario hover:bg-primario-claro">
+          <Sparkles className="h-4 w-4" aria-hidden="true" /> ¿No tienes la lista a la mano? Usa una de ejemplo
+        </button>
+      )}
+
       {previews.length > 0 && (
         <ul className="grid grid-cols-3 gap-3 sm:grid-cols-5">
           {previews.map((p, i) => (
-            <li key={i} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-linea bg-papel">
+            <li key={i} className="relative aspect-[3/4] animate-scale-in overflow-hidden rounded-xl border border-linea bg-papel" style={{ animationDelay: `${i * 60}ms` }}>
               {p.url ? (
-                <img src={p.url} alt={`Hoja ${i + 1}`} className="h-full w-full object-cover" />
+                <>
+                  <img src={p.url} alt={`Hoja ${i + 1}`} className="h-full w-full object-cover" />
+                  <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 h-8 bg-gradient-to-b from-transparent via-acento/50 to-transparent animate-escaneo-hoja" />
+                </>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center p-2 text-center">
                   <FileText className="mb-1 h-7 w-7 text-primario" aria-hidden="true" />

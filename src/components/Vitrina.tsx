@@ -34,35 +34,6 @@ export default function Vitrina() {
 
   return (
     <>
-      <section aria-labelledby="categorias" className="mx-auto max-w-6xl px-4 pb-14 sm:px-6">
-        <div className="flex items-end justify-between gap-4">
-          <h2 id="categorias" className="text-3xl font-extrabold tracking-[-0.02em]">Compra por categoría</h2>
-          <Link href="/catalog" className="inline-flex shrink-0 items-center text-sm font-semibold text-primario hover:underline">
-            Ver todo <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </div>
-        <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {(cargado ? categorias.slice(0, 12) : Array.from({ length: 6 }).map((_, i) => [`c${i}`, []] as [string, Product[]])).map(([nombre, ps]) => {
-            const foto = ps.find(p => p.imageUrl)?.imageUrl;
-            return (
-              <li key={nombre}>
-                {cargado ? (
-                  <Link href={`/catalog?categoria=${encodeURIComponent(nombre)}`}
-                    className="group flex h-full flex-col rounded-2xl border border-linea bg-papel p-3 transition-[border-color] hover:border-primario/50">
-                    <span className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl bg-fondo">
-                      {foto
-                        ? <img src={foto} alt="" width={160} height={120} loading="lazy" className="h-full w-full object-contain p-2 transition-transform group-hover:scale-[1.04]" />
-                        : <span className="font-display text-3xl font-bold text-primario/30">{nombre.charAt(0)}</span>}
-                    </span>
-                    <span className="mt-2 font-semibold leading-tight">{nombre}</span>
-                    <span className="text-sm text-tenue">{ps.length} productos</span>
-                  </Link>
-                ) : <div className="skeleton h-40" />}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
 
       {destacados.length > 0 && (
         <section aria-labelledby="destacados" className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
