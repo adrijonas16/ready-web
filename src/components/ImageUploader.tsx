@@ -22,7 +22,17 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
   const [isValidating, setIsValidating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  // Los mismos formatos que acepta el servidor para las listas: JPG, PNG, WEBP, HEIC, PDF y Word (.docx).
+  // GIF, SVG y .doc antiguos se rechazan.
+  const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  const tipoDe = (f: File): string | null => {
+    const ext = f.name.toLowerCase().split('.').pop() ?? '';
+    if (['image/jpeg', 'image/png', 'image/webp', 'application/pdf', DOCX].includes(f.type)) return f.type;
+    if (f.type === 'image/heic' || f.type === 'image/heif' || ext === 'heic' || ext === 'heif') return 'image/heic';
+    if (!f.type && ext === 'docx') return DOCX;
+    if (!f.type && ext === 'pdf') return 'application/pdf';
+    return null;
+  };
 
   const addFiles = async (newFiles: File[]) => {
     setIsValidating(true);
@@ -30,16 +40,22 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
     const errors: string[] = [];
 
     for (const original of newFiles) {
-      const file = await compressImage(original);
       if (validFiles.length >= maxFiles) {
         errors.push(`Máximo ${maxFiles} archivos`);
         break;
       }
-      if (!allowedTypes.includes(file.type)) {
-        errors.push(`${file.name}: solo fotos, PDF o Word`);
+      const tipo = tipoDe(original);
+      if (!tipo) {
+        errors.push(`${original.name}: ese formato no se acepta. Sube una foto JPG, PNG, WEBP o HEIC, un PDF o un Word (.docx)`);
         continue;
       }
-      if (file.type.startsWith('image/')) {
+      if (original.size > 15 * 1024 * 1024) {
+        errors.push(`${original.name}: pesa más de 15 MB`);
+        continue;
+      }
+      // HEIC (iPhone) casi ningún navegador lo puede leer: se sube tal cual y lo procesa el servidor
+      const file = tipo === 'image/heic' ? original : await compressImage(original);
+      if (file.type.startsWith('image/') && tipo !== 'image/heic') {
         const result = await validateImage(file);
         if (result.isValid) {
           validFiles.push({ file, url: URL.createObjectURL(file), validation: result });
@@ -106,7 +122,7 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,.pdf,.doc,.docx"
+          accept="image/jpeg,image/png,image/webp,image/heic,.heic,application/pdf,.docx"
           multiple
           tabIndex={-1}
           aria-hidden="true"
@@ -127,7 +143,7 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
           {isValidating ? 'Preparando las fotos…' : isDragging ? '¡Suéltala aquí!' : previews.length > 0 ? 'Agregar otra hoja' : 'Toma o elige la foto de la lista'}
         </p>
         <p className="mt-1 text-sm text-tenue">
-          Fotos, PDF o Word. Hasta {maxFiles} archivos si la lista tiene varias hojas ({previews.length}/{maxFiles}).
+          Fotos (JPG, PNG, WEBP o HEIC), PDF o Word (.docx). Hasta {maxFiles} archivos si la lista tiene varias hojas ({previews.length}/{maxFiles}).
         </p>
       </div>
 
