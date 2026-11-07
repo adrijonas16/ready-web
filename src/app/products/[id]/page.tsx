@@ -8,6 +8,7 @@ import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
 import { ArrowLeft, ShoppingCart, Star, Check, Package, Minus, Plus, Truck } from 'lucide-react';
 import Link from 'next/link';
+import NoEncontrado from '@/components/NoEncontrado';
 import { tierLabel, Tier } from '@/lib/lista';
 import { descuentoPct, enOferta, precioVenta, redondear } from '@/lib/precio';
 import { fechaLarga, fechasEntrega, textoEnvio, useAjustes } from '@/lib/ajustes';
@@ -53,11 +54,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><div className="w-8 h-8 border-2 border-primario border-t-transparent rounded-full animate-spin" /></div>;
   if (!product) return (
-    <div className="mx-auto max-w-md px-4 py-24 text-center">
-      <Package className="mx-auto h-10 w-10 text-tenue" aria-hidden="true" />
-      <h1 className="mt-4 text-2xl font-extrabold">No encontramos este producto</h1>
-      <Link href="/catalog" className="mt-6 inline-block rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Ver el catálogo</Link>
-    </div>
+    <NoEncontrado titulo="No encontramos este producto" texto="Puede que el enlace esté mal escrito o que ya no lo vendamos. Mira otros útiles parecidos en el catálogo."
+      principal={{ href: '/catalog', texto: 'Ver el catálogo' }} secundarias={[{ href: '/', texto: 'Ir al inicio' }]} />
   );
 
   const priceModifier = redondear(Object.values(selectedVariants).reduce((sum, v) => sum + (v.price_modifier || 0), 0));

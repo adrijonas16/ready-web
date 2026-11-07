@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Camera, Lock } from 'lucide-react';
@@ -9,6 +9,10 @@ import SearchSelect from '@/components/SearchSelect';
 import { useAuth } from '@/lib/auth-context';
 import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
 import { School, Section } from '@/lib/types';
+import { mensajeError } from '@/lib/api-base';
+import { anexarAntiSpam, useAntiSpam } from '@/lib/antispam';
+import { AvisoError, CampoTrampa, ErrorCampo } from '@/components/form/Campo';
+import { enfocar, primerError } from '@/lib/validar';
 
 // Solo el año escolar en curso y el siguiente (las listas viejas no sirven para comprar)
 const AÑO_ACTUAL = new Date().getFullYear();
@@ -27,6 +31,9 @@ export default function UploadPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [errores, setErrores] = useState<{ colegio?: string | null; grado?: string | null; archivos?: string | null }>({});
+  const enviando = useRef(false);
+  const anti = useAntiSpam('subir-lista');
 
   useEffect(() => {
     schoolsApi.getAll().then(setSchools).catch(() => setError('No pudimos cargar los colegios. Recarga la página.'));
@@ -43,13 +50,24 @@ export default function UploadPage() {
     schoolsApi.getSchoolSections(selectedSchool).then(setSchoolSections).catch(() => setSchoolSections([]));
   }, [selectedSchool]);
 
-  const listo = files.length > 0 && !!selectedSchool && !!selectedGradeName;
-
-  const handleUpload = async () => {
-    if (!listo) {
-      setError('Elige el colegio, el grado y sube al menos una foto de la lista.');
+  const handleUpload = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (enviando.current) return;
+    const errs = {
+      colegio: selectedSchool ? null : 'Elige el colegio.',
+      grado: selectedGradeName ? null : 'Elige el grado.',
+      archivos: files.length > 0 ? null : 'Sube al menos una foto, PDF o Word de la lista.',
+    };
+    setErrores(errs);
+    const primero = primerError(errs);
+    if (primero) {
+      setError('');
+      enfocar(primero === 'archivos' ? 'subir-archivos' : `campo-${primero}`);
       return;
     }
+    const limite = anti.revisar();
+    if (limite) { setError(limite); return; }
+    enviando.current = true;
     setUploading(true);
     setError('');
     try {
@@ -62,11 +80,14 @@ export default function UploadPage() {
       formData.append('schoolId', selectedSchool);
       formData.append('gradeId', gradeId);
       formData.append('year', year.toString());
+      anexarAntiSpam(formData, await anti.datos());
 
       const result = await listsApi.upload(formData);
+      anti.anotar();
       router.push(result?.id ? `/lists/${result.id}` : '/my-lists');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'No pudimos subir la lista. Inténtalo de nuevo.');
+      setError(mensajeError(err, 'No pudimos subir la lista. Inténtalo de nuevo.'));
+      enviando.current = false;
       setUploading(false);
     }
   };
@@ -79,7 +100,7 @@ export default function UploadPage() {
           <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Inicia sesión para subir tu lista</h1>
           <p className="mt-2 text-tenue">Así guardamos tu lista y te avisamos cuando esté armada.</p>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <Link href="/login" className="rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Iniciar sesión</Link>
+            <Link href="/login?redirect=/upload" className="rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Iniciar sesión</Link>
             <Link href="/register" className="rounded-xl border-2 border-grafito px-5 py-3 font-bold text-grafito hover:bg-fondo">Crear cuenta</Link>
           </div>
         </div>
@@ -95,25 +116,30 @@ export default function UploadPage() {
       <h1 className="text-4xl font-extrabold tracking-[-0.03em]">Sube tu lista de útiles</h1>
       <p className="mt-2 text-lg text-tenue">La leemos, nuestro equipo la revisa y te avisamos cuando puedas elegir tu opción.</p>
 
-      <div className="mt-8 space-y-8">
+      <form onSubmit={handleUpload} noValidate aria-busy={uploading} className="relative mt-8 space-y-8">
+        <CampoTrampa {...anti.trampa} />
         <section aria-labelledby="paso-colegio">
           <h2 id="paso-colegio" className="flex items-baseline gap-2 text-lg font-bold">
             <span className="font-mano text-3xl leading-none text-primario">1.</span> ¿De qué colegio y grado es?
           </h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-[1.6fr_1.2fr_0.7fr]">
             <div>
-              <label className="mb-1 block text-sm font-medium text-tenue">Colegio</label>
-              <SearchSelect value={selectedSchool} onChange={elegirColegio} placeholder="Busca tu colegio…"
+              <label htmlFor="campo-colegio" className="mb-1 block text-sm font-semibold">Colegio <span className="text-profe" aria-hidden="true">*</span></label>
+              <SearchSelect id="campo-colegio" value={selectedSchool} onChange={v => { elegirColegio(v); setErrores(x => ({ ...x, colegio: null })); }} placeholder="Busca tu colegio…"
+                invalido={!!errores.colegio} describedBy={errores.colegio ? 'campo-colegio-error' : undefined}
                 options={schools.map(s => ({ value: s.id, label: s.name }))} />
+              <ErrorCampo id="campo-colegio" error={errores.colegio} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-tenue">Grado</label>
-              <SearchSelect value={selectedGradeName} onChange={setSelectedGradeName} disabled={!selectedSchool}
+              <label htmlFor="campo-grado" className="mb-1 block text-sm font-semibold">Grado <span className="text-profe" aria-hidden="true">*</span></label>
+              <SearchSelect id="campo-grado" value={selectedGradeName} onChange={v => { setSelectedGradeName(v); setErrores(x => ({ ...x, grado: null })); }} disabled={!selectedSchool}
+                invalido={!!errores.grado} describedBy={errores.grado ? 'campo-grado-error' : undefined}
                 placeholder={selectedSchool ? 'Elige el grado' : 'Primero el colegio'} options={gradeOptions} />
+              <ErrorCampo id="campo-grado" error={errores.grado} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-tenue">Año escolar</label>
-              <SearchSelect value={String(year)} onChange={v => setYear(parseInt(v))}
+              <label htmlFor="campo-año" className="mb-1 block text-sm font-semibold">Año escolar</label>
+              <SearchSelect id="campo-año" value={String(year)} onChange={v => setYear(parseInt(v))}
                 options={AÑOS.map(y => ({ value: String(y), label: String(y) }))} />
             </div>
           </div>
@@ -125,23 +151,24 @@ export default function UploadPage() {
           </h2>
           <p className="mb-3 mt-1 text-sm text-tenue">Que se vea toda la hoja, de frente y con buena luz.</p>
           <ImageUploader
-            onImagesSelected={(f) => { setFiles(f); setError(''); }}
+            onImagesSelected={(f) => { setFiles(f); setError(''); if (f.length) setErrores(x => ({ ...x, archivos: null })); }}
             onValidationError={(errors) => setError(errors.join('. '))}
             maxFiles={5}
+            id="subir-archivos"
+            invalido={!!errores.archivos}
           />
+          <ErrorCampo id="subir-archivos" error={errores.archivos} />
         </section>
 
-        {error && (
-          <p role="alert" className="rounded-xl border border-profe/30 bg-profe-claro px-4 py-3 text-sm text-profe">{error}</p>
-        )}
+        <AvisoError>{error}</AvisoError>
 
-        <button onClick={handleUpload} disabled={!listo || uploading}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primario py-4 text-base font-bold text-white transition-colors hover:bg-primario-oscuro disabled:cursor-not-allowed disabled:opacity-40">
+        <button type="submit" disabled={uploading}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-acento py-4 text-base font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.12)] transition-colors hover:bg-acento-oscuro disabled:cursor-not-allowed disabled:opacity-50">
           {uploading
-            ? <><span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> Subiendo…</>
+            ? <><span className="h-5 w-5 animate-spin rounded-full border-2 border-grafito border-t-transparent" aria-hidden="true" /> Subiendo…</>
             : <><Camera className="h-5 w-5" aria-hidden="true" /> Leer mi lista</>}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

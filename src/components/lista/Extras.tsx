@@ -7,6 +7,8 @@ import { ListBook, ListExtras, Product } from '@/lib/types';
 import { OpcionesServicios, PreciosServicios, buscarOpcion, precioServicio } from '@/lib/lista';
 import PrecioAnimado from '@/components/PrecioAnimado';
 import { precioVenta } from '@/lib/precio';
+import { ErrorCampo } from '@/components/form/Campo';
+import { LARGO, limpiarTexto } from '@/lib/validar';
 
 export interface ConteoExtras {
   cuadernos: number;
@@ -65,6 +67,7 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
   opciones: OpcionesServicios;
 }) {
   const [cursoNuevo, setCursoNuevo] = useState('');
+  const [errorCurso, setErrorCurso] = useState<string | null>(null);
   const set = (patch: Partial<ListExtras>) => onChange({ ...extras, ...patch });
   const setLibro = (id: string, patch: Partial<ListBook>) =>
     set({ libros: extras.libros.map(l => (l.id === id ? { ...l, ...patch } : l)) });
@@ -74,6 +77,8 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
   const montoForro = precioServicio(servicios.forroCuaderno, colorElegido) * conteo.cuadernos
     + (extras.forrarLibros ? precioVenta(servicios.forroLibro) * conteo.libros : 0);
   const cursos = Array.from(new Set([...opciones.cursos, ...extras.caratulas.cursos]));
+  /** Etiquetas pedidas sin nombre: se avisa junto al campo */
+  const faltaNombre = extras.etiquetas.activo && !extras.etiquetas.nombre.trim();
   const librosConPrecio = extras.libros.reduce((s, l) => s + (l.precio ? l.precio * l.cantidad : 0), 0);
   const porCotizar = extras.libros.filter(l => !l.precio).length;
 
@@ -117,16 +122,20 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
         monto={precioServicio(servicios.etiqueta, disenoElegido) * conteo.etiquetas}
         activo={extras.etiquetas.activo} onToggle={v => set({ etiquetas: { ...extras.etiquetas, activo: v } })}>
         <div className="grid gap-3 sm:grid-cols-[1.5fr_1fr]">
-          <label className="block text-sm">
-            <span className="mb-1 block font-semibold">Nombre en la etiqueta</span>
-            <input value={extras.etiquetas.nombre} onChange={e => set({ etiquetas: { ...extras.etiquetas, nombre: e.target.value } })}
-              name="etiqueta-nombre" autoComplete="off" placeholder="Ej.: Lucía Quispe…" className="w-full rounded-xl border border-linea px-3 py-2 focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-semibold">Grado y sección</span>
-            <input value={extras.etiquetas.grado} onChange={e => set({ etiquetas: { ...extras.etiquetas, grado: e.target.value } })}
-              name="etiqueta-grado" autoComplete="off" placeholder="Ej.: 2.º B…" className="w-full rounded-xl border border-linea px-3 py-2 focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
-          </label>
+          <div className="text-sm">
+            <label htmlFor="etiqueta-nombre" className="mb-1 block font-semibold">Nombre en la etiqueta{extras.etiquetas.activo && <span className="text-profe" aria-hidden="true"> *</span>}</label>
+            <input id="etiqueta-nombre" value={extras.etiquetas.nombre} onChange={e => set({ etiquetas: { ...extras.etiquetas, nombre: e.target.value.replace(/^\s+/, '') } })}
+              onBlur={e => set({ etiquetas: { ...extras.etiquetas, nombre: limpiarTexto(e.target.value) } })} maxLength={40}
+              aria-invalid={faltaNombre || undefined} aria-describedby={faltaNombre ? 'etiqueta-nombre-error' : undefined}
+              name="etiqueta-nombre" autoComplete="off" placeholder="Ej.: Lucía Quispe…" className={`w-full rounded-xl border px-3 py-2 text-base sm:text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25 ${faltaNombre ? 'border-profe' : 'border-linea-fuerte'}`} />
+            <ErrorCampo id="etiqueta-nombre" error={faltaNombre ? 'Escribe el nombre que irá en las etiquetas.' : null} />
+          </div>
+          <div className="text-sm">
+            <label htmlFor="etiqueta-grado" className="mb-1 block font-semibold">Grado y sección</label>
+            <input id="etiqueta-grado" value={extras.etiquetas.grado} onChange={e => set({ etiquetas: { ...extras.etiquetas, grado: e.target.value.replace(/^\s+/, '') } })}
+              onBlur={e => set({ etiquetas: { ...extras.etiquetas, grado: limpiarTexto(e.target.value) } })} maxLength={20}
+              name="etiqueta-grado" autoComplete="off" placeholder="Ej.: 2.º B…" className="w-full rounded-xl border border-linea-fuerte px-3 py-2 text-base sm:text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
+          </div>
         </div>
         <p className="mb-2 mt-3 text-sm font-semibold">Diseño</p>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -165,15 +174,24 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
             );
           })}
         </div>
-        <form className="mt-3 flex gap-2" onSubmit={e => {
+        <form className="mt-3" noValidate onSubmit={e => {
           e.preventDefault();
-          const c = cursoNuevo.trim();
-          if (c && !extras.caratulas.cursos.includes(c)) set({ caratulas: { ...extras.caratulas, cursos: [...extras.caratulas.cursos, c] } });
+          const c = limpiarTexto(cursoNuevo);
+          const err = c.length < 2 ? 'Escribe el nombre del curso.'
+            : [...cursos, ...extras.caratulas.cursos].some(x => x.toLowerCase() === c.toLowerCase()) ? 'Ese curso ya está en la lista: márcalo arriba.' : null;
+          setErrorCurso(err);
+          if (err) { document.getElementById('curso-nuevo')?.focus(); return; }
+          set({ caratulas: { ...extras.caratulas, cursos: [...extras.caratulas.cursos, c] } });
           setCursoNuevo('');
         }}>
-          <input value={cursoNuevo} onChange={e => setCursoNuevo(e.target.value)} name="curso" autoComplete="off" aria-label="Otro curso" placeholder="Otro curso, ej.: Robótica…"
-            className="min-w-0 flex-1 rounded-xl border border-linea px-3 py-2 text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
-          <button className="rounded-xl border border-linea px-3 text-sm font-semibold hover:border-tenue">Agregar</button>
+          <div className="flex gap-2">
+            <label htmlFor="curso-nuevo" className="sr-only">Otro curso</label>
+            <input id="curso-nuevo" value={cursoNuevo} onChange={e => { setCursoNuevo(e.target.value); setErrorCurso(null); }} name="curso" autoComplete="off" maxLength={LARGO.corto} placeholder="Otro curso, ej.: Robótica…"
+              aria-invalid={errorCurso ? true : undefined} aria-describedby={errorCurso ? 'curso-nuevo-error' : undefined}
+              className={`min-w-0 flex-1 rounded-xl border px-3 py-2 text-base sm:text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25 ${errorCurso ? 'border-profe' : 'border-linea-fuerte'}`} />
+            <button type="submit" className="min-h-11 rounded-xl border border-linea-fuerte px-3 text-sm font-semibold hover:border-tenue">Agregar curso</button>
+          </div>
+          <ErrorCampo id="curso-nuevo" error={errorCurso} />
         </form>
       </Tarjeta>
 
@@ -184,18 +202,18 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
         <ul className="space-y-2">
           {extras.libros.map(l => (
             <li key={l.id} className="grid grid-cols-[1fr_auto] gap-2 sm:grid-cols-[1.4fr_1fr_auto_auto_auto] sm:items-center">
-              <input value={l.titulo} onChange={e => setLibro(l.id, { titulo: e.target.value, productoId: null, precio: null })} name="libro-titulo" autoComplete="off" placeholder="Título del libro…"
-                className="min-w-0 rounded-xl border border-linea px-3 py-2 text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" aria-label="Título del libro" />
-              <button onClick={() => set({ libros: extras.libros.filter(x => x.id !== l.id) })} className="rounded-lg p-2 text-tenue hover:text-profe sm:order-last" aria-label={`Quitar ${l.titulo || 'libro'}`}>
-                <Trash2 className="h-4 w-4" />
+              <input value={l.titulo} onChange={e => setLibro(l.id, { titulo: e.target.value.replace(/^\s+/, ''), productoId: null, precio: null })} name="libro-titulo" autoComplete="off" placeholder="Título del libro…" maxLength={LARGO.titulo}
+                className="min-w-0 rounded-xl border border-linea-fuerte px-3 py-2 text-base sm:text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" aria-label="Título del libro" />
+              <button type="button" onClick={() => set({ libros: extras.libros.filter(x => x.id !== l.id) })} className="flex h-11 w-11 items-center justify-center rounded-lg text-tenue hover:text-profe sm:order-last" aria-label={`Quitar ${l.titulo || 'libro'}`}>
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
               </button>
-              <input value={l.editorial} onChange={e => setLibro(l.id, { editorial: e.target.value })} name="libro-editorial" autoComplete="off" placeholder="Editorial o autor…"
-                className="min-w-0 rounded-xl border border-linea px-3 py-2 text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" aria-label="Editorial" />
+              <input value={l.editorial} onChange={e => setLibro(l.id, { editorial: e.target.value.replace(/^\s+/, '') })} name="libro-editorial" autoComplete="off" placeholder="Editorial o autor…" maxLength={LARGO.corto}
+                className="min-w-0 rounded-xl border border-linea-fuerte px-3 py-2 text-base sm:text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" aria-label="Editorial" />
               <div className="flex items-center justify-between gap-3 sm:contents">
-                <div className="flex items-center rounded-lg border border-linea" aria-label="Cantidad">
-                  <button onClick={() => setLibro(l.id, { cantidad: Math.max(1, l.cantidad - 1) })} className="p-1.5" aria-label="Uno menos"><Minus className="h-3.5 w-3.5" /></button>
+                <div className="flex items-center rounded-lg border border-linea" role="group" aria-label={`Cantidad de ${l.titulo || 'este libro'}`}>
+                  <button type="button" onClick={() => setLibro(l.id, { cantidad: Math.max(1, l.cantidad - 1) })} className="flex h-10 w-10 items-center justify-center" aria-label="Uno menos"><Minus className="h-3.5 w-3.5" aria-hidden="true" /></button>
                   <span className="w-6 text-center text-sm font-bold">{l.cantidad}</span>
-                  <button onClick={() => setLibro(l.id, { cantidad: Math.min(20, l.cantidad + 1) })} className="p-1.5" aria-label="Uno más"><Plus className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => setLibro(l.id, { cantidad: Math.min(20, l.cantidad + 1) })} className="flex h-10 w-10 items-center justify-center" aria-label="Uno más"><Plus className="h-3.5 w-3.5" aria-hidden="true" /></button>
                 </div>
                 <span className={`w-24 text-right text-sm ${l.precio ? 'font-bold tabular-nums' : 'text-tenue'}`}>
                   {l.precio ? formatPrice(l.precio * l.cantidad) : 'Por cotizar'}
@@ -204,8 +222,8 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
             </li>
           ))}
         </ul>
-        <button onClick={() => set({ libros: [...extras.libros, { id: `l-${Date.now()}`, titulo: '', editorial: '', cantidad: 1 }] })}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-tenue/50 px-3 py-2 text-sm font-semibold text-primario hover:border-primario">
+        <button type="button" onClick={() => set({ libros: [...extras.libros, { id: `l-${Date.now()}`, titulo: '', editorial: '', cantidad: 1 }] })}
+          className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-dashed border-tenue/50 px-3 py-2 text-sm font-semibold text-primario hover:border-primario">
           <Plus className="h-4 w-4" aria-hidden="true" /> Agregar libro
         </button>
         {porCotizar > 0 && <p className="mt-2 text-sm text-tenue">Los libros por cotizar no se cobran ahora: te confirmamos el precio antes de enviar el pedido.</p>}

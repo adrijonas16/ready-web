@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import * as signalR from '@microsoft/signalr';
+import type { HubConnection } from '@microsoft/signalr';
 import { API, MODO_DEMO } from '@/lib/api-base';
 
 export interface RealtimeNotification {
@@ -16,7 +16,7 @@ export interface RealtimeNotification {
 export function useRealtimeNotifications(role?: string, userId?: string) {
   const [notifications, setNotifications] = useState<RealtimeNotification[]>([]);
   const [connected, setConnected] = useState(false);
-  const connectionRef = useRef<signalR.HubConnection | null>(null);
+  const connectionRef = useRef<HubConnection | null>(null);
 
   // Modo demo: los avisos llegan como eventos del navegador
   useEffect(() => {
@@ -36,15 +36,9 @@ export function useRealtimeNotifications(role?: string, userId?: string) {
     if (!userId || MODO_DEMO) return;
     // El hub vive en el mismo servidor que la API: https://…/api → https://…/hub/notifications
     const hubUrl = API.replace(/\/api\/?$/, '') + '/hub/notifications';
-    const connection = new signalR.HubConnectionBuilder()
-      // Sin cookies: la API permite cualquier origen (AllowAnyOrigin), que no admite credenciales
-      .withUrl(hubUrl, { withCredentials: false, accessTokenFactory: () => localStorage.getItem('token') ?? '' })
-      .configureLogging(signalR.LogLevel.None)
-      .withAutomaticReconnect()
-      .build();
-
-    connectionRef.current = connection;
-
+    // SignalR se descarga solo con sesión iniciada (no pesa en las páginas públicas)
+    let cancelado = false;
+    let conexion: HubConnection | null = null;
     const addNotification = (type: string, data: { message?: string; timestamp?: string }) => {
       setNotifications(prev => [{
         id: Date.now().toString(),
@@ -56,22 +50,28 @@ export function useRealtimeNotifications(role?: string, userId?: string) {
       }, ...prev].slice(0, 50));
     };
 
-    connection.on('NewOrder', (data) => addNotification('new_order', data));
-    connection.on('LowStock', (data) => addNotification('low_stock', data));
-    connection.on('OutOfStock', (data) => addNotification('out_of_stock', data));
-    connection.on('NewList', (data) => addNotification('new_list', data));
-    connection.on('NewMessage', (data) => addNotification('new_message', data));
-    connection.on('OrderUpdate', (data) => addNotification('order_update', data));
-    connection.on('ListReady', (data) => addNotification('list_ready', data));
-
-    connection.start().then(() => {
-      setConnected(true);
-      if (role === 'ADMIN') connection.invoke('JoinAdminGroup');
-      if (userId) connection.invoke('JoinUserGroup', userId);
+    import('@microsoft/signalr').then(signalR => {
+      if (cancelado) return;
+      const c = new signalR.HubConnectionBuilder()
+        // Sin cookies: la API permite cualquier origen (AllowAnyOrigin), que no admite credenciales
+        .withUrl(hubUrl, { withCredentials: false, accessTokenFactory: () => localStorage.getItem('token') ?? '' })
+        .configureLogging(signalR.LogLevel.None)
+        .withAutomaticReconnect()
+        .build();
+      conexion = c;
+      connectionRef.current = c;
+      const eventos: [string, string][] = [['NewOrder', 'new_order'], ['LowStock', 'low_stock'], ['OutOfStock', 'out_of_stock'], ['NewList', 'new_list'], ['NewMessage', 'new_message'], ['OrderUpdate', 'order_update'], ['ListReady', 'list_ready']];
+      for (const [evento, tipo] of eventos) c.on(evento, (data) => addNotification(tipo, data));
+      c.start().then(() => {
+        setConnected(true);
+        if (role === 'ADMIN') c.invoke('JoinAdminGroup');
+        if (userId) c.invoke('JoinUserGroup', userId);
+      }).catch(() => setConnected(false));
     }).catch(() => setConnected(false));
 
     return () => {
-      connection.stop();
+      cancelado = true;
+      conexion?.stop();
     };
   }, [role, userId]);
 

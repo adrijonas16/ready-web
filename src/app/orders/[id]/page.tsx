@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import NoEncontrado from '@/components/NoEncontrado';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CalendarDays, Check, FileText, FlaskConical, Loader2, MapPin, MessageCircle, Package, Phone, RotateCcw, ShoppingBag, Truck, UserRound, XCircle } from 'lucide-react';
 import { ordersApi, productsApi } from '@/services/api';
@@ -11,6 +12,7 @@ import { Order } from '@/lib/types';
 import { agruparPorPara, useCart } from '@/lib/cart-context';
 import { enlaceWhatsapp, fechaLarga, useAjustes } from '@/lib/ajustes';
 import { precioVenta } from '@/lib/precio';
+import { useAuth } from '@/lib/auth-context';
 
 const ETAPAS = [
   { id: 'RECIBIDO', t: 'Pedido recibido', d: 'Confirmamos tu pago de prueba.' },
@@ -42,6 +44,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const { id } = use(params);
   const router = useRouter();
   const { addItem } = useCart();
+  const { user } = useAuth();
   const ajustes = useAjustes();
   const [pedido, setPedido] = useState<Order | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -58,13 +61,12 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     return <div className="flex justify-center py-24"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primario border-t-transparent" /></div>;
   }
   if (!pedido) {
-    return (
-      <div className="mx-auto max-w-md px-4 py-24 text-center">
-        <Package className="mx-auto h-10 w-10 text-tenue" aria-hidden="true" />
-        <h1 className="mt-4 text-2xl font-extrabold">No encontramos ese pedido</h1>
-        <p className="mt-2 text-tenue">Revisa el enlace o vuelve a tus listas.</p>
-        <Link href="/my-lists" className="mt-6 inline-block rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Ir a Mis listas</Link>
-      </div>
+    return user ? (
+      <NoEncontrado titulo="No encontramos ese pedido" texto="Revisa el enlace o busca tu pedido en Mis listas y pedidos."
+        principal={{ href: '/my-lists', texto: 'Ver mis pedidos' }} secundarias={[{ href: '/catalog', texto: 'Seguir comprando' }]} />
+    ) : (
+      <NoEncontrado titulo="Inicia sesión para ver tu pedido" texto="Tus pedidos solo los ves tú. Inicia sesión con la cuenta con la que compraste."
+        principal={{ href: `/login?redirect=/orders/${encodeURIComponent(id)}`, texto: 'Iniciar sesión' }} secundarias={[{ href: '/', texto: 'Ir al inicio' }]} />
     );
   }
 

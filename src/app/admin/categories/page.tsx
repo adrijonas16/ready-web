@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { categoriesApi, productsApi, type Category } from '@/services/api';
 import { Plus, Trash2, Search, X, Edit2, Check } from 'lucide-react';
 import { Cargando, botonPrimario, tarjeta, th, useAvisos } from '../_ui';
+import { ErrorCampo } from '@/components/form/Campo';
+import { LARGO, limpiarTexto } from '@/lib/validar';
 
 export default function AdminCategoriesPage() {
   const avisos = useAvisos();
@@ -15,6 +17,9 @@ export default function AdminCategoriesPage() {
   const [name, setName] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [errorEdit, setErrorEdit] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
 
   const load = useCallback(() => Promise.all([categoriesApi.getAll(), productsApi.getAll({ includeInactive: true })])
     .then(([cats, prods]) => {
@@ -27,17 +32,39 @@ export default function AdminCategoriesPage() {
     .finally(() => setLoading(false)), [avisos]);
   useEffect(() => { load(); }, [load]);
 
-  const save = async () => {
-    if (!name.trim()) return;
-    try { await categoriesApi.create(name.trim()); avisos.exito(`Categoría "${name.trim()}" creada`); setName(''); setShowForm(false); load(); }
+  /** Nombre obligatorio, de 2 a 60 caracteres y sin repetir otra categoría */
+  const validarNombre = (v: string, id?: string) => {
+    const t = limpiarTexto(v);
+    if (t.length < 2) return 'Escribe el nombre de la categoría (mínimo 2 letras).';
+    if (t.length > LARGO.corto) return `Máximo ${LARGO.corto} caracteres.`;
+    if (categories.some(c => c.id !== id && c.name.toLowerCase() === t.toLowerCase())) return 'Ya existe una categoría con ese nombre.';
+    return null;
+  };
+
+  const save = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (enviando) return;
+    const err = validarNombre(name);
+    setError(err);
+    if (err) { document.getElementById('nueva-categoria')?.focus(); return; }
+    const nombre = limpiarTexto(name);
+    setEnviando(true);
+    try { await categoriesApi.create(nombre); avisos.exito(`Categoría "${nombre}" creada`); setName(''); setShowForm(false); load(); }
     catch (e) { avisos.error(e, 'No pudimos crear la categoría'); }
+    finally { setEnviando(false); }
   };
 
   const rename = async (c: Category) => {
-    const nuevo = editName.trim();
-    if (!nuevo || nuevo === c.name) { setEditId(null); return; }
+    if (enviando) return;
+    const nuevo = limpiarTexto(editName);
+    if (nuevo === c.name) { setEditId(null); return; }
+    const err = validarNombre(nuevo, c.id);
+    setErrorEdit(err);
+    if (err) return;
+    setEnviando(true);
     try { await categoriesApi.update(c.id, nuevo); avisos.exito(`Categoría renombrada a "${nuevo}"`); setEditId(null); load(); }
     catch (e) { avisos.error(e, 'No pudimos renombrar la categoría'); }
+    finally { setEnviando(false); }
   };
 
   const remove = async (c: Category) => {
@@ -52,19 +79,22 @@ export default function AdminCategoriesPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 className="text-xl font-bold text-slate-900">Categorías ({categories.length})</h1>
-        <button onClick={() => { setShowForm(true); setName(''); }} className={botonPrimario}>
+        <button type="button" onClick={() => { setShowForm(true); setName(''); setError(null); }} className={botonPrimario}>
           <Plus className="h-4 w-4" aria-hidden="true" /> Nueva categoría
         </button>
       </div>
 
       {showForm && (
-        <div className={`${tarjeta} p-4 mb-4 flex items-center gap-3`}>
-          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nombre de la categoría" aria-label="Nombre de la categoría"
-            onKeyDown={e => e.key === 'Enter' && save()}
-            className="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-lg text-sm" autoFocus />
-          <button onClick={save} className="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold">Crear</button>
-          <button onClick={() => setShowForm(false)} aria-label="Cancelar" className="text-neutral-400"><X className="h-4 w-4" /></button>
-        </div>
+        <form onSubmit={save} noValidate className={`${tarjeta} p-4 mb-4`}>
+          <div className="flex items-center gap-3">
+            <input id="nueva-categoria" type="text" value={name} onChange={e => { setName(e.target.value); setError(null); }} placeholder="Nombre de la categoría" aria-label="Nombre de la categoría"
+              maxLength={LARGO.corto} required aria-invalid={error ? true : undefined} aria-describedby={error ? 'nueva-categoria-error' : undefined}
+              className={`flex-1 min-w-0 px-3 py-2 border rounded-lg text-sm ${error ? 'border-profe' : 'border-slate-300'}`} autoFocus />
+            <button type="submit" disabled={enviando} className="min-h-10 bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50">Crear</button>
+            <button type="button" onClick={() => setShowForm(false)} aria-label="Cancelar" className="flex h-10 w-10 items-center justify-center text-tenue"><X className="h-4 w-4" aria-hidden="true" /></button>
+          </div>
+          <ErrorCampo id="nueva-categoria" error={error} />
+        </form>
       )}
 
       <div className={`${tarjeta} p-3 mb-4`}>
@@ -89,9 +119,13 @@ export default function AdminCategoriesPage() {
                   <tr key={c.id} data-categoria={c.name} className={`border-b border-slate-100 hover:bg-blue-50/30 ${i % 2 ? 'bg-slate-50/30' : ''}`}>
                     <td className="px-4 py-2.5 text-sm font-medium text-slate-900">
                       {editId === c.id ? (
-                        <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus aria-label="Nuevo nombre"
-                          onKeyDown={e => { if (e.key === 'Enter') rename(c); if (e.key === 'Escape') setEditId(null); }}
-                          className="w-full max-w-xs px-2 py-1 border border-blue-300 rounded-lg text-sm" />
+                        <>
+                          <input id={`renombrar-${c.id}`} value={editName} onChange={e => { setEditName(e.target.value); setErrorEdit(null); }} autoFocus aria-label="Nuevo nombre" maxLength={LARGO.corto}
+                            aria-invalid={errorEdit ? true : undefined} aria-describedby={errorEdit ? `renombrar-${c.id}-error` : undefined}
+                            onKeyDown={e => { if (e.key === 'Enter') rename(c); if (e.key === 'Escape') setEditId(null); }}
+                            className={`w-full max-w-xs px-2 py-1 border rounded-lg text-sm ${errorEdit ? 'border-profe' : 'border-blue-300'}`} />
+                          <ErrorCampo id={`renombrar-${c.id}`} error={errorEdit} />
+                        </>
                       ) : c.name}
                     </td>
                     <td className="px-4 py-2.5 text-right text-xs text-slate-600">{conteo[c.name] ?? 0}</td>
@@ -100,7 +134,7 @@ export default function AdminCategoriesPage() {
                         {editId === c.id ? (
                           <button onClick={() => rename(c)} aria-label="Guardar nombre" className="p-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100"><Check className="h-3.5 w-3.5" /></button>
                         ) : (
-                          <button onClick={() => { setEditId(c.id); setEditName(c.name); }} aria-label={`Renombrar ${c.name}`} className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100"><Edit2 className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => { setEditId(c.id); setEditName(c.name); setErrorEdit(null); }} aria-label={`Renombrar ${c.name}`} className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100"><Edit2 className="h-3.5 w-3.5" /></button>
                         )}
                         <button onClick={() => remove(c)} aria-label={`Eliminar ${c.name}`} className="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-100"><Trash2 className="h-3.5 w-3.5" /></button>
                       </div>

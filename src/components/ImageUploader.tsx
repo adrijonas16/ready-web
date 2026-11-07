@@ -11,9 +11,12 @@ interface ImageUploaderProps {
   onImagesSelected: (files: File[]) => void;
   onValidationError?: (errors: string[]) => void;
   maxFiles?: number;
+  /** id de la zona para soltar (enfocable), para llevar el foco cuando falta el archivo */
+  id?: string;
+  invalido?: boolean;
 }
 
-export default function ImageUploader({ onImagesSelected, onValidationError, maxFiles = 5 }: ImageUploaderProps) {
+export default function ImageUploader({ onImagesSelected, onValidationError, maxFiles = 5, id, invalido }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [previews, setPreviews] = useState<{ file: File; url: string; validation: ImageValidationResult }[]>([]);
   const [isValidating, setIsValidating] = useState(false);
@@ -85,16 +88,19 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
   return (
     <div className="space-y-4">
       <div
+        id={id}
         role="button"
         tabIndex={0}
         aria-label="Elegir fotos o archivos de la lista"
+        aria-invalid={invalido || undefined}
+        aria-describedby={invalido && id ? `${id}-error` : undefined}
         onDrop={handleDrop}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onClick={() => previews.length < maxFiles && fileInputRef.current?.click()}
         onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && previews.length < maxFiles) { e.preventDefault(); fileInputRef.current?.click(); } }}
         className={`group papel-cuadriculado relative cursor-pointer rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-[border-color,background-color,transform] duration-300
-          ${isDragging ? 'scale-[1.02] border-primario bg-primario-claro' : 'border-linea hover:border-primario'}
+          ${isDragging ? 'scale-[1.02] border-primario bg-primario-claro' : invalido ? 'border-profe' : 'border-linea-fuerte hover:border-primario'}
           ${previews.length >= maxFiles ? 'cursor-not-allowed opacity-50' : ''}`}
       >
         <input
@@ -102,6 +108,8 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
           type="file"
           accept="image/*,.pdf,.doc,.docx"
           multiple
+          tabIndex={-1}
+          aria-hidden="true"
           onChange={(e) => {
             if (e.target.files) addFiles(Array.from(e.target.files));
           }}
@@ -136,7 +144,7 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
             <li key={i} className="relative aspect-[3/4] animate-scale-in overflow-hidden rounded-xl border border-linea bg-papel" style={{ animationDelay: `${i * 60}ms` }}>
               {p.url ? (
                 <>
-                  <img src={p.url} alt={`Hoja ${i + 1}`} className="h-full w-full object-cover" />
+                  <img src={p.url} alt={`Hoja ${i + 1} de la lista`} width={150} height={200} decoding="async" className="h-full w-full object-cover" />
                   <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 h-8 bg-gradient-to-b from-transparent via-acento/50 to-transparent animate-escaneo-hoja" />
                 </>
               ) : (
@@ -149,10 +157,10 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                className="absolute right-1.5 top-1.5 rounded-full bg-papel p-1 text-profe shadow hover:bg-profe-claro"
+                className="absolute right-0.5 top-0.5 flex h-9 w-9 items-center justify-center rounded-full text-profe hover:bg-profe-claro/60"
                 aria-label={`Quitar hoja ${i + 1}`}
               >
-                <X className="h-3.5 w-3.5" />
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-papel shadow"><X className="h-3.5 w-3.5" aria-hidden="true" /></span>
               </button>
             </li>
           ))}

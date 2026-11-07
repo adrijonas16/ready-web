@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { Eye, EyeOff, LogIn, Loader2, UserRound, ShieldCheck } from 'lucide-react';
-import { MODO_DEMO } from '@/lib/api-base';
+import { MODO_DEMO, mensajeError } from '@/lib/api-base';
+import { AvisoError, ErrorCampo } from '@/components/form/Campo';
+import { LARGO, ariaCampo, enfocar, primerError, validarCorreoCuenta } from '@/lib/validar';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,6 +15,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errores, setErrores] = useState<{ email?: string | null; password?: string | null }>({});
+  const enviando = useRef(false);
   const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
 
@@ -23,20 +27,26 @@ export default function LoginPage() {
   };
 
   const entrar = async (correo: string, clave: string) => {
+    if (enviando.current) return; // sin doble envío
+    enviando.current = true;
     setError('');
     setLoading(true);
     try {
-      await login(correo, clave);
+      await login(correo.trim(), clave);
       router.push(correo.startsWith('admin') && destino() === '/' ? '/admin' : destino());
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Correo o contraseña incorrectos');
-    } finally {
+      setError(mensajeError(err, 'Correo o contraseña incorrectos.'));
+      enviando.current = false;
       setLoading(false);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const errs = { email: validarCorreoCuenta(email), password: password ? null : 'Escribe tu contraseña.' };
+    setErrores(errs);
+    const primero = primerError(errs);
+    if (primero) { enfocar(primero); return; }
     entrar(email, password);
   };
 
@@ -96,41 +106,41 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-slate-200" />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl animate-slide-up text-sm">
-                {error}
-              </div>
-            )}
+          <form onSubmit={handleSubmit} noValidate className="space-y-4" aria-busy={loading}>
+            <AvisoError>{error}</AvisoError>
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">Correo electrónico</label>
               <input
-                type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} required
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-[box-shadow,border-color] duration-150 text-sm placeholder-neutral-400"
+                type="email" id="email" name="email" autoComplete="email" inputMode="email" maxLength={LARGO.correo} value={email}
+                onChange={(e) => { setEmail(e.target.value); if (errores.email) setErrores(x => ({ ...x, email: null })); }} required {...ariaCampo('email', errores.email)}
+                className={`w-full px-4 py-3 bg-white border ${errores.email ? 'border-profe' : 'border-slate-300'} rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-[box-shadow,border-color] duration-150 text-sm placeholder-neutral-400`}
                 placeholder="tu@correo.com"
               />
+              <ErrorCampo id="email" error={errores.email} />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">Contraseña</label>
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'} id="password" value={password} onChange={(e) => setPassword(e.target.value)} required
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-[box-shadow,border-color] duration-150 pr-11 text-sm placeholder-neutral-400"
+                  type={showPassword ? 'text' : 'password'} id="password" name="password" autoComplete="current-password" maxLength={LARGO.clave} value={password}
+                  onChange={(e) => { setPassword(e.target.value); if (errores.password) setErrores(x => ({ ...x, password: null })); }} required {...ariaCampo('password', errores.password)}
+                  className={`w-full px-4 py-3 bg-white border ${errores.password ? 'border-profe' : 'border-slate-300'} rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-[box-shadow,border-color] duration-150 pr-11 text-sm placeholder-neutral-400`}
                   placeholder="Tu contraseña"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-slate-600 p-1 rounded transition-colors">
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                 </button>
               </div>
+              <ErrorCampo id="password" error={errores.password} />
             </div>
 
             <button
               type="submit" disabled={loading}
               className="w-full bg-blue-500 text-white py-3 px-4 rounded-xl font-bold text-sm transition-[opacity,box-shadow] duration-150 disabled:opacity-50 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/25"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LogIn className="h-4 w-4" />Iniciar sesión</>}
+              {loading ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Entrando…</> : <><LogIn className="h-4 w-4" aria-hidden="true" />Iniciar sesión</>}
             </button>
           </form>
 

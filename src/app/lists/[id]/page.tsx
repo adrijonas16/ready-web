@@ -4,7 +4,11 @@ import { useState, useEffect, useRef, useCallback, useMemo, use } from 'react';
 import { flushSync } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MODO_DEMO } from '@/lib/api-base';
+import NoEncontrado from '@/components/NoEncontrado';
+import { MODO_DEMO, mensajeError } from '@/lib/api-base';
+import { useAntiSpam, type DatosAntiSpam } from '@/lib/antispam';
+import { AvisoError, CampoTrampa, ErrorCampo } from '@/components/form/Campo';
+import { LARGO, validarTexto } from '@/lib/validar';
 import { listsApi, productsApi } from '@/services/api';
 import { ItemVariante, ListDetail, ListExtras, Product, SupplyItem } from '@/lib/types';
 import { LineaNueva, useCart } from '@/lib/cart-context';
@@ -23,42 +27,62 @@ import PrecioAnimado from '@/components/PrecioAnimado';
 import { lanzarConfeti, volarAlCarrito } from '@/lib/efectos';
 import { copiaDe, esMiCopia, guardarCopia } from '@/lib/copias';
 
-// ── Observations Box ──
+// ── Observaciones del cliente sobre su lista ──
 function ObservationBox({ listId, existing, onSaved }: { listId: string; existing?: string; onSaved: () => void }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [errorServidor, setErrorServidor] = useState('');
+  const [enviado, setEnviado] = useState(false);
+  const anti = useAntiSpam('observacion');
 
-  const handleSend = async () => {
-    if (!text.trim()) return;
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (sending) return;
+    const err = validarTexto(text, { campo: 'tu observación', min: 3, max: LARGO.texto });
+    setError(err); setErrorServidor(''); setEnviado(false);
+    if (err) { document.getElementById('observacion')?.focus(); return; }
+    const limite = anti.revisar();
+    if (limite) { setErrorServidor(limite); return; }
     setSending(true);
     try {
-      await listsApi.addObservacion(listId, text.trim());
-      setText('');
+      await listsApi.addObservacion(listId, text.trim(), await anti.datos());
+      anti.anotar(); anti.reiniciar();
+      setText(''); setEnviado(true);
       onSaved();
-    } catch {} finally { setSending(false); }
+    } catch (er) {
+      setErrorServidor(mensajeError(er, 'No pudimos enviar tu observación. Inténtalo de nuevo.'));
+    } finally { setSending(false); }
   };
 
   return (
     <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-5 mb-4">
       <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-1.5">
-        <MessageSquare className="h-4 w-4 text-blue-500" /> Observaciones
+        <MessageSquare className="h-4 w-4 text-blue-500" aria-hidden="true" /> Observaciones
       </h3>
       {existing && (
-        <div className="bg-slate-50 rounded-xl p-3 mb-3 text-xs text-slate-600 whitespace-pre-line max-h-32 overflow-y-auto">
+        <div className="bg-slate-50 rounded-xl p-3 mb-3 text-xs text-slate-600 whitespace-pre-line max-h-32 overflow-y-auto" tabIndex={0} role="region" aria-label="Observaciones enviadas">
           {existing.trim()}
         </div>
       )}
-      <div className="flex gap-2">
-        <input type="text" value={text} onChange={e => setText(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSend()}
-          placeholder="Escribe una observación o corrección…" aria-label="Observación" name="observacion" autoComplete="off"
-          className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
-        <button onClick={handleSend} disabled={!text.trim() || sending}
-          className="bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
-          Enviar
-        </button>
-      </div>
-      <p className="text-xs text-tenue mt-1">Si hay un error en la lista, escríbelo aquí y lo corregimos.</p>
+      <form onSubmit={handleSend} noValidate className="relative" aria-busy={sending}>
+        <CampoTrampa {...anti.trampa} sufijo="obs" />
+        <label htmlFor="observacion" className="sr-only">Observación</label>
+        <div className="flex gap-2">
+          <input id="observacion" type="text" value={text} onChange={e => { setText(e.target.value); setError(null); }}
+            placeholder="Escribe una observación o corrección…" name="observacion" autoComplete="off" maxLength={LARGO.texto}
+            aria-invalid={error ? true : undefined} aria-describedby={error ? 'observacion-error' : 'observacion-ayuda'}
+            className={`min-w-0 flex-1 px-3 py-2 border rounded-xl text-base sm:text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${error ? 'border-profe' : 'border-slate-300'}`} />
+          <button type="submit" disabled={sending}
+            className="min-h-11 shrink-0 bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
+            {sending ? 'Enviando…' : 'Enviar'}
+          </button>
+        </div>
+        <ErrorCampo id="observacion" error={error} />
+      </form>
+      {errorServidor && <div className="mt-2"><AvisoError>{errorServidor}</AvisoError></div>}
+      {enviado && <p role="status" className="mt-1 text-xs font-semibold text-eco">¡Gracias! Recibimos tu observación.</p>}
+      <p id="observacion-ayuda" className="text-xs text-tenue mt-1">Si hay un error en la lista, escríbelo aquí y lo corregimos.</p>
     </div>
   );
 }
@@ -423,24 +447,25 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     setTimeout(() => document.getElementById(`util-${nuevo.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
   };
 
-  const agregarUtil = async (p: Product, valores: ItemVariante[], cantidad: number) => {
+  const agregarUtil = async (p: Product, valores: ItemVariante[], cantidad: number, anti?: DatosAntiSpam) => {
     try {
-      const r = await listsApi.addItem(id, { nombreOriginal: p.name, cantidad, productId: p.id, porCliente: true });
+      const r = await listsApi.addItem(id, { nombreOriginal: p.name, cantidad, productId: p.id, porCliente: true }, anti);
       sumarItem({ ...r, matchedProductId: p.id, matchedProduct: p, priceAtMatch: p.basePrice, matchedQuantity: cantidad, agregado: true }, cantidad);
       if (valores.length) cambiarExtras({ ...extras, variantes: { ...(extras.variantes ?? {}), [r.id]: { productId: p.id, valores } } });
       showToast(`Agregaste ${p.name}`);
-    } catch {
-      showToast('No se pudo agregar', 'error');
+    } catch (err) {
+      showToast(mensajeError(err, 'No se pudo agregar'), 'error');
     }
   };
 
-  const pedirUtil = async (nombre: string, cantidad: number) => {
+  const pedirUtil = async (nombre: string, cantidad: number, anti: DatosAntiSpam): Promise<string | null> => {
     try {
-      const r = await listsApi.addItem(id, { nombreOriginal: nombre, cantidad, porCliente: true });
+      const r = await listsApi.addItem(id, { nombreOriginal: nombre, cantidad, porCliente: true }, anti);
       sumarItem({ ...r, agregado: true }, cantidad);
       showToast('Lo agregamos. Te confirmamos el precio al revisar tu pedido.');
-    } catch {
-      showToast('No se pudo agregar', 'error');
+      return null;
+    } catch (err) {
+      return mensajeError(err, 'No se pudo agregar. Inténtalo de nuevo.');
     }
   };
 
@@ -468,7 +493,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   };
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primario" /></div>;
-  if (!data) return <div className="py-20 text-center"><h1 className="text-2xl font-bold">No encontramos esta lista</h1><Link href="/my-lists" className="mt-4 inline-block font-semibold text-primario">Ver mis listas</Link></div>;
+  if (!data) return (
+    <NoEncontrado titulo="No encontramos esta lista" texto="Puede que el enlace esté incompleto o que la lista se haya eliminado. Busca la lista de tu colegio o sube la tuya."
+      principal={{ href: '/lists', texto: 'Buscar la lista de mi colegio' }} secundarias={[{ href: '/upload', texto: 'Subir mi lista' }, { href: '/my-lists', texto: 'Ver mis listas' }]} />
+  );
 
   const isOwner = !!user && data.list.userId === user.id;
   const isApproved = data.list.estado === 'VALIDADA' || data.list.estado === 'PROCESADA';

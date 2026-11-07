@@ -9,6 +9,9 @@ import { ItemVariante, Product, ProductDetail, SupplyItem, VariantValue } from '
 import { Tier, TIERS, tierLabel, tierProduct } from '@/lib/lista';
 import { ESTILO_NIVEL } from './Paquetes';
 import { precioVenta } from '@/lib/precio';
+import { useAntiSpam, type DatosAntiSpam } from '@/lib/antispam';
+import { CampoTrampa, ErrorCampo } from '@/components/form/Campo';
+import { LARGO, validarTexto } from '@/lib/validar';
 
 const esNivel = (t?: string): t is Tier => t === 'economico' || t === 'medio' || t === 'premium';
 
@@ -26,8 +29,9 @@ function Foto({ src, alt, className }: { src?: string | null; alt: string; class
 export default function SelectorProducto({ item, variantesActuales = [], onElegir, onPedirTexto, onClose }: {
   item?: SupplyItem;
   variantesActuales?: ItemVariante[];
-  onElegir: (producto: Product, valores: ItemVariante[], cantidad: number) => void;
-  onPedirTexto?: (nombre: string, cantidad: number) => void;
+  onElegir: (producto: Product, valores: ItemVariante[], cantidad: number, anti?: DatosAntiSpam) => void;
+  /** Pide un útil que no está en la tienda; devuelve un mensaje de error o null si se agregó */
+  onPedirTexto?: (nombre: string, cantidad: number, anti: DatosAntiSpam) => Promise<string | null>;
   onClose: () => void;
 }) {
   const agregar = !item;
@@ -39,6 +43,9 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
   const [nivel, setNivel] = useState<Tier | 'todos'>('todos');
   const [marca, setMarca] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [errorPedido, setErrorPedido] = useState<string | null>(null);
+  const [pidiendo, setPidiendo] = useState(false);
+  const anti = useAntiSpam('agregar-util');
   const [extraBusqueda, setExtraBusqueda] = useState<Product[]>([]);
   const [elegido, setElegido] = useState<Product | undefined>(actual);
   const [detalle, setDetalle] = useState<ProductDetail | null>(null);
@@ -143,18 +150,31 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
     && Object.values(valores).every(v => variantesActuales.some(a => a.valueId === v.id))
     && Object.keys(valores).length === variantesActuales.length;
 
-  const confirmar = () => {
+  const confirmar = async () => {
     if (!elegido) return;
     const tipos = detalle?.variants ?? [];
+    // Al agregar a la lista, el envío lleva los datos antispam (POST /lists/{id}/items)
+    const extra = agregar ? await anti.datos() : undefined;
     onElegir(elegido, Object.entries(valores).map(([tipoId, v]) => ({
       tipo: tipos.find(t => t.id === tipoId)?.name ?? 'Opción',
       valor: v.value,
       valueId: v.id,
       precio: v.price_modifier || 0,
       imagen: v.image_url,
-    })), cantidad);
+    })), cantidad, extra);
   };
-  const pedirTexto = () => { const t = busqueda.trim(); if (t.length >= 3 && onPedirTexto) onPedirTexto(t, cantidad); };
+  const pedirTexto = async () => {
+    if (!onPedirTexto || pidiendo) return;
+    const t = busqueda.trim().replace(/\s{2,}/g, ' ');
+    const err = validarTexto(t, { campo: 'el nombre del útil en el buscador', min: 3, max: LARGO.titulo }) ?? anti.revisar();
+    setErrorPedido(err);
+    if (err) { document.getElementById('buscar-producto')?.focus(); return; }
+    setPidiendo(true);
+    const fallo = await onPedirTexto(t, cantidad, await anti.datos());
+    setPidiendo(false);
+    setErrorPedido(fallo);
+    if (!fallo) { anti.anotar(); anti.reiniciar(); }
+  };
 
   return (
     <div className="animate-fondo fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
@@ -246,9 +266,10 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
             <label className="relative mt-3 block">
               <span className="sr-only">Buscar producto</span>
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-tenue" aria-hidden="true" />
-              <input value={busqueda} onChange={e => setBusqueda(e.target.value)} name="buscar-producto" autoComplete="off"
+              <input id="buscar-producto" type="search" value={busqueda} onChange={e => { setBusqueda(e.target.value); setErrorPedido(null); }} name="buscar-producto" autoComplete="off" maxLength={LARGO.titulo}
+                aria-invalid={errorPedido ? true : undefined} aria-describedby={errorPedido ? 'buscar-producto-error' : undefined}
                 placeholder="Buscar marca, diseño o tipo, ej.: dinosaurios…"
-                className="w-full rounded-xl border border-linea py-2.5 pl-9 pr-3 text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
+                className="w-full rounded-xl border border-linea-fuerte py-2.5 pl-9 pr-3 text-base sm:text-sm focus:border-primario focus:outline-none focus-visible:ring-2 focus-visible:ring-primario/25" />
             </label>
 
             {agregar && categorias.length > 1 && (
@@ -318,13 +339,15 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
               </ul>
             )}
             {agregar && onPedirTexto && (
-              <div className="mt-6 rounded-2xl border border-dashed border-linea-fuerte p-4">
+              <div className="relative mt-6 rounded-2xl border border-dashed border-linea-fuerte p-4">
+                <CampoTrampa {...anti.trampa} sufijo="util" />
                 <p className="text-sm font-semibold">¿No lo encuentras?</p>
                 <p className="text-sm text-tenue">Escríbelo en el buscador de arriba y lo agregamos a tu pedido para conseguirlo. Te confirmamos el precio.</p>
-                <button onClick={pedirTexto} disabled={busqueda.trim().length < 3}
-                  className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border-2 border-grafito px-3 py-2 text-sm font-bold hover:bg-fondo disabled:cursor-not-allowed disabled:opacity-40">
+                <ErrorCampo id="buscar-producto" error={errorPedido} />
+                <button type="button" onClick={pedirTexto} disabled={pidiendo}
+                  className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-2 border-grafito px-3 py-2 text-sm font-bold hover:bg-fondo disabled:cursor-not-allowed disabled:opacity-50">
                   <Send className="h-4 w-4" aria-hidden="true" />
-                  {busqueda.trim().length >= 3 ? `Pedir «${busqueda.trim()}»` : 'Pedir un útil por su nombre'}
+                  {pidiendo ? 'Agregando…' : busqueda.trim().length >= 3 ? `Pedir «${busqueda.trim()}»` : 'Pedir un útil por su nombre'}
                 </button>
               </div>
             )}
@@ -334,10 +357,10 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
         {/* Confirmar */}
         <div className="flex items-center gap-3 border-t border-linea px-5 py-4">
           {agregar && (
-            <div className="flex items-center rounded-xl border border-linea" aria-label="Cantidad">
-              <button onClick={() => setCantidad(c => Math.max(1, c - 1))} className="cursor-pointer p-3 hover:text-primario" aria-label="Uno menos"><Minus className="h-4 w-4" /></button>
+            <div className="flex items-center rounded-xl border border-linea" role="group" aria-label="Cantidad">
+              <button type="button" onClick={() => setCantidad(c => Math.max(1, c - 1))} className="cursor-pointer p-3.5 hover:text-primario" aria-label="Uno menos"><Minus className="h-4 w-4" aria-hidden="true" /></button>
               <span className="w-7 text-center font-bold tabular-nums">{cantidad}</span>
-              <button onClick={() => setCantidad(c => Math.min(99, c + 1))} className="cursor-pointer p-3 hover:text-primario" aria-label="Uno más"><Plus className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setCantidad(c => Math.min(99, c + 1))} className="cursor-pointer p-3.5 hover:text-primario" aria-label="Uno más"><Plus className="h-4 w-4" aria-hidden="true" /></button>
             </div>
           )}
           <button onClick={confirmar} disabled={!elegido || mismoQueActual}
