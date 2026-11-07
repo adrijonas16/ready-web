@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import type { ApiResponse, User, School, Grade, Section, SupplyList, SupplyItem, ListDetail, Product, ProductDetail, Order, Settings, Entrega, Comprobante, VariantType, VariantValue } from '@/lib/types';
 import { API, MODO_DEMO, llamarDemo } from '@/lib/api-base';
+import { evento, medirCompra } from '@/lib/analytics';
 
 const API_BASE_URL = API;
 
@@ -164,7 +165,7 @@ export const sectionsApi = {
 
 // Lists API
 export const listsApi = {
-  upload: (formData: FormData) => api.uploadFormData<SupplyList>('/lists/upload', formData),
+  upload: (formData: FormData) => api.uploadFormData<SupplyList>('/lists/upload', formData).then(l => { evento('generate_lead', { lead_source: 'foto_lista', currency: 'PEN', value: 0 }); return l; }),
   getById: (id: string) => api.get<ListDetail>(`/lists/${id}`),
   getAll: (params?: { estado?: string; esOficial?: boolean; userId?: string }) =>
     api.get<SupplyList[]>('/lists', params),
@@ -234,7 +235,7 @@ export const categoriesApi = {
 
 // Orders API
 export const ordersApi = {
-  create: (order: CreateOrderInput) => api.post<Order>('/orders', order),
+  create: (order: CreateOrderInput) => api.post<Order>('/orders', order).then(o => { medirCompra(order, o); return o; }),
   getById: (id: string) => api.get<Order>(`/orders/${id}`),
   getByUserId: (userId: string) => api.get<Order[]>(`/orders/user/${userId}`),
   updateStatus: (id: string, status: string, notes?: string) =>

@@ -4,6 +4,7 @@ import { API, apiFetch } from '@/lib/api-base';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { evento } from '@/lib/analytics';
 
 
 interface NewsItem { id: string; title: string; content?: string; image_url?: string; campaign_slug?: string; campaign_name?: string }
@@ -41,7 +42,7 @@ export default function NewsCarousel() {
           <h3 className="text-white text-lg font-bold mb-1">{item.title}</h3>
           {item.content && <p className="text-white/70 text-xs line-clamp-2">{item.content}</p>}
           {item.campaign_slug && (
-            <Link href={`/catalog?campaign=${item.campaign_slug}`}
+            <Link href={`/catalog?campaign=${item.campaign_slug}`} onClick={() => evento('select_promotion', { promotion_id: item.campaign_slug, promotion_name: item.campaign_name ?? undefined })}
               className="mt-2 inline-block bg-white text-slate-900 px-4 py-1.5 rounded-lg text-xs font-bold hover:shadow-lg transition-shadow">
               Ver ofertas
             </Link>

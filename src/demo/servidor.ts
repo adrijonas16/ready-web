@@ -4,7 +4,7 @@
 
 import {
   productos as catalogo, servicios, variantes as variantesBase, marcas, categorias, secciones, colegios,
-  plantillaPrimaria, plantillaPrimaria3, plantillaInicial, plantillaSecundaria, imagenListaEjemplo,
+  plantillaPrimaria, plantillaPrimaria3, plantillaInicial, plantillaSecundaria, imagenListaEjemplo, LISTAS_OFICIALES,
   type Linea, type ProductoDemo, type Tier, type TipoVariante,
 } from './catalogo';
 import { coincideAlguna } from '@/lib/buscar';
@@ -101,13 +101,7 @@ function estadoInicial(): Estado {
     colegios: colegios.map(c => ({ ...c })),
     seccionesColegio: Object.fromEntries(colegios.map(c => [c.id, secciones.map(s => s.id)])),
     grados,
-    listas: [
-      listaOficial('lista-alamos-2p', 'col-1', '2do Primaria', 'primaria'),
-      listaOficial('lista-alamos-5i', 'col-1', 'Inicial - 5 años', 'inicial'),
-      listaOficial('lista-santarosa-3p', 'col-2', '3ro Primaria', 'primaria3'),
-      listaOficial('lista-arcoiris-1s', 'col-3', '1ro Secundaria', 'secundaria'),
-      listaOficial('lista-sanmartin-4i', 'col-4', 'Inicial - 4 años', 'inicial'),
-    ],
+    listas: LISTAS_OFICIALES.map(([id, colegio, grado, plantilla]) => listaOficial(id, colegio, grado, plantilla)),
     pedidos: [],
     campanas: [{ id: 'camp-1', name: 'Regreso a clases', slug: 'regreso-a-clases', description: '10% en cuadernos y colores', discount_percent: 10, discount_fixed: 0, is_active: true, productIds: ['cu-m', 'cu-dibujos', 'co-m', 'co-p', 'ra-m'] }],
     noticias: [],

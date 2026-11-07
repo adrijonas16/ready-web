@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { productos } from '@/demo/catalogo';
+import { metadatosPagina, SITIO_NOMBRE } from '@/lib/sitio';
+import { jsonLdInicio } from '@/lib/json-ld';
 import { Camera, Search, ShoppingBag, ChevronRight } from 'lucide-react';
 import Vitrina from '@/components/Vitrina';
 import NewsCarousel from '@/components/NewsCarousel';
@@ -10,8 +12,12 @@ import Categorias from '@/components/home/Categorias';
 import { FotoLista, Mochila, TodoListo, TresOpciones } from '@/components/home/Ilustraciones';
 
 export const metadata: Metadata = {
-  title: 'Ready - Útiles escolares en Arequipa | Envío a domicilio',
-  description: 'Sube la foto de la lista de útiles de tu colegio y te la armamos completa. Elige económico, normal o premium y recíbela en casa en Arequipa.',
+  ...metadatosPagina({
+    titulo: 'Útiles escolares en Arequipa',
+    descripcion: 'Sube la foto de la lista de útiles de tu colegio y te la armamos completa. Elige económico, normal o premium y recíbela en casa en Arequipa.',
+    ruta: '/',
+  }),
+  title: { absolute: `${SITIO_NOMBRE}: útiles escolares en Arequipa | Envío a domicilio` },
 };
 
 /** Tres productos del catálogo que se abren en abanico al pasar el mouse */
@@ -26,15 +32,7 @@ function AbanicoProductos() {
 }
 
 export default function HomePage() {
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Store',
-    name: 'Ready - Utiles Escolares',
-    description: 'Tienda online de utiles escolares en Arequipa, Peru',
-    url: 'https://ready.pe',
-    areaServed: { '@type': 'City', name: 'Arequipa', addressCountry: 'PE' },
-    priceRange: '$-$$$',
-  };
+  const jsonLd = jsonLdInicio();
 
   return (
     <div>

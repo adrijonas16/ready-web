@@ -4,6 +4,7 @@ import { API, apiFetch } from '@/lib/api-base';
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '@/lib/types';
 import { authApi, PerfilInput } from '@/services/api';
+import { evento } from '@/lib/analytics';
 
 interface AuthContextType {
   user: User | null;
@@ -116,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('token', response.token);
     localStorage.setItem('user', JSON.stringify(response.user));
     addNotification('¡Bienvenido de vuelta!', 'success');
+    evento('login', { method: 'email' });
   };
 
   const register = async (email: string, password: string, name: string) => {
@@ -125,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('token', response.token);
     localStorage.setItem('user', JSON.stringify(response.user));
     addNotification('¡Cuenta creada exitosamente!', 'success');
+    evento('sign_up', { method: 'email' });
   };
 
   const logout = () => {
@@ -149,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(data.data);
           localStorage.setItem('user', JSON.stringify(data.data));
           addNotification('¡Bienvenido!', 'success');
+          evento('login', { method: 'google' });
         }
       })
       .catch(console.error);

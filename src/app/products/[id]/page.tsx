@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { tierLabel, Tier } from '@/lib/lista';
 import { descuentoPct, enOferta, precioVenta, redondear } from '@/lib/precio';
 import { fechaLarga, fechasEntrega, textoEnvio, useAjustes } from '@/lib/ajustes';
+import { datosItems, evento, itemGA } from '@/lib/analytics';
 
 
 interface VariantValue { id: string; value: string; image_url?: string; price_modifier: number; stock: number; is_active: boolean; color_hex?: string }
@@ -39,6 +40,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     apiFetch(`${API}/products/${id}`).then(r => r.json()).then(d => {
       if (d.success) {
         setProduct(d.data);
+        evento('view_item', datosItems([itemGA(d.data, d.data.salePrice ?? d.data.basePrice)]));
         setActiveImage(d.data.images?.[0]?.image_url || d.data.imageUrl || '');
         const defaults: Record<string, VariantValue> = {};
         // Por defecto, el primer valor activo con stock

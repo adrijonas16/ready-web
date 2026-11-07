@@ -1,7 +1,11 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Página no encontrada | Ready' };
+// Next añade <meta name="robots" content="noindex"> a esta página por sí solo
+export const metadata: Metadata = {
+  title: 'Página no encontrada',
+  description: 'No encontramos esta página. Vuelve al inicio, busca la lista de tu colegio o revisa el catálogo de útiles.',
+};
 
 /** Dibujo: un cuaderno abierto con una página arrancada y un lápiz. */
 function CuadernoPerdido() {

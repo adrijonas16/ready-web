@@ -11,6 +11,7 @@ import ProductCard from '@/components/ProductCard';
 import { TIERS } from '@/lib/lista';
 import { coincide as coincideBusqueda } from '@/lib/buscar';
 import { precioVenta } from '@/lib/precio';
+import { evento } from '@/lib/analytics';
 
 /** Categorías internas que no se venden sueltas en la tienda */
 const OCULTAS = new Set(['Servicios']);
@@ -79,6 +80,7 @@ function Catalogo() {
     if (campana) q.set('campaign', campana);
     router.replace(`/catalog${q.size ? `?${q}` : ''}`, { scroll: false });
   }, [categoria, busqueda, nivel, campana, router]);
+  useEffect(() => { const t = setTimeout(() => { if (busqueda.trim().length > 1) evento('search', { search_term: busqueda.trim().slice(0, 100) }); }, 1500); return () => clearTimeout(t); }, [busqueda]);
 
   const precioTope = useMemo(() => Math.ceil(Math.max(10, ...todos.map(p => precioVenta(p)))), [todos]);
   const tope = precioMax ?? precioTope;
