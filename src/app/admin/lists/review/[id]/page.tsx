@@ -369,7 +369,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
           <div className="mt-3 flex gap-2 overflow-x-auto">
             {fotos.map((url, i) => (
               <button key={i} onClick={() => { setFoto(url); setZoom(1); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-gray-200 hover:opacity-80" aria-label={`Ver foto ${i + 1} de la lista en grande`}>
-                <img src={url} alt={`Foto ${i + 1} de la lista`} className="h-24 object-cover" />
+                <img width={72} height={96} src={url} alt={`Foto ${i + 1} de la lista`} className="h-24 object-cover" />
               </button>
             ))}
           </div>
@@ -480,7 +480,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
                   <div key={item.id} data-item-nivel={item.nombreOriginal} className={`flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 rounded-xl ${product ? 'bg-gray-50' : 'bg-orange-50 border border-orange-200'}`}>
                     <span className="text-xs text-gray-400 w-5 text-right font-mono">{i + 1}.</span>
                     <div className="w-12 h-12 bg-white rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-100">
-                      {product?.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="h-5 w-5 text-gray-300" />}
+                      {product?.imageUrl ? <img width={64} height={64} decoding="async" src={product.imageUrl} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <Package className="h-5 w-5 text-gray-300" />}
                     </div>
                     <div className="flex-1 min-w-[140px]">
                       <p className="text-xs text-gray-400 truncate">{item.nombreOriginal} ×{item.cantidad}</p>
@@ -554,7 +554,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
               ) : searchResults.map(product => (
                 <div key={product.id} onClick={() => assignProduct(product)}
                   className="p-3 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer flex items-center gap-3">
-                  {product.imageUrl ? <img src={product.imageUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                  {product.imageUrl ? <img width={56} height={56} decoding="async" src={product.imageUrl} alt="" aria-hidden="true" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
                     : <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0"><Package className="h-5 w-5 text-gray-300" /></div>}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -606,7 +606,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
                     <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
                       <span className="text-xs text-gray-400 w-5 text-right">{i + 1}.</span>
                       <div className="w-11 h-11 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
-                        {product?.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="h-4 w-4 text-gray-300" />}
+                        {product?.imageUrl ? <img width={64} height={64} decoding="async" src={product.imageUrl} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <Package className="h-4 w-4 text-gray-300" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{product?.name || item.nombreOriginal}</p>

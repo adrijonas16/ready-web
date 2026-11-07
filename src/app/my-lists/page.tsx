@@ -52,7 +52,7 @@ export default function MyListsPage() {
           <div className="text-center">
             <h1 className="mb-2 text-2xl font-extrabold">Inicia sesión para ver tus listas</h1>
             <p className="mb-6 text-tenue">Aquí verás tus listas subidas y tus pedidos.</p>
-            <Link href="/login?redirect=/my-lists" className="rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Iniciar sesión</Link>
+            <Link href="/login?redirect=/my-lists" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro px-5 py-3 font-bold">Iniciar sesión</Link>
           </div>
         )}
       </div>

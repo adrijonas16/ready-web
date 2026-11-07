@@ -93,7 +93,7 @@ function LeyendoLista({ imageUrl, startedAt, onTimeout }: { imageUrl?: string; s
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   const seg = Math.floor((now - startedAt) / 1000);
   const paso = seg < 12 ? 'Leyendo cada línea de la lista…' : seg < 35 ? 'Buscando cada útil en nuestro catálogo…' : 'Calculando las opciones económica, estándar y premium…';
-  const primera = imageUrl?.split('|').find(u => /^data:image\/|\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
+  const primera = imageUrl?.split('|').find(u => /^data:image\/|\.(jpe?g|png|webp|gif|svg)(\?|$)/i.test(u));
 
   return (
     <div className="mx-auto grid max-w-5xl items-center gap-8 px-4 py-10 md:grid-cols-[minmax(0,380px)_1fr] md:gap-10 md:py-12">
@@ -101,7 +101,7 @@ function LeyendoLista({ imageUrl, startedAt, onTimeout }: { imageUrl?: string; s
         {primera
           ? <img src={primera} alt="Tu lista de útiles" width={380} height={507} className="max-h-[520px] h-auto w-full object-contain" />
           : <div className="papel-rayado h-[420px]" />}
-        <div aria-hidden="true" className="animate-escaneo absolute inset-x-0 h-1 bg-acento shadow-[0_0_24px_6px_rgba(255,198,41,0.55)]" />
+        <div aria-hidden="true" className="animate-escaneo absolute inset-x-0 top-0 bottom-1"><div className="h-1 bg-acento shadow-[0_0_24px_6px_rgba(255,198,41,0.55)]" /></div>
       </div>
       <div aria-live="polite" className="order-1 md:order-2">
         <h1 className="text-4xl font-extrabold tracking-[-0.03em]">Estamos leyendo tu lista</h1>
@@ -150,7 +150,7 @@ function EnRevision({ estado, observaciones, utiles, libros, imageUrl, leida }: 
     { t: observada ? 'Encontramos algo por corregir' : 'Nuestro equipo la está revisando', hecho: false, actual: true },
     { t: 'Eliges tu opción y compras', hecho: false },
   ];
-  const primera = imageUrl?.split('|').find(u => /^data:image\/|\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
+  const primera = imageUrl?.split('|').find(u => /^data:image\/|\.(jpe?g|png|webp|gif|svg)(\?|$)/i.test(u));
 
   return (
     <div className="mx-auto grid max-w-5xl items-start gap-10 px-4 py-10 md:grid-cols-[1fr_320px] md:py-14">

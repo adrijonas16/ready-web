@@ -220,7 +220,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
                   {g.lineas.map(it => (
                     <li key={it.id} className="flex items-center gap-3 py-3">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-linea bg-white">
-                        {it.imageUrl ? <img src={it.imageUrl} alt="" className="h-10 w-10 object-contain" /> : <Package className="h-5 w-5 text-tenue" aria-hidden="true" />}
+                        {it.imageUrl ? <img width={40} height={40} decoding="async" src={it.imageUrl} alt="" aria-hidden="true" className="h-10 w-10 object-contain" /> : <Package className="h-5 w-5 text-tenue" aria-hidden="true" />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold">{it.productName}</p>

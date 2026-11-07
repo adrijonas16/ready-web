@@ -222,7 +222,7 @@ export default function AdminCampaignsPage() {
                       <tr key={c.id} data-campana={c.slug} className={`border-b border-slate-100 hover:bg-blue-50/30 ${i % 2 ? 'bg-slate-50/30' : ''}`}>
                         <td className="px-4 py-2">
                           <label className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center cursor-pointer hover:bg-blue-50 overflow-hidden" title="Subir imagen">
-                            {c.imageUrl ? <img src={c.imageUrl} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />}
+                            {c.imageUrl ? <img width={64} height={64} decoding="async" src={c.imageUrl} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <ImageIcon className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />}
                             <input type="file" accept="image/*" className="sr-only" aria-label={`Imagen de ${c.name}`} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCampaignImage(c, f); e.target.value = ''; }} />
                           </label>
                         </td>
@@ -263,7 +263,7 @@ export default function AdminCampaignsPage() {
                     {campaignProducts.map(p => (
                       <li key={p.id} className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-50 rounded-lg">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-7 h-7 bg-white rounded overflow-hidden flex-shrink-0">{p.imageUrl && <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />}</div>
+                          <div className="w-7 h-7 bg-white rounded overflow-hidden flex-shrink-0">{p.imageUrl && <img decoding="async" src={p.imageUrl} alt="" aria-hidden="true" width={28} height={28} loading="lazy" className="w-full h-full object-cover" />}</div>
                           <span className="text-xs text-slate-700 truncate">{p.name}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -310,7 +310,7 @@ export default function AdminCampaignsPage() {
           {news.map(n => (
             <div key={n.id} data-noticia={n.title} className={`${tarjeta} p-3 sm:p-4 flex items-center gap-3 sm:gap-4`}>
               <label className="relative w-20 h-14 rounded-xl bg-slate-100 flex items-center justify-center cursor-pointer hover:bg-blue-50 flex-shrink-0 overflow-hidden" title="Subir imagen">
-                {n.imageUrl ? <img src={n.imageUrl} alt="" className="w-full h-full object-cover" /> : <Upload className="h-4 w-4 text-slate-400" aria-hidden="true" />}
+                {n.imageUrl ? <img width={64} height={64} decoding="async" src={n.imageUrl} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <Upload className="h-4 w-4 text-slate-400" aria-hidden="true" />}
                 <input type="file" accept="image/*" className="sr-only" aria-label={`Imagen de ${n.title}`} onChange={e => { const f = e.target.files?.[0]; if (f) uploadNewsImage(n, f); e.target.value = ''; }} />
               </label>
               <div className="flex-1 min-w-0">
@@ -363,7 +363,7 @@ export default function AdminCampaignsPage() {
               <input {...ac('n-imageUrl')} type="url" inputMode="url" maxLength={LARGO.url} value={formNoticia.datos.imageUrl} onChange={e => setN('imageUrl', e.target.value)} placeholder="https://…" className={campo} />
             </Etiqueta>
             {(formNoticia.datos.imageUrl || news.find(x => x.id === formNoticia.id)?.imageUrl) && (
-              <img src={formNoticia.datos.imageUrl || news.find(x => x.id === formNoticia.id)?.imageUrl || ''} alt="Vista previa de la imagen" className="h-24 rounded-lg object-cover border border-slate-200" />
+              <img src={formNoticia.datos.imageUrl || news.find(x => x.id === formNoticia.id)?.imageUrl || ''} alt="Vista previa de la imagen" width={192} height={96} className="h-24 rounded-lg object-cover border border-slate-200" />
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Etiqueta texto="Campaña">

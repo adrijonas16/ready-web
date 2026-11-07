@@ -16,7 +16,7 @@
 @theme {
   --font-sans: var(--fuente-texto);
   --font-display: var(--fuente-titulos);
-  --font-mano: "Caveat", "Comic Sans MS", cursive;
+  --font-mano: var(--nf-mano, "Caveat"), "Comic Sans MS", cursive;
 
   --color-primario: var(--t-primario);
   --color-primario-oscuro: var(--t-primario-oscuro);
@@ -73,8 +73,9 @@
 
 /* Tema "Tienda familiar" (elegido con UI/UX Pro Max): Rubik + Nunito Sans, azul familia y ámbar. */
 :root {
-  --fuente-titulos: "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
-  --fuente-texto: "Nunito Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  /* Las fuentes las define next/font en src/app/fuentes.ts (variables --nf-*) */
+  --fuente-titulos: var(--nf-titulos), ui-sans-serif, system-ui, sans-serif;
+  --fuente-texto: var(--nf-texto), ui-sans-serif, system-ui, sans-serif;
   --t-primario: #1D4ED8;
   --t-primario-oscuro: #1E3A8A;
   --t-primario-claro: #E8EFFE;
@@ -148,7 +149,8 @@
 /* Botones de color claro: texto oscuro para que se lea en ambos temas */
 [data-theme="dark"] .bg-acento,
 [data-theme="dark"] .bg-eco,
-[data-theme="dark"] .bg-premium {
+[data-theme="dark"] .bg-premium,
+[data-theme="dark"] .bg-profe {
   color: #0F172A;
 }
 
@@ -290,8 +292,9 @@ input::placeholder, textarea::placeholder {
 }
 
 @keyframes escaneo {
-  0%   { top: 0%; }
-  100% { top: calc(100% - 4px); }
+  /* Solo transform (sin "top"): el navegador lo anima sin recalcular el diseño en cada cuadro */
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(100%); }
 }
 
 .animate-escaneo {
@@ -438,10 +441,10 @@ img {
 
 /* Barra de lectura que recorre la hoja en la demo del inicio */
 @keyframes escaneo-hoja {
-  0% { top: 40px; opacity: 0; }
+  0% { transform: translateY(0); opacity: 0; }
   10% { opacity: 1; }
   90% { opacity: 1; }
-  100% { top: calc(100% - 30px); opacity: 0; }
+  100% { transform: translateY(100%); opacity: 0; }
 }
 .animate-escaneo-hoja { animation: escaneo-hoja 4s var(--ease-out) forwards; }
 

@@ -387,9 +387,11 @@ export default function CheckoutPage() {
         <div className="text-center">
           <ShoppingCart className="mx-auto mb-4 h-12 w-12 text-tenue/40" aria-hidden="true" />
           <h1 className="mb-1 text-xl font-bold">Tu carrito está vacío</h1>
-          <Link href="/catalog" className="mt-4 inline-block rounded-xl bg-primario px-5 py-2.5 text-sm font-bold text-white hover:bg-primario-oscuro">
-            Ver catálogo
-          </Link>
+          <p className="text-tenue">Agrega útiles para poder pagar.</p>
+          <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+            <Link href="/lists" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro px-5 py-3 text-sm font-bold">Buscar la lista de mi colegio</Link>
+            <Link href="/catalog" className="inline-flex min-h-12 items-center justify-center rounded-xl border-2 border-grafito px-5 py-2.5 text-sm font-bold hover:bg-papel">Ver el catálogo</Link>
+          </div>
         </div>
       </div>
     );
@@ -401,9 +403,10 @@ export default function CheckoutPage() {
         <div className="w-full max-w-sm rounded-2xl border border-linea bg-papel p-7 text-center">
           <h1 className="mb-1 text-xl font-bold">¡Casi listo!</h1>
           <p className="mb-5 text-sm text-tenue">Inicia sesión para completar tu compra</p>
-          <Link href="/login?redirect=/checkout" className="inline-block w-full rounded-xl bg-primario py-3 text-sm font-bold text-white hover:bg-primario-oscuro">
-            Iniciar sesión
+          <Link href="/login?redirect=/checkout" className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro py-3 text-sm font-bold">
+            Iniciar sesión para pagar
           </Link>
+          <Link href="/register" className="mt-3 inline-block text-sm font-semibold text-primario underline underline-offset-2">Crear una cuenta</Link>
         </div>
       </div>
     );
@@ -422,10 +425,10 @@ export default function CheckoutPage() {
           {confirmado && <p className="mb-1 text-sm text-tenue">Entrega el <b className="text-grafito">{fechaLarga(confirmado.fecha)}</b>, de {confirmado.franja}</p>}
           <p className="mb-6 text-sm text-tenue">No se cobró nada: es un pago de demostración. Te contactaríamos al {phone}.</p>
           <div className="flex flex-col gap-2.5">
-            <Link href={`/orders/${orderId}`} className="flex items-center justify-center gap-2 rounded-xl bg-primario px-6 py-3 text-sm font-bold text-white hover:bg-primario-oscuro">
+            <Link href={`/orders/${orderId}`} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro px-6 py-3 text-sm font-bold">
               Ver mi pedido <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
-            <Link href="/catalog" className="flex items-center justify-center gap-2 rounded-xl border border-linea bg-papel px-6 py-3 text-sm font-medium">
+            <Link href="/catalog" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-grafito bg-papel px-6 py-3 text-sm font-bold">
               <Package className="h-4 w-4" aria-hidden="true" /> Seguir comprando
             </Link>
           </div>
@@ -437,7 +440,7 @@ export default function CheckoutPage() {
   const grupos = agruparPorPara(items);
   const botonPagar = (clase: string) => (
     <button type="submit" form="form-pago" disabled={loading}
-      className={`items-center justify-center gap-2 rounded-xl bg-acento px-5 py-3.5 text-sm font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50 ${clase}`}>
+      className={`min-h-12 items-center justify-center gap-2 rounded-xl bg-acento px-5 py-3.5 text-sm font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50 ${clase}`}>
       {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Lock className="h-4 w-4" aria-hidden="true" />}
       Pagar {formatPrice(totalPagar)} (prueba)
     </button>
@@ -688,8 +691,8 @@ export default function CheckoutPage() {
                 <div className="flex justify-between"><dt className="text-tenue">Subtotal</dt><dd className="font-bold tabular-nums">{formatPrice(total)}</dd></div>
                 {ahorro > 0 && <div className="flex justify-between text-profe"><dt>Ofertas incluidas</dt><dd className="tabular-nums">−{formatPrice(ahorro)}</dd></div>}
                 {cuponAplicado && <div className="flex justify-between text-eco"><dt>Cupón {cuponAplicado.codigo}</dt><dd className="font-semibold tabular-nums">−{formatPrice(descuento)}</dd></div>}
-                <div className="flex justify-between"><dt className="text-tenue">Envío</dt><dd className="font-semibold tabular-nums">{envio === 0 ? 'Gratis' : formatPrice(envio)}</dd></div>
-                {envio > 0 && ajustes.envioGratisDesde != null && <p className="text-xs text-tenue">Envío gratis desde {formatPrice(ajustes.envioGratisDesde)}.</p>}
+                <div className="flex flex-wrap justify-between"><dt className="text-tenue">Envío</dt><dd className="font-semibold tabular-nums">{envio === 0 ? 'Gratis' : formatPrice(envio)}</dd>
+                  {envio > 0 && ajustes.envioGratisDesde != null && <dd className="w-full text-xs text-tenue">Envío gratis desde {formatPrice(ajustes.envioGratisDesde)}.</dd>}</div>
                 <div className="flex justify-between border-t border-linea pt-2 text-lg"><dt className="font-bold">Total</dt><dd className="font-extrabold tabular-nums">{formatPrice(totalPagar)}</dd></div>
               </dl>
               <p className="mb-3 text-xs text-tenue">Entrega: <span className="font-semibold text-grafito">{fechaLarga(fechaElegida, true)}</span>, {franja}</p>

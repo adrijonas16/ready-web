@@ -275,7 +275,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
               <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3" aria-label="Fotos">
                 {images.map(im => (
                   <li key={im.id} data-foto={im.id} className={`relative rounded-xl overflow-hidden border-2 ${im.isPrimary ? 'border-blue-500' : 'border-slate-200'}`}>
-                    <img src={im.imageUrl} alt={im.altText || form.name} className="w-full aspect-square object-cover bg-slate-50" />
+                    <img width={240} height={240} src={im.imageUrl} alt={im.altText || form.name} className="w-full aspect-square object-cover bg-slate-50" />
                     {im.isPrimary && <span className="absolute top-1.5 left-1.5 bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Principal</span>}
                     <div className="flex border-t border-slate-200 bg-white">
                       {!im.isPrimary && (
@@ -385,7 +385,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
             <p className="text-sm font-medium text-slate-900 mb-3">Vista previa</p>
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <div className="aspect-[4/3] bg-slate-50 flex items-center justify-center relative">
-                {imagenPrincipal ? <img src={imagenPrincipal} alt="" className="w-full h-full object-cover" /> : <Package className="h-10 w-10 text-neutral-200" aria-hidden="true" />}
+                {imagenPrincipal ? <img width={64} height={64} decoding="async" src={imagenPrincipal} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <Package className="h-10 w-10 text-neutral-200" aria-hidden="true" />}
                 <span className="absolute top-2 left-2"><NivelBadge tier={form.tier} /></span>
                 {!form.isActive && <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-900 text-white">Inactivo</span>}
               </div>
@@ -461,7 +461,7 @@ function FilaValor({ val, base, onGuardar, onBorrar, onFoto }: {
     <div data-valor={val.id} className={`flex flex-wrap items-end gap-2 p-2.5 rounded-xl ${d.isActive ? 'bg-slate-50' : 'bg-slate-50 opacity-60'}`}>
       <label className="relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-100 hover:bg-blue-50"
         title="Cambiar foto" style={d.colorHex && !val.image_url ? { backgroundColor: d.colorHex, borderStyle: 'solid' } : undefined}>
-        {val.image_url ? <img src={val.image_url} alt="" className="w-full h-full object-cover" /> : !d.colorHex && <Upload className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />}
+        {val.image_url ? <img width={64} height={64} decoding="async" src={val.image_url} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : !d.colorHex && <Upload className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />}
         <input type="file" accept="image/*" className="sr-only" aria-label={`Foto de ${val.value}`} onChange={e => { const f = e.target.files?.[0]; if (f) onFoto(f); e.target.value = ''; }} />
       </label>
       <label className="flex-1 min-w-[120px]">

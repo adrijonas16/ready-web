@@ -3,52 +3,72 @@
 import { useEffect, useRef, useState } from 'react';
 import { RotateCcw, Sparkles } from 'lucide-react';
 import PrecioAnimado from '@/components/PrecioAnimado';
-import { productos } from '@/demo/catalogo';
+import type { MiniProducto } from '@/demo/subconjunto';
 import { formatPrice } from '@/lib/utils';
 import type { Tier } from '@/lib/lista';
 
-// Una lista escrita a mano y cómo se arma en cada opción, con productos reales del catálogo
-const LINEAS: { texto: string; cantidad: number; ids: Record<Tier, string> }[] = [
-  { texto: '3 cuad. cuadriculado A4', cantidad: 3, ids: { economico: 'cu-e', medio: 'cu-dibujos', premium: 'cu-p' } },
-  { texto: '1 caja colores x24', cantidad: 1, ids: { economico: 'co-e', medio: 'co-m', premium: 'co-p' } },
-  { texto: '2 gomas en barra', cantidad: 2, ids: { economico: 'go-e', medio: 'go-m', premium: 'go-p' } },
-  { texto: '1 tijera punta roma', cantidad: 1, ids: { economico: 'ti-e', medio: 'ti-m', premium: 'ti-p' } },
-  { texto: '1 témperas x7', cantidad: 1, ids: { economico: 'te-e', medio: 'te-m', premium: 'te-p' } },
-];
+import { LINEAS } from './datos';
+
 const NIVELES: { id: Tier; label: string; activo: string }[] = [
   { id: 'economico', label: 'Económico', activo: 'bg-eco text-white' },
   { id: 'medio', label: 'Normal', activo: 'bg-primario text-white' },
   { id: 'premium', label: 'Premium', activo: 'bg-premium text-white' },
 ];
-const prod = (id: string) => productos.find(p => p.id === id)!;
 const PASO_LECTURA = 650;
 
 /**
  * Demostración interactiva del hero: la lista escrita se "lee" línea por línea,
  * cada útil aparece armado con su foto y se puede cambiar entre Económico, Normal y Premium.
  */
-export default function DemoEnVivo() {
+export default function DemoEnVivo({ catalogo }: { catalogo: Record<string, MiniProducto> }) {
+  const prod = (id: string) => catalogo[id];
   const [leidas, setLeidas] = useState(0);
   const [nivel, setNivel] = useState<Tier>('medio');
   const [tocado, setTocado] = useState(false);
   const [vuelta, setVuelta] = useState(0);
   const quieto = useRef(false);
+  const caja = useRef<HTMLElement>(null);
+  const [visible, setVisible] = useState(true);
 
-  // Lectura línea por línea (o todo de una si se pidió reducir movimiento)
+  // Las animaciones se pausan cuando la demostración no está en pantalla (menos trabajo para el celular)
+  useEffect(() => {
+    const el = caja.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting && document.visibilityState === 'visible'));
+    io.observe(el);
+    const alCambiar = () => setVisible(document.visibilityState === 'visible' && el.getBoundingClientRect().bottom > 0);
+    document.addEventListener('visibilitychange', alCambiar);
+    return () => { io.disconnect(); document.removeEventListener('visibilitychange', alCambiar); };
+  }, []);
+
+  // Lectura línea por línea (o todo de una si se pidió reducir movimiento).
+  // Empieza cuando la página terminó de cargar y el navegador está libre, para no competir con lo importante.
   useEffect(() => {
     quieto.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (quieto.current) { const t = setTimeout(() => setLeidas(LINEAS.length), 0); return () => clearTimeout(t); }
-    const timers = LINEAS.map((_, i) => setTimeout(() => setLeidas(i + 1), 700 + i * PASO_LECTURA));
-    return () => timers.forEach(clearTimeout);
+    let timers: ReturnType<typeof setTimeout>[] = [];
+    let idle = 0;
+    const empezar = () => { timers = LINEAS.map((_, i) => setTimeout(() => setLeidas(i + 1), 400 + i * PASO_LECTURA)); };
+    const cuandoLibre = () => {
+      if ('requestIdleCallback' in window) idle = window.requestIdleCallback(empezar, { timeout: 1500 });
+      else timers = [setTimeout(empezar, 300)];
+    };
+    if (vuelta > 0 || document.readyState === 'complete') cuandoLibre();
+    else window.addEventListener('load', cuandoLibre, { once: true });
+    return () => {
+      window.removeEventListener('load', cuandoLibre);
+      if (idle && 'cancelIdleCallback' in window) window.cancelIdleCallback(idle);
+      timers.forEach(clearTimeout);
+    };
   }, [vuelta]);
 
   // Cuando terminó de leer y nadie tocó nada, muestra las tres opciones solas
   useEffect(() => {
-    if (tocado || leidas < LINEAS.length || quieto.current) return;
+    if (tocado || leidas < LINEAS.length || quieto.current || !visible) return;
     const orden: Tier[] = ['medio', 'premium', 'economico'];
     const t = setInterval(() => setNivel(n => orden[(orden.indexOf(n) + 1) % orden.length]), 2600);
     return () => clearInterval(t);
-  }, [tocado, leidas]);
+  }, [tocado, leidas, visible]);
 
   const leyendo = leidas < LINEAS.length;
   const total = LINEAS.slice(0, leidas).reduce((s, l) => s + prod(l.ids[nivel]).basePrice * l.cantidad, 0);
@@ -56,7 +76,7 @@ export default function DemoEnVivo() {
   const repetir = () => { setLeidas(0); setTocado(false); setNivel('medio'); setVuelta(v => v + 1); };
 
   return (
-    <figure className="relative mx-auto h-[460px] w-full max-w-[500px] select-none sm:h-[470px]">
+    <figure ref={caja} className="relative mx-auto h-[460px] w-full max-w-[500px] select-none sm:h-[470px]">
       {/* La hoja escrita a mano, con la línea que se está leyendo resaltada */}
       <div className="papel-rayado sombra-hoja absolute left-0 top-0 w-[60%] -rotate-[4deg] overflow-hidden rounded-[6px] pb-6 pl-[46px] pr-3 pt-[14px]">
         <p className="font-mano text-[1.5rem] leading-[38px] text-primario">Lista de útiles</p>
@@ -68,8 +88,9 @@ export default function DemoEnVivo() {
           </p>
         ))}
         {leyendo && (
-          <span key={vuelta} aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 h-10 bg-gradient-to-b from-transparent via-acento/35 to-transparent animate-escaneo-hoja" />
+          <span key={vuelta} aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-10 bottom-[30px] animate-escaneo-hoja">
+            <span className="block h-10 bg-gradient-to-b from-transparent via-acento/35 to-transparent" />
+          </span>
         )}
       </div>
 
@@ -102,10 +123,10 @@ export default function DemoEnVivo() {
             const p = prod(l.ids[nivel]);
             const lista = i < leidas;
             return (
-              <li key={l.texto} className={`flex h-10 items-center gap-2 rounded-lg px-1 transition-[opacity,transform] duration-500 ${
+              <li key={l.texto} aria-hidden={!lista || undefined} className={`flex h-10 items-center gap-2 rounded-lg px-1 transition-[opacity,transform] duration-500 ${
                 lista ? 'translate-x-0 opacity-100' : 'translate-x-6 opacity-0'}`}>
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-linea bg-white">
-                  <img key={p.id} src={p.imageUrl} alt="" className="h-8 w-8 animate-voltear object-contain" />
+                  <img key={p.id} src={p.imageUrl} alt="" aria-hidden="true" width={32} height={32} decoding="async" className="h-8 w-8 animate-voltear object-contain" />
                 </span>
                 <span className="min-w-0 flex-1 leading-tight">
                   <span className="block truncate text-[13px] font-semibold">{p.name}</span>

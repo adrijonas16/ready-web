@@ -100,8 +100,8 @@ export default function UploadPage() {
           <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Inicia sesión para subir tu lista</h1>
           <p className="mt-2 text-tenue">Así guardamos tu lista y te avisamos cuando esté armada.</p>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <Link href="/login?redirect=/upload" className="rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Iniciar sesión</Link>
-            <Link href="/register" className="rounded-xl border-2 border-grafito px-5 py-3 font-bold text-grafito hover:bg-fondo">Crear cuenta</Link>
+            <Link href="/login?redirect=/upload" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro px-5 py-3 font-bold">Iniciar sesión</Link>
+            <Link href="/register" className="inline-flex min-h-12 items-center justify-center rounded-xl border-2 border-grafito px-5 py-3 font-bold text-grafito hover:bg-fondo">Crear cuenta</Link>
           </div>
         </div>
       </div>

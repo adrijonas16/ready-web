@@ -123,7 +123,7 @@ function Catalogo() {
         <h2 id="f-nivel" className="mb-2 text-sm font-bold">Nivel</h2>
         {TIERS.map(t => (
           <Chip key={t.id} activo={nivel === t.id} onClick={() => setNivel(nivel === t.id ? '' : t.id)}>
-            <span>{t.label}</span><span className={nivel === t.id ? 'text-white/75' : 'text-tenue'}>{porNivel[t.id] || 0}</span>
+            <span>{t.label}</span><span className={nivel === t.id ? 'text-white' : 'text-tenue'}>{porNivel[t.id] || 0}</span>
           </Chip>
         ))}
       </section>
@@ -133,7 +133,7 @@ function Catalogo() {
           <div className="max-h-56 overflow-y-auto pr-1 custom-scrollbar">
             {marcas.map(m => (
               <Chip key={m} activo={marca === m} onClick={() => setMarca(marca === m ? '' : m)}>
-                <span className="truncate">{m}</span><span className={marca === m ? 'text-white/75' : 'text-tenue'}>{porMarca[m]}</span>
+                <span className="truncate">{m}</span><span className={marca === m ? 'text-white' : 'text-tenue'}>{porMarca[m]}</span>
               </Chip>
             ))}
           </div>
@@ -150,7 +150,7 @@ function Catalogo() {
           <h2 id="f-ofertas" className="mb-2 flex items-center gap-1.5 text-sm font-bold"><Percent className="h-3.5 w-3.5 text-profe" aria-hidden="true" /> Ofertas</h2>
           {campanas.map(c => (
             <Chip key={c.id} activo={campana === c.slug} onClick={() => setCampana(campana === c.slug ? '' : c.slug)}>
-              <span className="truncate">{c.name}</span><span className={campana === c.slug ? 'text-white/75' : 'text-profe'}>-{c.discount_percent}%</span>
+              <span className="truncate">{c.name}</span><span className={campana === c.slug ? 'text-white' : 'text-profe'}>-{c.discount_percent}%</span>
             </Chip>
           ))}
         </section>
@@ -180,7 +180,7 @@ function Catalogo() {
         {categorias.map(c => (
           <button key={c} onClick={() => setCategoria(categoria === c ? '' : c)} aria-pressed={categoria === c}
             className={`shrink-0 cursor-pointer rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${categoria === c ? 'border-primario bg-primario text-white' : 'border-linea bg-papel hover:border-tenue'}`}>
-            {c} <span className={categoria === c ? 'text-white/75' : 'text-tenue'}>{porCategoria[c] || 0}</span>
+            {c} <span className={categoria === c ? 'text-white' : 'text-tenue'}>{porCategoria[c] || 0}</span>
           </button>
         ))}
       </nav>
@@ -249,9 +249,12 @@ function Catalogo() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-              {visibles.map(p => <ProductCard key={p.id} product={p} />)}
-            </div>
+            <>
+              <h2 className="sr-only">Productos</h2>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                {visibles.map((p, i) => <ProductCard key={p.id} product={p} prioridad={i < 4} />)}
+              </div>
+            </>
           )}
         </div>
       </div>

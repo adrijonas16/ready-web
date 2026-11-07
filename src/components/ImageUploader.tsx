@@ -161,7 +161,7 @@ export default function ImageUploader({ onImagesSelected, onValidationError, max
               {p.url ? (
                 <>
                   <img src={p.url} alt={`Hoja ${i + 1} de la lista`} width={150} height={200} decoding="async" className="h-full w-full object-cover" />
-                  <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 h-8 bg-gradient-to-b from-transparent via-acento/50 to-transparent animate-escaneo-hoja" />
+                  <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-10 bottom-[30px] animate-escaneo-hoja"><span className="block h-8 bg-gradient-to-b from-transparent via-acento/50 to-transparent" /></span>
                 </>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center p-2 text-center">

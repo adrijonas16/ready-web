@@ -29,7 +29,7 @@ export default function NewsCarousel() {
     <div className="relative overflow-hidden rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)]">
       <div className="relative h-48 md:h-56 bg-slate-900">
         {item.image_url && (
-          <img src={item.image_url} alt={item.title} className="absolute inset-0 w-full h-full object-cover opacity-60" />
+          <img width={64} height={64} src={item.image_url} alt={item.title} className="absolute inset-0 w-full h-full object-cover opacity-60" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-5">

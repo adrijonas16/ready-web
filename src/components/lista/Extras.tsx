@@ -101,7 +101,7 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
               <button key={c.nombre} onClick={() => set({ forro: { ...extras.forro, color: c.nombre } })} aria-pressed={activo}
                 className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm ${activo ? 'border-grafito bg-fondo font-semibold' : 'border-linea hover:border-tenue'}`}>
                 {c.imagen
-                  ? <img src={c.imagen} alt="" width={16} height={16} className="h-4 w-4 rounded-full object-cover" />
+                  ? <img decoding="async" src={c.imagen} alt="" aria-hidden="true" width={16} height={16} className="h-4 w-4 rounded-full object-cover" />
                   : <span className="h-4 w-4 rounded-full border border-black/10" style={{ background: c.hex || 'repeating-linear-gradient(45deg,#fff 0 3px,#E4ECFC 3px 6px)' }} aria-hidden="true" />}
                 {c.nombre}{c.recargo > 0 && <span className="text-tenue">+{formatPrice(c.recargo)}</span>}
               </button>
@@ -146,7 +146,7 @@ export default function Extras({ extras, onChange, conteo, servicios, opciones }
               <button key={d.nombre} onClick={() => set({ etiquetas: { ...extras.etiquetas, diseno: d.nombre } })} aria-pressed={activo}
                 className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border p-1.5 text-xs ${activo ? 'border-primario bg-primario-claro font-semibold' : 'border-linea hover:border-tenue'}`}>
                 {d.imagen
-                  ? <img src={d.imagen} alt="" width={64} height={40} className="h-10 w-full rounded-md object-cover" />
+                  ? <img decoding="async" src={d.imagen} alt="" aria-hidden="true" width={64} height={40} className="h-10 w-full rounded-md object-cover" />
                   : <span className="flex h-10 items-center"><Icono className="h-5 w-5 text-acento-oscuro" aria-hidden="true" /></span>}
                 <span className="w-full truncate text-center">{d.nombre}</span>
                 {d.recargo > 0 && <span className="text-tenue">+{formatPrice(d.recargo)}</span>}

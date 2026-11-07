@@ -248,7 +248,7 @@ const pedidoRespuesta = (p: Pedido) => {
 };
 
 // ── Utilidades HTTP ──
-export class ErrorDemo extends Error { constructor(message: string, public status = 400) { super(message); } }
+export class ErrorDemo extends Error { constructor(message: string, public status = 400, public code?: string) { super(message); } }
 const norm = (o: Json) => Object.fromEntries(Object.entries(o ?? {}).map(([k, v]) => [k.charAt(0).toLowerCase() + k.slice(1), v])) as Json;
 const texto = (v: unknown) => (v === undefined || v === null ? undefined : String(v));
 
@@ -267,11 +267,11 @@ export const TIEMPO_MINIMO_FORMULARIO = 2500;
 function revisarAntiSpam(b: FormData | Json) {
   const leer = (k: string) => (b instanceof FormData ? b.get(k) : (b as Json)[k]);
   const trampa = leer('sitioWeb');
-  if (typeof trampa === 'string' && trampa.trim()) throw new ErrorDemo('No pudimos enviar el formulario. Si eres una persona, recarga la página e inténtalo de nuevo.', 400);
+  if (typeof trampa === 'string' && trampa.trim()) throw new ErrorDemo('No pudimos enviar el formulario. Si eres una persona, recarga la página e inténtalo de nuevo.', 400, 'SPAM_DETECTED');
   const t = leer('_t');
   // Sin "_t" se acepta (llamadas del panel); con "_t" debe pasar el tiempo mínimo
   if (t !== undefined && t !== null && t !== '' && !(Number(t) >= TIEMPO_MINIMO_FORMULARIO))
-    throw new ErrorDemo('Enviaste el formulario demasiado rápido. Espera unos segundos y vuelve a intentarlo.', 429);
+    throw new ErrorDemo('Enviaste el formulario demasiado rápido. Espera unos segundos y vuelve a intentarlo.', 429, 'RATE_LIMIT');
 }
 
 const sesion = (u: Usuario) => ({ token: `demo.${u.id}`, user: u });
