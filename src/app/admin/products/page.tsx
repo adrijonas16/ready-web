@@ -132,7 +132,7 @@ export default function AdminProductsPage() {
                   <tr key={p.id} data-producto={p.id} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-50/30'} ${p.isActive === false ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-2">
                       <div className="w-9 h-9 bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center">
-                        {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="h-4 w-4 text-neutral-300" aria-hidden="true" />}
+                        {p.imageUrl ? <img width={64} height={64} decoding="async" src={p.imageUrl} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <Package className="h-4 w-4 text-neutral-300" aria-hidden="true" />}
                       </div>
                     </td>
                     <td className="px-4 py-2"><p className="text-xs font-medium text-slate-900 truncate max-w-[220px]">{p.name}</p></td>

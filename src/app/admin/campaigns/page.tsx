@@ -6,6 +6,9 @@ import { productsApi, campaignsApi, newsApi, type Campaign, type NewsItem, type 
 import { Product } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
 import { Cargando, Interruptor, Modal, aSlug, botonPrimario, campo, fechaCorta, hoyISO, tarjeta, th, useAvisos } from '../_ui';
+import { LARGO, enfocar, primerError, validarEnlace, validarEntero, validarPorcentaje, validarTexto } from '@/lib/validar';
+import { validarArchivoImagen } from '@/lib/utils';
+import { AlertCircle } from 'lucide-react';
 
 interface FormCampana { name: string; slug: string; slugManual: boolean; description: string; discountPercent: string; startDate: string; endDate: string; isActive: boolean; imageUrl: string }
 const campanaVacia: FormCampana = { name: '', slug: '', slugManual: false, description: '', discountPercent: '10', startDate: '', endDate: '', isActive: true, imageUrl: '' };
@@ -29,6 +32,9 @@ export default function AdminCampaignsPage() {
   const [formCampana, setFormCampana] = useState<{ id: string | null; datos: FormCampana } | null>(null);
   const [formNoticia, setFormNoticia] = useState<{ id: string | null; datos: FormNoticia } | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [errores, setErrores] = useState<Record<string, string | null>>({});
+  /** id, aria-invalid y aria-describedby de un campo del formulario abierto */
+  const ac = (id: string) => ({ id, 'aria-invalid': errores[id] ? true : undefined, 'aria-describedby': errores[id] ? `${id}-error` : undefined });
   const [expanded, setExpanded] = useState<Campaign | null>(null);
   const [campaignProducts, setCampaignProducts] = useState<Product[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -42,19 +48,33 @@ export default function AdminCampaignsPage() {
   useEffect(() => { load(); }, [load]);
 
   // ── Campañas ──
-  const abrirCampana = (c?: Campaign) => setFormCampana({
+  const abrirCampana = (c?: Campaign) => { setErrores({}); setFormCampana({
     id: c?.id ?? null,
     datos: c ? { name: c.name, slug: c.slug, slugManual: true, description: c.description || '', discountPercent: String(c.discountPercent ?? 0), startDate: c.startDate?.slice(0, 10) || '', endDate: c.endDate?.slice(0, 10) || '', isActive: c.isActive, imageUrl: c.imageUrl || '' } : campanaVacia,
-  });
-  const setC = <K extends keyof FormCampana>(k: K, v: FormCampana[K]) => setFormCampana(f => f && ({ ...f, datos: { ...f.datos, [k]: v, ...(k === 'name' && !f.datos.slugManual ? { slug: aSlug(String(v)) } : {}) } }));
+  }); };
+  const setC = <K extends keyof FormCampana>(k: K, v: FormCampana[K]) => {
+    setErrores(e => ({ ...e, [`c-${k}`]: null }));
+    setFormCampana(f => f && ({ ...f, datos: { ...f.datos, [k]: v, ...(k === 'name' && !f.datos.slugManual ? { slug: aSlug(String(v)) } : {}) } }));
+  };
 
-  const saveCampaign = async () => {
-    if (!formCampana) return;
+  const saveCampaign = async (ev?: React.FormEvent) => {
+    ev?.preventDefault();
+    if (!formCampana || guardando) return;
     const d = formCampana.datos;
-    if (!d.name.trim()) { avisos.error(null, 'Escribe el nombre de la campaña'); return; }
     const pct = parseFloat(d.discountPercent);
-    if (!Number.isFinite(pct) || pct < 0 || pct > 90) { avisos.error(null, 'El descuento debe estar entre 0 % y 90 %'); return; }
-    if (d.startDate && d.endDate && d.endDate < d.startDate) { avisos.error(null, 'La fecha de fin es anterior a la de inicio'); return; }
+    const slug = aSlug(d.slug || d.name);
+    const errs = {
+      'c-name': validarTexto(d.name, { campo: 'el nombre de la campaña', min: 3, max: LARGO.nombre }),
+      'c-slug': slug && campaigns.some(c => c.slug === slug && c.id !== formCampana.id) ? 'Ya hay una campaña con esa dirección web.' : null,
+      'c-description': validarTexto(d.description, { obligatorio: false, max: 200 }),
+      'c-discountPercent': validarPorcentaje(d.discountPercent) ?? (pct > 90 ? 'El descuento máximo es 90 %.' : null),
+      'c-startDate': null as string | null,
+      'c-endDate': d.startDate && d.endDate && d.endDate < d.startDate ? 'La fecha de fin es anterior a la de inicio.' : null,
+      'c-imageUrl': d.imageUrl.startsWith('data:') ? null : validarEnlace(d.imageUrl),
+    };
+    setErrores(errs);
+    const primero = primerError(errs);
+    if (primero) { enfocar(primero); return; }
     const data = {
       name: d.name.trim(), slug: aSlug(d.slug || d.name), description: d.description.trim() || null, discountPercent: pct, discountFixed: 0,
       startDate: d.startDate || null, endDate: d.endDate || null, isActive: d.isActive, imageUrl: d.imageUrl.trim() || null,
@@ -79,6 +99,8 @@ export default function AdminCampaignsPage() {
     catch (e) { avisos.error(e, 'No pudimos eliminar la campaña'); }
   };
   const uploadCampaignImage = async (c: Campaign, f: File) => {
+    const err = validarArchivoImagen(f);
+    if (err) { avisos.error(new Error(err)); return; }
     try { await campaignsApi.uploadImage(c.id, f); avisos.exito('Imagen de la campaña subida'); load(); }
     catch (e) { avisos.error(e, 'No pudimos subir la imagen'); }
   };
@@ -110,15 +132,28 @@ export default function AdminCampaignsPage() {
   const filteredAllProducts = allProducts.filter(p => p.isActive !== false && (!productSearch || sinTilde(`${p.name} ${p.brand ?? ''}`).includes(sinTilde(productSearch))));
 
   // ── Noticias ──
-  const abrirNoticia = (n?: NewsItem) => setFormNoticia({
+  const abrirNoticia = (n?: NewsItem) => { setErrores({}); setFormNoticia({
     id: n?.id ?? null,
     datos: n ? { title: n.title, content: n.content || '', imageUrl: n.imageUrl && !n.imageUrl.startsWith('data:') ? n.imageUrl : '', linkUrl: n.linkUrl || '', campaignId: n.campaignId || '', displayOrder: String(n.displayOrder ?? 0), isActive: n.isActive } : noticiaVacia,
-  });
-  const setN = <K extends keyof FormNoticia>(k: K, v: FormNoticia[K]) => setFormNoticia(f => f && ({ ...f, datos: { ...f.datos, [k]: v } }));
-  const saveNews = async () => {
-    if (!formNoticia) return;
+  }); };
+  const setN = <K extends keyof FormNoticia>(k: K, v: FormNoticia[K]) => {
+    setErrores(e => ({ ...e, [`n-${k}`]: null }));
+    setFormNoticia(f => f && ({ ...f, datos: { ...f.datos, [k]: v } }));
+  };
+  const saveNews = async (ev?: React.FormEvent) => {
+    ev?.preventDefault();
+    if (!formNoticia || guardando) return;
     const d = formNoticia.datos;
-    if (!d.title.trim()) { avisos.error(null, 'Escribe el título de la noticia'); return; }
+    const errs = {
+      'n-title': validarTexto(d.title, { campo: 'el título de la noticia', min: 3, max: LARGO.titulo }),
+      'n-content': validarTexto(d.content, { obligatorio: false, max: LARGO.texto }),
+      'n-imageUrl': validarEnlace(d.imageUrl),
+      'n-displayOrder': validarEntero(d.displayOrder, { campo: 'el orden', min: 0, max: 999 }),
+      'n-linkUrl': validarEnlace(d.linkUrl),
+    };
+    setErrores(errs);
+    const primero = primerError(errs);
+    if (primero) { enfocar(primero); return; }
     const actual = news.find(x => x.id === formNoticia.id);
     const data: NewsInput = {
       title: d.title.trim(), content: d.content.trim() || null,
@@ -187,7 +222,7 @@ export default function AdminCampaignsPage() {
                       <tr key={c.id} data-campana={c.slug} className={`border-b border-slate-100 hover:bg-blue-50/30 ${i % 2 ? 'bg-slate-50/30' : ''}`}>
                         <td className="px-4 py-2">
                           <label className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center cursor-pointer hover:bg-blue-50 overflow-hidden" title="Subir imagen">
-                            {c.imageUrl ? <img src={c.imageUrl} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />}
+                            {c.imageUrl ? <img width={64} height={64} decoding="async" src={c.imageUrl} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <ImageIcon className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />}
                             <input type="file" accept="image/*" className="sr-only" aria-label={`Imagen de ${c.name}`} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCampaignImage(c, f); e.target.value = ''; }} />
                           </label>
                         </td>
@@ -228,7 +263,7 @@ export default function AdminCampaignsPage() {
                     {campaignProducts.map(p => (
                       <li key={p.id} className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-50 rounded-lg">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-7 h-7 bg-white rounded overflow-hidden flex-shrink-0">{p.imageUrl && <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />}</div>
+                          <div className="w-7 h-7 bg-white rounded overflow-hidden flex-shrink-0">{p.imageUrl && <img decoding="async" src={p.imageUrl} alt="" aria-hidden="true" width={28} height={28} loading="lazy" className="w-full h-full object-cover" />}</div>
                           <span className="text-xs text-slate-700 truncate">{p.name}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -275,7 +310,7 @@ export default function AdminCampaignsPage() {
           {news.map(n => (
             <div key={n.id} data-noticia={n.title} className={`${tarjeta} p-3 sm:p-4 flex items-center gap-3 sm:gap-4`}>
               <label className="relative w-20 h-14 rounded-xl bg-slate-100 flex items-center justify-center cursor-pointer hover:bg-blue-50 flex-shrink-0 overflow-hidden" title="Subir imagen">
-                {n.imageUrl ? <img src={n.imageUrl} alt="" className="w-full h-full object-cover" /> : <Upload className="h-4 w-4 text-slate-400" aria-hidden="true" />}
+                {n.imageUrl ? <img width={64} height={64} decoding="async" src={n.imageUrl} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <Upload className="h-4 w-4 text-slate-400" aria-hidden="true" />}
                 <input type="file" accept="image/*" className="sr-only" aria-label={`Imagen de ${n.title}`} onChange={e => { const f = e.target.files?.[0]; if (f) uploadNewsImage(n, f); e.target.value = ''; }} />
               </label>
               <div className="flex-1 min-w-0">
@@ -296,39 +331,39 @@ export default function AdminCampaignsPage() {
 
       {formCampana && (
         <Modal titulo={formCampana.id ? 'Editar campaña' : 'Nueva campaña'} onClose={() => setFormCampana(null)}>
-          <div className="p-4 space-y-3">
-            <Etiqueta texto="Nombre *"><input value={formCampana.datos.name} onChange={e => setC('name', e.target.value)} placeholder="Ej: Regreso a clases" className={campo} autoFocus /></Etiqueta>
-            <Etiqueta texto="Dirección web" ayuda={`Se verá en /catalog?campaign=${aSlug(formCampana.datos.slug || formCampana.datos.name) || '…'}`}>
-              <input value={formCampana.datos.slug} onChange={e => setFormCampana(f => f && ({ ...f, datos: { ...f.datos, slug: e.target.value, slugManual: true } }))} onBlur={() => setFormCampana(f => f && ({ ...f, datos: { ...f.datos, slug: aSlug(f.datos.slug) } }))} placeholder="se-arma-sola" className={`${campo} font-mono`} />
+          <form onSubmit={saveCampaign} noValidate className="p-4 space-y-3" aria-busy={guardando}>
+            <Etiqueta texto="Nombre *" error={errores['c-name']} id="c-name"><input {...ac('c-name')} required maxLength={LARGO.nombre} value={formCampana.datos.name} onChange={e => setC('name', e.target.value)} placeholder="Ej: Regreso a clases" className={campo} autoFocus /></Etiqueta>
+            <Etiqueta texto="Dirección web" ayuda={`Se verá en /catalog?campaign=${aSlug(formCampana.datos.slug || formCampana.datos.name) || '…'}`} error={errores['c-slug']} id="c-slug">
+              <input {...ac('c-slug')} maxLength={LARGO.corto} value={formCampana.datos.slug} onChange={e => { setErrores(x => ({ ...x, 'c-slug': null })); setFormCampana(f => f && ({ ...f, datos: { ...f.datos, slug: e.target.value, slugManual: true } })); }} onBlur={() => setFormCampana(f => f && ({ ...f, datos: { ...f.datos, slug: aSlug(f.datos.slug) } }))} placeholder="se-arma-sola" className={`${campo} font-mono`} />
             </Etiqueta>
-            <Etiqueta texto="Descripción"><input value={formCampana.datos.description} onChange={e => setC('description', e.target.value)} placeholder="Ej: 10 % en cuadernos y colores" className={campo} /></Etiqueta>
+            <Etiqueta texto="Descripción" error={errores['c-description']} id="c-description"><input {...ac('c-description')} maxLength={200} value={formCampana.datos.description} onChange={e => setC('description', e.target.value)} placeholder="Ej: 10 % en cuadernos y colores" className={campo} /></Etiqueta>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Etiqueta texto="Descuento (%)"><input type="number" min={0} max={90} value={formCampana.datos.discountPercent} onChange={e => setC('discountPercent', e.target.value)} className={campo} /></Etiqueta>
-              <Etiqueta texto="Desde"><input type="date" value={formCampana.datos.startDate} onChange={e => setC('startDate', e.target.value)} className={campo} /></Etiqueta>
-              <Etiqueta texto="Hasta"><input type="date" value={formCampana.datos.endDate} min={formCampana.datos.startDate || undefined} onChange={e => setC('endDate', e.target.value)} className={campo} /></Etiqueta>
+              <Etiqueta texto="Descuento (%)" error={errores['c-discountPercent']} id="c-discountPercent"><input {...ac('c-discountPercent')} type="number" inputMode="decimal" min={0} max={90} step="0.5" required value={formCampana.datos.discountPercent} onChange={e => setC('discountPercent', e.target.value)} className={campo} /></Etiqueta>
+              <Etiqueta texto="Desde" error={errores['c-startDate']} id="c-startDate"><input {...ac('c-startDate')} type="date" value={formCampana.datos.startDate} onChange={e => setC('startDate', e.target.value)} className={campo} /></Etiqueta>
+              <Etiqueta texto="Hasta" error={errores['c-endDate']} id="c-endDate"><input {...ac('c-endDate')} type="date" value={formCampana.datos.endDate} min={formCampana.datos.startDate || undefined} onChange={e => setC('endDate', e.target.value)} className={campo} /></Etiqueta>
             </div>
-            <Etiqueta texto="Imagen (URL)" ayuda="También puedes subir un archivo desde la tabla.">
-              <input value={formCampana.datos.imageUrl.startsWith('data:') ? '' : formCampana.datos.imageUrl} onChange={e => setC('imageUrl', e.target.value)} placeholder="https://…" className={campo} />
+            <Etiqueta texto="Imagen (URL)" ayuda="También puedes subir un archivo desde la tabla." error={errores['c-imageUrl']} id="c-imageUrl">
+              <input {...ac('c-imageUrl')} type="url" inputMode="url" maxLength={LARGO.url} value={formCampana.datos.imageUrl.startsWith('data:') ? '' : formCampana.datos.imageUrl} onChange={e => setC('imageUrl', e.target.value)} placeholder="https://…" className={campo} />
             </Etiqueta>
             <Interruptor activo={formCampana.datos.isActive} onChange={v => setC('isActive', v)} etiqueta="Campaña activa" />
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setFormCampana(null)} className="px-4 py-2 text-sm text-slate-500">Cancelar</button>
-              <button onClick={saveCampaign} disabled={guardando} className="bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-bold disabled:opacity-50">{guardando ? 'Guardando…' : 'Guardar campaña'}</button>
+              <button type="button" onClick={() => setFormCampana(null)} className="min-h-10 px-4 py-2 text-sm text-slate-600">Cancelar</button>
+              <button type="submit" disabled={guardando} className="min-h-10 bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-bold disabled:opacity-50">{guardando ? 'Guardando…' : 'Guardar campaña'}</button>
             </div>
-          </div>
+          </form>
         </Modal>
       )}
 
       {formNoticia && (
         <Modal titulo={formNoticia.id ? 'Editar noticia' : 'Nueva noticia'} onClose={() => setFormNoticia(null)}>
-          <div className="p-4 space-y-3">
-            <Etiqueta texto="Título *"><input value={formNoticia.datos.title} onChange={e => setN('title', e.target.value)} className={campo} autoFocus /></Etiqueta>
-            <Etiqueta texto="Contenido"><textarea value={formNoticia.datos.content} onChange={e => setN('content', e.target.value)} rows={3} className={campo} /></Etiqueta>
-            <Etiqueta texto="Imagen (URL)" ayuda="Deja vacío para conservar la imagen subida como archivo.">
-              <input value={formNoticia.datos.imageUrl} onChange={e => setN('imageUrl', e.target.value)} placeholder="https://…" className={campo} />
+          <form onSubmit={saveNews} noValidate className="p-4 space-y-3" aria-busy={guardando}>
+            <Etiqueta texto="Título *" error={errores['n-title']} id="n-title"><input {...ac('n-title')} required maxLength={LARGO.titulo} value={formNoticia.datos.title} onChange={e => setN('title', e.target.value)} className={campo} autoFocus /></Etiqueta>
+            <Etiqueta texto="Contenido" error={errores['n-content']} id="n-content"><textarea {...ac('n-content')} maxLength={LARGO.texto} value={formNoticia.datos.content} onChange={e => setN('content', e.target.value)} rows={3} className={campo} /></Etiqueta>
+            <Etiqueta texto="Imagen (URL)" ayuda="Deja vacío para conservar la imagen subida como archivo." error={errores['n-imageUrl']} id="n-imageUrl">
+              <input {...ac('n-imageUrl')} type="url" inputMode="url" maxLength={LARGO.url} value={formNoticia.datos.imageUrl} onChange={e => setN('imageUrl', e.target.value)} placeholder="https://…" className={campo} />
             </Etiqueta>
             {(formNoticia.datos.imageUrl || news.find(x => x.id === formNoticia.id)?.imageUrl) && (
-              <img src={formNoticia.datos.imageUrl || news.find(x => x.id === formNoticia.id)?.imageUrl || ''} alt="Vista previa de la imagen" className="h-24 rounded-lg object-cover border border-slate-200" />
+              <img src={formNoticia.datos.imageUrl || news.find(x => x.id === formNoticia.id)?.imageUrl || ''} alt="Vista previa de la imagen" width={192} height={96} className="h-24 rounded-lg object-cover border border-slate-200" />
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Etiqueta texto="Campaña">
@@ -337,31 +372,33 @@ export default function AdminCampaignsPage() {
                   {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </Etiqueta>
-              <Etiqueta texto="Orden"><input type="number" value={formNoticia.datos.displayOrder} onChange={e => setN('displayOrder', e.target.value)} className={campo} /></Etiqueta>
+              <Etiqueta texto="Orden" error={errores['n-displayOrder']} id="n-displayOrder"><input {...ac('n-displayOrder')} type="number" inputMode="numeric" min={0} max={999} step={1} value={formNoticia.datos.displayOrder} onChange={e => setN('displayOrder', e.target.value)} className={campo} /></Etiqueta>
             </div>
-            <Etiqueta texto="Enlace (opcional)" ayuda="Si no hay campaña, el botón de la noticia lleva aquí.">
-              <input value={formNoticia.datos.linkUrl} onChange={e => setN('linkUrl', e.target.value)} placeholder="/catalog o https://…" className={campo} />
+            <Etiqueta texto="Enlace (opcional)" ayuda="Si no hay campaña, el botón de la noticia lleva aquí." error={errores['n-linkUrl']} id="n-linkUrl">
+              <input {...ac('n-linkUrl')} maxLength={LARGO.url} value={formNoticia.datos.linkUrl} onChange={e => setN('linkUrl', e.target.value)} placeholder="/catalog o https://…" className={campo} />
             </Etiqueta>
             <Interruptor activo={formNoticia.datos.isActive} onChange={v => setN('isActive', v)} etiqueta="Visible en la tienda" />
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setFormNoticia(null)} className="px-4 py-2 text-sm text-slate-500">Cancelar</button>
-              <button onClick={saveNews} disabled={guardando} className="bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-bold disabled:opacity-50">{guardando ? 'Guardando…' : 'Guardar noticia'}</button>
+              <button type="button" onClick={() => setFormNoticia(null)} className="min-h-10 px-4 py-2 text-sm text-slate-600">Cancelar</button>
+              <button type="submit" disabled={guardando} className="min-h-10 bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-bold disabled:opacity-50">{guardando ? 'Guardando…' : 'Guardar noticia'}</button>
             </div>
-          </div>
+          </form>
         </Modal>
       )}
     </div>
   );
 }
 
-function Etiqueta({ texto, ayuda, children }: { texto: string; ayuda?: string; children: React.ReactNode }) {
+function Etiqueta({ texto, ayuda, error, id, children }: { texto: string; ayuda?: string; error?: string | null; id?: string; children: React.ReactNode }) {
   return (
     <div>
       <label className="block">
         <span className="block text-xs text-slate-700 mb-1">{texto}</span>
         {children}
       </label>
-      {ayuda && <p className="text-[10px] text-neutral-400 mt-1">{ayuda}</p>}
+      {error
+        ? <p id={id ? `${id}-error` : undefined} className="mt-1 flex items-start gap-1 text-xs text-profe"><AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />{error}</p>
+        : ayuda && <p className="text-[11px] text-tenue mt-1">{ayuda}</p>}
     </div>
   );
 }

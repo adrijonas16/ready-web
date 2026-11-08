@@ -242,7 +242,7 @@ const pedidoRespuesta = (p: Pedido) => {
 };
 
 // ── Utilidades HTTP ──
-export class ErrorDemo extends Error { constructor(message: string, public status = 400) { super(message); } }
+export class ErrorDemo extends Error { constructor(message: string, public status = 400, public code?: string) { super(message); } }
 const norm = (o: Json) => Object.fromEntries(Object.entries(o ?? {}).map(([k, v]) => [k.charAt(0).toLowerCase() + k.slice(1), v])) as Json;
 const texto = (v: unknown) => (v === undefined || v === null ? undefined : String(v));
 
@@ -254,6 +254,18 @@ function usuarioDe(token?: string | null) {
 
 function leerArchivo(f: File): Promise<string> {
   return new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => mal(r.error); r.readAsDataURL(f); });
+}
+
+// ── Antispam (igual que el backend): campo trampa "sitioWeb" y tiempo de llenado "_t" en ms ──
+export const TIEMPO_MINIMO_FORMULARIO = 2500;
+function revisarAntiSpam(b: FormData | Json) {
+  const leer = (k: string) => (b instanceof FormData ? b.get(k) : (b as Json)[k]);
+  const trampa = leer('sitioWeb');
+  if (typeof trampa === 'string' && trampa.trim()) throw new ErrorDemo('No pudimos enviar el formulario. Si eres una persona, recarga la página e inténtalo de nuevo.', 400, 'SPAM_DETECTED');
+  const t = leer('_t');
+  // Sin "_t" se acepta (llamadas del panel); con "_t" debe pasar el tiempo mínimo
+  if (t !== undefined && t !== null && t !== '' && !(Number(t) >= TIEMPO_MINIMO_FORMULARIO))
+    throw new ErrorDemo('Enviaste el formulario demasiado rápido. Espera unos segundos y vuelve a intentarlo.', 429, 'RATE_LIMIT');
 }
 
 const sesion = (u: Usuario) => ({ token: `demo.${u.id}`, user: u });
@@ -330,9 +342,13 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       return sesion(u);
     }
     if (r1 === 'register' && M === 'POST') {
+      revisarAntiSpam(b);
       const email = String(bj.email || '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new ErrorDemo('Escribe un correo válido.');
+      if (String(bj.password ?? '').length < 8) throw new ErrorDemo('La contraseña debe tener al menos 8 caracteres.');
+      if (!String(bj.name ?? '').trim()) throw new ErrorDemo('Escribe tu nombre.');
       if (e.usuarios.some(x => x.email.toLowerCase() === email)) throw new ErrorDemo('Ese correo ya tiene cuenta. Inicia sesión.');
-      const u: Usuario = { id: nuevoId('u'), email, name: String(bj.name || 'Cliente'), role: 'USER', createdAt: ahora() };
+      const u: Usuario = { id: nuevoId('u'), email, name: String(bj.name || 'Cliente').trim().slice(0, 80), role: 'USER', createdAt: ahora() };
       e.usuarios.push(u);
       return cambia(sesion(u));
     }
@@ -610,6 +626,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
   // Listas
   if (r0 === 'lists') {
     if (r1 === 'upload' && M === 'POST' && b instanceof FormData) {
+      revisarAntiSpam(b);
       const archivo = b.getAll('files').find(f => f instanceof File) as File | undefined;
       const gradeId = String(b.get('gradeId'));
       const gradoNombre = e.grados.find(g => g.id === gradeId)?.name ?? '';
@@ -675,7 +692,13 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       return cambia(true);
     }
     if (r2 === 'extras') { l.extras = JSON.stringify(cuerpo ?? {}); return cambia(true); }
-    if (r2 === 'observaciones') { l.userObservaciones = [l.userObservaciones, texto(bj.observacion)].filter(Boolean).join('\n'); avisar('NewMessage', 'Un cliente dejó una observación en su lista', { admin: true }); return cambia(true); }
+    if (r2 === 'observaciones') {
+      revisarAntiSpam(b);
+      const texto1 = texto(bj.observacion)?.trim();
+      if (!texto1) throw new ErrorDemo('Escribe tu observación');
+      if (texto1.length > 500) throw new ErrorDemo('La observación puede tener hasta 500 caracteres');
+      l.userObservaciones = [l.userObservaciones, texto1].filter(Boolean).join('\n');
+      avisar('NewMessage', 'Un cliente dejó una observación en su lista', { admin: true }); return cambia(true); }
     if (r2 === 'reprocess') { l.iaEstado = 'PROCESANDO'; l.creada = Date.now(); l.items = []; return cambia(true); }
     if (r2 === 'auto-match') { l.items.forEach(it => { delete it.elegido; }); return cambia(true); }
     if (r2 === 'copia' && M === 'POST') {
@@ -693,6 +716,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       return cambia({ id: nueva.id, existente: false });
     }
     if (r2 === 'items' && !r3 && M === 'POST') {
+      revisarAntiSpam(b);
       const nombre = String(bj.nombreOriginal || '');
       if (!nombre.trim()) throw new ErrorDemo('Escribe el nombre del útil');
       const elegido = bj.productId ? producto(String(bj.productId)) : undefined;
@@ -726,6 +750,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
   if (r0 === 'orders') {
     const esAdmin = yo?.role === 'ADMIN' || yo?.role === 'OPERATOR';
     if (!r1 && M === 'POST') {
+      revisarAntiSpam(b);
       if (!yo) throw new ErrorDemo('Inicia sesión para comprar', 401);
       // El precio lo pone la tienda: precio de venta (con campaña) + recargo del diseño o color
       const items = ((bj.items as Json[]) ?? []).map((x, i) => {

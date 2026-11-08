@@ -9,12 +9,19 @@ export const API = MODO_DEMO ? DEMO_BASE : (process.env.NEXT_PUBLIC_API_URL || '
 
 const pausa = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+// En el navegador, el "servidor" de la demo se empieza a descargar junto con la página
+// (y no recién cuando un componente pide datos): los productos aparecen antes.
+let servidorDemo: Promise<typeof import('@/demo/servidor')> | null = null;
+const cargarServidor = () => (servidorDemo ??= import('@/demo/servidor'));
+if (typeof window !== 'undefined' && MODO_DEMO) cargarServidor();
+
 /** Atiende una llamada en modo demo con una pequeña espera, como una red real. */
 export async function llamarDemo(metodo: string, url: string, cuerpo: unknown, token?: string | null) {
-  const { responder, ErrorDemo } = await import('@/demo/servidor');
+  const { responder, ErrorDemo } = await cargarServidor();
   const u = new URL(url, 'http://demo.local');
   const ruta = u.pathname.replace(new RegExp(`^${DEMO_BASE}`), '');
-  await pausa(120 + Math.random() * 180);
+  // Lecturas casi al instante; los envíos esperan un poco para que se vea el "Guardando…"
+  await pausa(metodo.toUpperCase() === 'GET' ? 20 : 120 + Math.random() * 180);
   try {
     const data = await responder(metodo, ruta, u.searchParams, cuerpo, token);
     // Copia, como si viniera por la red: si no, React recibe el mismo objeto del "servidor" y no se entera de cambios
@@ -22,7 +29,8 @@ export async function llamarDemo(metodo: string, url: string, cuerpo: unknown, t
   } catch (err) {
     const status = err instanceof ErrorDemo ? err.status : 500;
     const message = err instanceof Error ? err.message : 'Error en la demo';
-    return { status, body: { success: false, error: { message } } };
+    const code = err instanceof ErrorDemo ? err.code : undefined;
+    return { status, body: { success: false, error: { message, ...(code ? { code } : {}) } } };
   }
 }
 

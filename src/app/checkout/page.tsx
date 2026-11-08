@@ -1,5 +1,6 @@
 'use client';
 
+import AceptoTerminos from '@/components/AceptoTerminos';
 import { lanzarConfeti } from '@/lib/efectos';
 import { useRef, useState } from 'react';
 import { agruparPorPara, useCart } from '@/lib/cart-context';
@@ -10,10 +11,14 @@ import Link from 'next/link';
 import { CheckCircle, Package, ShoppingCart, ArrowRight, Loader2, MapPin, Phone, MessageSquare, CreditCard, Lock, FlaskConical, XCircle, Check, CalendarDays, FileText, Ticket, Mail, AlertCircle } from 'lucide-react';
 import { FRANJAS, costoEnvio, fechaLarga, fechasEntrega, useAjustes } from '@/lib/ajustes';
 import { aplicarCupon, redondear } from '@/lib/precio';
-import { validarCelular, validarCorreo, validarDireccion, validarDni, validarRuc, validarRazonSocial } from '@/lib/validar';
+import { LARGO, validarCelular, validarCorreo, validarCvv, validarDireccion, validarDni, validarNombre, validarRuc, validarRazonSocial, validarTarjeta, validarTexto, validarVencimiento } from '@/lib/validar';
+import { useAntiSpam } from '@/lib/antispam';
+import { CampoTrampa } from '@/components/form/Campo';
+import { mensajeError } from '@/lib/api-base';
 import dynamic from 'next/dynamic';
 
-const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false });
+// Leaflet (mapa) solo se descarga cuando el cliente pide marcar su ubicación
+const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false, loading: () => <div className="skeleton h-64 w-full rounded-xl" aria-label="Cargando el mapa" /> });
 
 // ── Payment Method Selector ──
 function PaymentMethodSelector({ selected, onSelect }: { selected: string; onSelect: (m: string) => void }) {
@@ -153,7 +158,7 @@ function ProcesandoPago({ paso, metodo, onCerrar }: { paso: PasoPago; metodo: st
 
 // ── Campos del formulario con su error al lado ──
 const claseCampo = (error?: string | null) =>
-  `w-full rounded-xl border bg-papel px-3 py-2.5 text-sm focus:outline-none focus-visible:ring-2 ${error ? 'border-profe focus-visible:ring-profe/25' : 'border-linea focus:border-primario focus-visible:ring-primario/25'}`;
+  `w-full rounded-xl border bg-papel px-3 py-2.5 text-base sm:text-sm focus:outline-none focus-visible:ring-2 ${error ? 'border-profe focus-visible:ring-profe/25' : 'border-linea-fuerte focus:border-primario focus-visible:ring-primario/25'}`;
 
 function Campo({ id, etiqueta, obligatorio, error, ayuda, children }: {
   id: string; etiqueta: string; obligatorio?: boolean; error?: string | null; ayuda?: string; children: React.ReactNode;
@@ -181,13 +186,16 @@ const Tarjeta = ({ icono, titulo, children }: { icono: React.ReactNode; titulo: 
 /** Número de operación del pago de prueba */
 const nuevaOperacion = () => `PRUEBA-${Date.now().toString(36).toUpperCase().slice(-6)}`;
 
-type Errores = Partial<Record<'address' | 'phone' | 'email' | 'fecha' | 'franja' | 'dni' | 'ruc' | 'razon' | 'card' | 'expiry', string | null>>;
+type Errores = Partial<Record<'address' | 'phone' | 'email' | 'fecha' | 'franja' | 'dni' | 'ruc' | 'razon' | 'observaciones' | 'card' | 'card-name' | 'expiry' | 'cvv', string | null>>;
 
 export default function CheckoutPage() {
   const { user, addNotification, guardarPerfil } = useAuth();
   const { items, total, ahorro, clearCart, notasPedido, listaIds } = useCart();
   const ajustes = useAjustes();
   const formRef = useRef<HTMLFormElement>(null);
+  const enviando = useRef(false);
+  const anti = useAntiSpam('pedido');
+  const [verMapa, setVerMapa] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [errores, setErrores] = useState<Errores>({});
@@ -258,7 +266,7 @@ export default function CheckoutPage() {
   const nombreMetodo: Record<string, string> = { card: 'Tarjeta', yape: 'Yape', plin: 'Plin', paypal: 'PayPal' };
   const usarTarjetaPrueba = (numero = TARJETA_OK) => {
     setCardNumber(numero); setCardExpiry('12/30'); setCardCvv('123'); if (!cardName) setCardName(user?.name || 'Cliente Demo');
-    setErrores(e => ({ ...e, card: null, expiry: null }));
+    setErrores(e => ({ ...e, card: null, 'card-name': null, expiry: null, cvv: null }));
   };
 
   const validar = (): Errores => ({
@@ -270,8 +278,11 @@ export default function CheckoutPage() {
     dni: tipoComprobante === 'boleta' ? validarDni(dni) : null,
     ruc: tipoComprobante === 'factura' ? validarRuc(ruc) : null,
     razon: tipoComprobante === 'factura' ? validarRazonSocial(razonSocial) : null,
-    card: paymentMethod === 'card' && cardNumber.replace(/\D/g, '').length < 16 ? 'El número de tarjeta tiene 16 dígitos. Usa la tarjeta de prueba.' : null,
-    expiry: paymentMethod === 'card' && (!/^\d{2}\/\d{2}$/.test(cardExpiry) || cardCvv.length < 3) ? 'Completa el vencimiento (MM/AA) y el CVV.' : null,
+    observaciones: validarTexto(observations, { obligatorio: false, max: LARGO.texto }),
+    card: paymentMethod === 'card' ? validarTarjeta(cardNumber) : null,
+    'card-name': paymentMethod === 'card' ? validarNombre(cardName, 'el nombre como aparece en la tarjeta') : null,
+    expiry: paymentMethod === 'card' ? validarVencimiento(cardExpiry) : null,
+    cvv: paymentMethod === 'card' ? validarCvv(cardCvv) : null,
   });
 
   /** Revalida un campo al salir de él (solo si ya mostraba un error o tiene algo escrito). */
@@ -291,18 +302,32 @@ export default function CheckoutPage() {
     setCupon(c.codigo); setErrorCupon('');
   };
 
+  const [acepto, setAcepto] = useState(false);
+  const [intentoAceptar, setIntentoAceptar] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (enviando.current) return; // sin doble cobro: un solo envío a la vez
     if (!user) { addNotification('Inicia sesión para comprar', 'error'); return; }
     const errs = validar();
     setErrores(errs);
     const primero = (Object.keys(errs) as (keyof Errores)[]).find(k => errs[k]);
     if (primero) {
       setError('');
-      formRef.current?.querySelector<HTMLElement>(`#${primero}`)?.focus();
+      const campo = formRef.current?.querySelector<HTMLElement>(`#${primero}`);
+      campo?.focus({ preventScroll: true });
+      campo?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    if (!acepto) {
+      setIntentoAceptar(true);
+      const casilla = formRef.current?.querySelector<HTMLInputElement>('input[name=aceptoTerminos]');
+      casilla?.focus({ preventScroll: true });
+      casilla?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
     }
 
+    enviando.current = true;
     setLoading(true);
     setError('');
     const espera = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -313,6 +338,7 @@ export default function CheckoutPage() {
     if (paymentMethod === 'card' && cardNumber === TARJETA_RECHAZO) {
       setPasoPago('rechazado');
       setLoading(false);
+      enviando.current = false;
       return;
     }
 
@@ -344,7 +370,7 @@ export default function CheckoutPage() {
           ...notasPedido.map(n => n.para ? `Por cotizar — ${n.para}: ${n.texto}` : `Por cotizar: ${n.texto}`),
         ].filter(Boolean).join('\n') || undefined,
       };
-      const result = await ordersApi.create(orderData);
+      const result = await ordersApi.create(orderData, await anti.datos());
       // Se guardan los datos para la próxima compra (perfil del cliente)
       if (guardarDatos && (address.trim() !== (user.address ?? '') || phone.trim() !== (user.phone ?? '') || (documento && documento !== (user.documento ?? '')))) {
         guardarPerfil({ address: address.trim(), phone: phone.trim(), ...(documento ? { documento } : {}) }).catch(() => {});
@@ -361,8 +387,8 @@ export default function CheckoutPage() {
       addNotification(`¡Pedido ${result.id} confirmado!`, 'success');
     } catch (err: unknown) {
       setPasoPago(null);
-      const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
-      setError(msg || (err instanceof Error ? err.message : 'No pudimos crear el pedido'));
+      setError(mensajeError(err, 'No pudimos crear el pedido. Inténtalo de nuevo.'));
+      enviando.current = false;
     } finally { setLoading(false); }
   };
 
@@ -372,9 +398,11 @@ export default function CheckoutPage() {
         <div className="text-center">
           <ShoppingCart className="mx-auto mb-4 h-12 w-12 text-tenue/40" aria-hidden="true" />
           <h1 className="mb-1 text-xl font-bold">Tu carrito está vacío</h1>
-          <Link href="/catalog" className="mt-4 inline-block rounded-xl bg-primario px-5 py-2.5 text-sm font-bold text-white hover:bg-primario-oscuro">
-            Ver catálogo
-          </Link>
+          <p className="text-tenue">Agrega útiles para poder pagar.</p>
+          <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+            <Link href="/lists" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro px-5 py-3 text-sm font-bold">Buscar la lista de mi colegio</Link>
+            <Link href="/catalog" className="inline-flex min-h-12 items-center justify-center rounded-xl border-2 border-grafito px-5 py-2.5 text-sm font-bold hover:bg-papel">Ver el catálogo</Link>
+          </div>
         </div>
       </div>
     );
@@ -386,9 +414,10 @@ export default function CheckoutPage() {
         <div className="w-full max-w-sm rounded-2xl border border-linea bg-papel p-7 text-center">
           <h1 className="mb-1 text-xl font-bold">¡Casi listo!</h1>
           <p className="mb-5 text-sm text-tenue">Inicia sesión para completar tu compra</p>
-          <Link href="/login?redirect=/checkout" className="inline-block w-full rounded-xl bg-primario py-3 text-sm font-bold text-white hover:bg-primario-oscuro">
-            Iniciar sesión
+          <Link href="/login?redirect=/checkout" className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro py-3 text-sm font-bold">
+            Iniciar sesión para pagar
           </Link>
+          <Link href="/register" className="mt-3 inline-block text-sm font-semibold text-primario underline underline-offset-2">Crear una cuenta</Link>
         </div>
       </div>
     );
@@ -407,10 +436,10 @@ export default function CheckoutPage() {
           {confirmado && <p className="mb-1 text-sm text-tenue">Entrega el <b className="text-grafito">{fechaLarga(confirmado.fecha)}</b>, de {confirmado.franja}</p>}
           <p className="mb-6 text-sm text-tenue">No se cobró nada: es un pago de demostración. Te contactaríamos al {phone}.</p>
           <div className="flex flex-col gap-2.5">
-            <Link href={`/orders/${orderId}`} className="flex items-center justify-center gap-2 rounded-xl bg-primario px-6 py-3 text-sm font-bold text-white hover:bg-primario-oscuro">
+            <Link href={`/orders/${orderId}`} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro px-6 py-3 text-sm font-bold">
               Ver mi pedido <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
-            <Link href="/catalog" className="flex items-center justify-center gap-2 rounded-xl border border-linea bg-papel px-6 py-3 text-sm font-medium">
+            <Link href="/catalog" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-grafito bg-papel px-6 py-3 text-sm font-bold">
               <Package className="h-4 w-4" aria-hidden="true" /> Seguir comprando
             </Link>
           </div>
@@ -422,7 +451,7 @@ export default function CheckoutPage() {
   const grupos = agruparPorPara(items);
   const botonPagar = (clase: string) => (
     <button type="submit" form="form-pago" disabled={loading}
-      className={`items-center justify-center gap-2 rounded-xl bg-acento px-5 py-3.5 text-sm font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50 ${clase}`}>
+      className={`min-h-12 items-center justify-center gap-2 rounded-xl bg-acento px-5 py-3.5 text-sm font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50 ${clase}`}>
       {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Lock className="h-4 w-4" aria-hidden="true" />}
       Pagar {formatPrice(totalPagar)} (prueba)
     </button>
@@ -434,8 +463,9 @@ export default function CheckoutPage() {
         <h1 className="mb-1 text-3xl font-extrabold tracking-tight">Finalizar compra</h1>
         <p className="mb-6 text-sm text-tenue">Los campos con <span className="text-profe">*</span> son obligatorios.</p>
 
-        <form id="form-pago" ref={formRef} onSubmit={handleSubmit} noValidate className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_360px]">
+        <form id="form-pago" ref={formRef} onSubmit={handleSubmit} noValidate aria-busy={loading} className="relative grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_360px]">
           <div className="min-w-0 space-y-4">
+            <CampoTrampa {...anti.trampa} />
             {!error && Object.values(errores).some(Boolean) && <div role="alert" className="flex items-start gap-2 rounded-xl border border-profe/40 bg-profe-claro px-4 py-3 text-sm text-profe"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />Revisa los datos marcados en rojo.</div>}
             {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-profe/40 bg-profe-claro px-4 py-3 text-sm text-profe"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{error}</div>}
 
@@ -443,10 +473,16 @@ export default function CheckoutPage() {
               <div className="space-y-4">
                 <div>
                   <p className="mb-1 text-sm font-semibold">Marca tu ubicación en el mapa <span className="font-normal text-tenue">(opcional)</span></p>
-                  <MapPicker onLocationSelect={(lat, lng) => setCoords({ lat, lng })} />
+                  {verMapa
+                    ? <MapPicker onLocationSelect={(lat, lng) => setCoords({ lat, lng })} />
+                    : <button type="button" onClick={() => setVerMapa(true)}
+                        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-linea-fuerte bg-fondo px-4 py-3 text-sm font-semibold text-primario hover:border-primario">
+                        <MapPin className="h-4 w-4" aria-hidden="true" /> Marcar mi ubicación en el mapa
+                      </button>}
+                  {coords && <p className="mt-1 text-xs text-eco" role="status">Ubicación marcada.</p>}
                 </div>
                 <Campo id="address" etiqueta="Dirección" obligatorio error={errores.address} ayuda="Calle, número, urbanización, distrito y una referencia.">
-                  <textarea id="address" name="address" autoComplete="street-address" value={address} rows={2}
+                  <textarea id="address" name="address" autoComplete="street-address" value={address} rows={2} maxLength={LARGO.direccion} required
                     onChange={e => setAddress(e.target.value)} onBlur={e => alSalir('address', e.target.value)} {...props('address')}
                     placeholder="Calle, número, urbanización, distrito…" className={claseCampo(errores.address)} />
                 </Campo>
@@ -454,7 +490,7 @@ export default function CheckoutPage() {
                   <Campo id="phone" etiqueta="Celular de contacto" obligatorio error={errores.phone} ayuda="9 dígitos; puedes poner +51.">
                     <div className="relative">
                       <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-tenue" aria-hidden="true" />
-                      <input id="phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" value={phone}
+                      <input id="phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={LARGO.celular} required value={phone}
                         onChange={e => setPhone(e.target.value)} onBlur={e => alSalir('phone', e.target.value)} {...props('phone')}
                         placeholder="+51 999 123 456" className={`${claseCampo(errores.phone)} pl-10`} />
                     </div>
@@ -462,7 +498,7 @@ export default function CheckoutPage() {
                   <Campo id="email" etiqueta="Correo electrónico" obligatorio error={errores.email}>
                     <div className="relative">
                       <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-tenue" aria-hidden="true" />
-                      <input id="email" name="email" type="email" autoComplete="email" value={email}
+                      <input id="email" name="email" type="email" inputMode="email" autoComplete="email" maxLength={LARGO.correo} required value={email}
                         onChange={e => setEmail(e.target.value)} onBlur={e => alSalir('email', e.target.value)} {...props('email')}
                         placeholder="tu@correo.com" className={`${claseCampo(errores.email)} pl-10`} />
                     </div>
@@ -520,12 +556,12 @@ export default function CheckoutPage() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
                   <Campo id="ruc" etiqueta="RUC" obligatorio error={errores.ruc}>
-                    <input id="ruc" name="ruc" inputMode="numeric" autoComplete="off" maxLength={11} value={ruc}
+                    <input id="ruc" name="ruc" inputMode="numeric" autoComplete="off" maxLength={11} required value={ruc}
                       onChange={e => setRuc(e.target.value.replace(/\D/g, '').slice(0, 11))} onBlur={e => alSalir('ruc', e.target.value)} {...props('ruc')}
                       placeholder="20123456789" className={claseCampo(errores.ruc)} />
                   </Campo>
                   <Campo id="razon" etiqueta="Razón social" obligatorio error={errores.razon}>
-                    <input id="razon" name="razon" autoComplete="organization" value={razonSocial}
+                    <input id="razon" name="razon" autoComplete="organization" maxLength={LARGO.titulo} required value={razonSocial}
                       onChange={e => setRazonSocial(e.target.value)} onBlur={e => alSalir('razon', e.target.value)} {...props('razon')}
                       placeholder="Mi Empresa S.A.C." className={claseCampo(errores.razon)} />
                   </Campo>
@@ -539,9 +575,13 @@ export default function CheckoutPage() {
 
             <Tarjeta icono={<MessageSquare className="h-4 w-4" aria-hidden="true" />} titulo="Observaciones del pedido">
               <label htmlFor="observaciones" className="sr-only">Observaciones del pedido</label>
-              <textarea id="observaciones" value={observations} onChange={e => setObservations(e.target.value)} rows={3}
-                placeholder="Algún pedido especial, indicación o producto extra que necesites…" className={claseCampo()} />
-              <p className="mt-1 text-xs text-tenue">Nuestro equipo verá estas observaciones.</p>
+              <textarea id="observaciones" name="observaciones" value={observations} onChange={e => setObservations(e.target.value)} rows={3} maxLength={LARGO.texto}
+                onBlur={e => alSalir('observaciones', e.target.value)} {...props('observaciones')}
+                aria-describedby={errores.observaciones ? 'observaciones-error' : 'observaciones-ayuda'}
+                placeholder="Algún pedido especial, indicación o producto extra que necesites…" className={claseCampo(errores.observaciones)} />
+              {errores.observaciones
+                ? <p id="observaciones-error" className="mt-1 text-sm text-profe">{errores.observaciones}</p>
+                : <p id="observaciones-ayuda" className="mt-1 text-xs text-tenue">Nuestro equipo verá estas observaciones. Máximo {LARGO.texto} caracteres ({observations.length}/{LARGO.texto}).</p>}
             </Tarjeta>
 
             <Tarjeta icono={<CreditCard className="h-4 w-4" aria-hidden="true" />} titulo="Método de pago">
@@ -558,34 +598,35 @@ export default function CheckoutPage() {
 
               {paymentMethod === 'card' && <div className="space-y-3">
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => usarTarjetaPrueba()} className="rounded-lg border border-linea bg-fondo px-3 py-1.5 text-xs font-semibold hover:border-tenue">
+                  <button type="button" onClick={() => usarTarjetaPrueba()} className="min-h-10 rounded-lg border border-linea-fuerte bg-fondo px-3 py-1.5 text-xs font-semibold hover:border-tenue">
                     Usar tarjeta de prueba (se aprueba)
                   </button>
-                  <button type="button" onClick={() => usarTarjetaPrueba(TARJETA_RECHAZO)} className="rounded-lg border border-linea bg-fondo px-3 py-1.5 text-xs font-semibold hover:border-tenue">
+                  <button type="button" onClick={() => usarTarjetaPrueba(TARJETA_RECHAZO)} className="min-h-10 rounded-lg border border-linea-fuerte bg-fondo px-3 py-1.5 text-xs font-semibold hover:border-tenue">
                     Probar un rechazo
                   </button>
                 </div>
                 <Campo id="card" etiqueta="Número de tarjeta" obligatorio error={errores.card}>
-                  <input id="card" type="text" inputMode="numeric" autoComplete="cc-number" value={formatCardNumber(cardNumber)}
+                  <input id="card" name="cc-number" type="text" inputMode="numeric" autoComplete="cc-number" required value={formatCardNumber(cardNumber)}
                     onChange={e => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                    onFocus={() => setCardFlipped(false)} {...props('card')}
+                    onFocus={() => setCardFlipped(false)} onBlur={e => alSalir('card', e.target.value)} {...props('card')}
                     placeholder="1234 5678 9012 3456" maxLength={19} className={`${claseCampo(errores.card)} font-mono`} />
                 </Campo>
-                <Campo id="card-name" etiqueta="Nombre en la tarjeta" obligatorio>
-                  <input id="card-name" type="text" autoComplete="cc-name" value={cardName} onChange={e => setCardName(e.target.value)}
-                    onFocus={() => setCardFlipped(false)} placeholder="Como aparece en la tarjeta" className={claseCampo()} />
+                <Campo id="card-name" etiqueta="Nombre en la tarjeta" obligatorio error={errores['card-name']}>
+                  <input id="card-name" name="cc-name" type="text" autoComplete="cc-name" required maxLength={LARGO.nombre} value={cardName} onChange={e => setCardName(e.target.value)}
+                    onFocus={() => setCardFlipped(false)} onBlur={e => alSalir('card-name', e.target.value)} {...props('card-name')}
+                    placeholder="Como aparece en la tarjeta" className={claseCampo(errores['card-name'])} />
                 </Campo>
                 <div className="grid grid-cols-2 gap-3">
                   <Campo id="expiry" etiqueta="Vencimiento" obligatorio error={errores.expiry}>
-                    <input id="expiry" type="text" inputMode="numeric" autoComplete="cc-exp" value={cardExpiry}
-                      onChange={e => setCardExpiry(formatExpiry(e.target.value))} onFocus={() => setCardFlipped(false)} {...props('expiry')}
+                    <input id="expiry" name="cc-exp" type="text" inputMode="numeric" autoComplete="cc-exp" required value={cardExpiry}
+                      onChange={e => setCardExpiry(formatExpiry(e.target.value))} onFocus={() => setCardFlipped(false)} onBlur={e => alSalir('expiry', e.target.value)} {...props('expiry')}
                       placeholder="MM/AA" maxLength={5} className={`${claseCampo(errores.expiry)} font-mono`} />
                   </Campo>
-                  <Campo id="cvv" etiqueta="CVV" obligatorio>
-                    <input id="cvv" type="text" inputMode="numeric" autoComplete="cc-csc" value={cardCvv}
+                  <Campo id="cvv" etiqueta="CVV" obligatorio error={errores.cvv}>
+                    <input id="cvv" name="cc-csc" type="password" inputMode="numeric" autoComplete="cc-csc" required value={cardCvv}
                       onChange={e => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      onFocus={() => setCardFlipped(true)} onBlur={() => setCardFlipped(false)}
-                      placeholder="***" maxLength={4} className={`${claseCampo()} font-mono`} />
+                      onFocus={() => setCardFlipped(true)} onBlur={e => { setCardFlipped(false); alSalir('cvv', e.target.value); }} {...props('cvv')}
+                      placeholder="123" maxLength={4} className={`${claseCampo(errores.cvv)} font-mono`} />
                   </Campo>
                 </div>
               </div>}
@@ -647,11 +688,11 @@ export default function CheckoutPage() {
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <input id="cupon" value={codigoCupon} onChange={e => { setCodigoCupon(e.target.value.toUpperCase()); setErrorCupon(''); }}
+                    <input id="cupon" name="cupon" maxLength={LARGO.codigo} value={codigoCupon} onChange={e => { setCodigoCupon(e.target.value.toUpperCase()); setErrorCupon(''); }}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); aplicar(); } }}
                       aria-invalid={!!errorCupon || undefined} aria-describedby={errorCupon ? 'cupon-error' : undefined}
                       placeholder="Ej.: REGRESO10" autoComplete="off" className={`${claseCampo(errorCupon)} min-w-0 flex-1`} />
-                    <button type="button" onClick={aplicar} className="shrink-0 rounded-xl border-2 border-grafito px-3 text-sm font-bold hover:bg-fondo">Aplicar</button>
+                    <button type="button" onClick={aplicar} className="min-h-11 shrink-0 rounded-xl border-2 border-grafito px-3 text-sm font-bold hover:bg-fondo">Aplicar</button>
                   </div>
                 )}
                 {errorCupon && <p id="cupon-error" className="mt-1 text-sm text-profe">{errorCupon}</p>}
@@ -661,12 +702,14 @@ export default function CheckoutPage() {
                 <div className="flex justify-between"><dt className="text-tenue">Subtotal</dt><dd className="font-bold tabular-nums">{formatPrice(total)}</dd></div>
                 {ahorro > 0 && <div className="flex justify-between text-profe"><dt>Ofertas incluidas</dt><dd className="tabular-nums">−{formatPrice(ahorro)}</dd></div>}
                 {cuponAplicado && <div className="flex justify-between text-eco"><dt>Cupón {cuponAplicado.codigo}</dt><dd className="font-semibold tabular-nums">−{formatPrice(descuento)}</dd></div>}
-                <div className="flex justify-between"><dt className="text-tenue">Envío</dt><dd className="font-semibold tabular-nums">{envio === 0 ? 'Gratis' : formatPrice(envio)}</dd></div>
-                {envio > 0 && ajustes.envioGratisDesde != null && <p className="text-xs text-tenue">Envío gratis desde {formatPrice(ajustes.envioGratisDesde)}.</p>}
+                <div className="flex flex-wrap justify-between"><dt className="text-tenue">Envío</dt><dd className="font-semibold tabular-nums">{envio === 0 ? 'Gratis' : formatPrice(envio)}</dd>
+                  {envio > 0 && ajustes.envioGratisDesde != null && <dd className="w-full text-xs text-tenue">Envío gratis desde {formatPrice(ajustes.envioGratisDesde)}.</dd>}</div>
                 <div className="flex justify-between border-t border-linea pt-2 text-lg"><dt className="font-bold">Total</dt><dd className="font-extrabold tabular-nums">{formatPrice(totalPagar)}</dd></div>
               </dl>
               <p className="mb-3 text-xs text-tenue">Entrega: <span className="font-semibold text-grafito">{fechaLarga(fechaElegida, true)}</span>, {franja}</p>
 
+              <AceptoTerminos className="mb-3" checked={acepto} onChange={setAcepto}
+                error={intentoAceptar && !acepto ? 'Debes aceptar los Términos y la Política de Privacidad.' : null} />
               {botonPagar('hidden w-full lg:flex')}
 
               <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-tenue">

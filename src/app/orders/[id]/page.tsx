@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import NoEncontrado from '@/components/NoEncontrado';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CalendarDays, Check, FileText, FlaskConical, Loader2, MapPin, MessageCircle, Package, Phone, RotateCcw, ShoppingBag, Truck, UserRound, XCircle } from 'lucide-react';
 import { ordersApi, productsApi } from '@/services/api';
@@ -11,6 +12,7 @@ import { Order } from '@/lib/types';
 import { agruparPorPara, useCart } from '@/lib/cart-context';
 import { enlaceWhatsapp, fechaLarga, useAjustes } from '@/lib/ajustes';
 import { precioVenta } from '@/lib/precio';
+import { useAuth } from '@/lib/auth-context';
 
 const ETAPAS = [
   { id: 'RECIBIDO', t: 'Pedido recibido', d: 'Confirmamos tu pago de prueba.' },
@@ -42,6 +44,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const { id } = use(params);
   const router = useRouter();
   const { addItem } = useCart();
+  const { user } = useAuth();
   const ajustes = useAjustes();
   const [pedido, setPedido] = useState<Order | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -58,13 +61,12 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     return <div className="flex justify-center py-24"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primario border-t-transparent" /></div>;
   }
   if (!pedido) {
-    return (
-      <div className="mx-auto max-w-md px-4 py-24 text-center">
-        <Package className="mx-auto h-10 w-10 text-tenue" aria-hidden="true" />
-        <h1 className="mt-4 text-2xl font-extrabold">No encontramos ese pedido</h1>
-        <p className="mt-2 text-tenue">Revisa el enlace o vuelve a tus listas.</p>
-        <Link href="/my-lists" className="mt-6 inline-block rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Ir a Mis listas</Link>
-      </div>
+    return user ? (
+      <NoEncontrado titulo="No encontramos ese pedido" texto="Revisa el enlace o busca tu pedido en Mis listas y pedidos."
+        principal={{ href: '/my-lists', texto: 'Ver mis pedidos' }} secundarias={[{ href: '/catalog', texto: 'Seguir comprando' }]} />
+    ) : (
+      <NoEncontrado titulo="Inicia sesión para ver tu pedido" texto="Tus pedidos solo los ves tú. Inicia sesión con la cuenta con la que compraste."
+        principal={{ href: `/login?redirect=/orders/${encodeURIComponent(id)}`, texto: 'Iniciar sesión' }} secundarias={[{ href: '/', texto: 'Ir al inicio' }]} />
     );
   }
 
@@ -130,12 +132,12 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button onClick={comprarDeNuevo} disabled={comprando}
-          className="inline-flex items-center gap-2 rounded-xl bg-acento px-4 py-2.5 text-sm font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50">
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-acento px-4 py-2.5 text-sm font-bold text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro disabled:opacity-50">
           {comprando ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <RotateCcw className="h-4 w-4" aria-hidden="true" />} Comprar de nuevo
         </button>
         {pedido.status === 'RECIBIDO' && (
           <button onClick={() => setConfirmarCancelar(true)}
-            className="inline-flex items-center gap-2 rounded-xl border-2 border-profe/60 px-4 py-2 text-sm font-bold text-profe hover:bg-profe-claro">
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-profe/60 px-4 py-2 text-sm font-bold text-profe hover:bg-profe-claro">
             <XCircle className="h-4 w-4" aria-hidden="true" /> Cancelar pedido
           </button>
         )}
@@ -218,7 +220,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
                   {g.lineas.map(it => (
                     <li key={it.id} className="flex items-center gap-3 py-3">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-linea bg-white">
-                        {it.imageUrl ? <img src={it.imageUrl} alt="" className="h-10 w-10 object-contain" /> : <Package className="h-5 w-5 text-tenue" aria-hidden="true" />}
+                        {it.imageUrl ? <img width={40} height={40} decoding="async" src={it.imageUrl} alt="" aria-hidden="true" className="h-10 w-10 object-contain" /> : <Package className="h-5 w-5 text-tenue" aria-hidden="true" />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold">{it.productName}</p>

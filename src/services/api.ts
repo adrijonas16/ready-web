@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestCo
 import type { ApiResponse, User, School, Grade, Section, SupplyList, SupplyItem, ListDetail, Product, ProductDetail, Order, Settings, Entrega, Comprobante, VariantType, VariantValue } from '@/lib/types';
 import { API, MODO_DEMO, llamarDemo } from '@/lib/api-base';
 import { evento, medirCompra } from '@/lib/analytics';
+import type { DatosAntiSpam } from '@/lib/antispam';
 
 const API_BASE_URL = API;
 
@@ -122,8 +123,9 @@ export interface OrderStats {
 
 // Auth API
 export const authApi = {
-  register: (email: string, password: string, name: string) =>
-    api.post<{ token: string; user: User }>('/auth/register', { email, password, name }),
+  /** Envía también el campo trampa y el tiempo de llenado (antispam) */
+  register: (email: string, password: string, name: string, anti?: DatosAntiSpam) =>
+    api.post<{ token: string; user: User }>('/auth/register', { email, password, name, ...anti }),
   login: (email: string, password: string) =>
     api.post<{ token: string; user: User }>('/auth/login', { email, password }),
   getCurrentUser: () => api.get<User>('/auth/me'),
@@ -184,10 +186,10 @@ export const listsApi = {
     api.put<boolean>(`/lists/${id}/plan`, data),
   updateExtras: (id: string, extras: unknown) => api.put<boolean>(`/lists/${id}/extras`, extras),
   delete: (id: string) => api.delete<boolean>(`/lists/${id}`),
-  addObservacion: (id: string, observacion: string) =>
-    api.post<boolean>(`/lists/${id}/observaciones`, { observacion }),
-  addItem: (listId: string, data: { nombreOriginal: string; cantidad: number; notas?: string; productId?: string; porCliente?: boolean }) =>
-    api.post<SupplyItem>(`/lists/${listId}/items`, data),
+  addObservacion: (id: string, observacion: string, anti?: DatosAntiSpam) =>
+    api.post<boolean>(`/lists/${id}/observaciones`, { observacion, ...anti }),
+  addItem: (listId: string, data: { nombreOriginal: string; cantidad: number; notas?: string; productId?: string; porCliente?: boolean }, anti?: DatosAntiSpam) =>
+    api.post<SupplyItem>(`/lists/${listId}/items`, { ...data, ...anti }),
   /** Copia personal de una lista (la del colegio) para ajustarla sin cambiar la de los demás */
   copiar: (listId: string, data: { userId?: string; plan?: string; nueva?: boolean }) =>
     api.post<{ id: string; existente: boolean }>(`/lists/${listId}/copia`, data),
@@ -235,7 +237,7 @@ export const categoriesApi = {
 
 // Orders API
 export const ordersApi = {
-  create: (order: CreateOrderInput) => api.post<Order>('/orders', order).then(o => { medirCompra(order, o); return o; }),
+  create: (order: CreateOrderInput, anti?: DatosAntiSpam) => api.post<Order>('/orders', { ...order, ...anti }).then(o => { medirCompra(order, o); return o; }),
   getById: (id: string) => api.get<Order>(`/orders/${id}`),
   getByUserId: (userId: string) => api.get<Order[]>(`/orders/user/${userId}`),
   updateStatus: (id: string, status: string, notes?: string) =>

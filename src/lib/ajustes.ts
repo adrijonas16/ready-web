@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Settings } from '@/lib/types';
-import { api } from '@/services/api';
+import { apiJson } from '@/lib/api-base';
 
 /** Valores por defecto (los mismos de la demo) mientras carga GET /settings o si falla. */
 export const AJUSTES_POR_DEFECTO: Settings = {
@@ -18,20 +18,25 @@ let pedido: Promise<Settings> | null = null;
 let cargados: Settings | null = null;
 
 export function cargarAjustes(): Promise<Settings> {
-  pedido ??= api.get<Settings>('/settings')
+  // fetch (no axios): este archivo lo usa el botón de WhatsApp en todas las páginas
+  pedido ??= apiJson<Settings>('/settings')
     .then(s => (cargados = { ...AJUSTES_POR_DEFECTO, ...s }))
     .catch(() => { pedido = null; return AJUSTES_POR_DEFECTO; });
   return pedido;
 }
 
 /** Configuración pública de la tienda: costo de envío, WhatsApp, días de entrega… */
-export function useAjustes(): Settings {
+export function useAjustes({ diferido = false }: { diferido?: boolean } = {}): Settings {
   const [ajustes, setAjustes] = useState<Settings>(cargados ?? AJUSTES_POR_DEFECTO);
   useEffect(() => {
     let vivo = true;
-    cargarAjustes().then(s => { if (vivo) setAjustes(s); });
-    return () => { vivo = false; };
-  }, []);
+    const cargar = () => cargarAjustes().then(s => { if (vivo) setAjustes(s); });
+    // diferido: espera a que el navegador esté libre (mientras tanto usa los valores por defecto)
+    if (!diferido || cargados) { cargar(); return () => { vivo = false; }; }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    const id = w.requestIdleCallback ? w.requestIdleCallback(cargar, { timeout: 4000 }) : window.setTimeout(cargar, 1500);
+    return () => { vivo = false; if (w.cancelIdleCallback) w.cancelIdleCallback(id); else clearTimeout(id); };
+  }, [diferido]);
   return ajustes;
 }
 

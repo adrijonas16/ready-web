@@ -1,16 +1,16 @@
 /**
- * Reduce una foto antes de subirla: lado mayor de 2000 px y JPEG al 85 %.
- * Las fotos de celular pesan 4–10 MB; así quedan en ~0.5–1.5 MB, suben rápido
+ * Reduce una foto antes de subirla: lado mayor de 1600 px y JPEG al 80 %.
+ * Las fotos de celular pesan 4–10 MB; así quedan en ~0.3–0.8 MB (el texto de la lista sigue legible), suben rápido
  * y entran en el límite de 5 MB por imagen de la lectura con IA.
  * PDF, Word y archivos que el navegador no puede decodificar se devuelven sin cambios.
  */
-export async function compressImage(file: File, maxSide = 2000, quality = 0.85): Promise<File> {
+export async function compressImage(file: File, maxSide = 1600, quality = 0.8): Promise<File> {
   if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
 
   try {
     const bitmap = await createImageBitmap(file);
     const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-    if (scale === 1 && file.size < 1.5 * 1024 * 1024) {
+    if (scale === 1 && file.size < 1024 * 1024) {
       bitmap.close();
       return file;
     }

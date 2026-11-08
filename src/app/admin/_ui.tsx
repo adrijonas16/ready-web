@@ -30,7 +30,7 @@ export function AvisosProvider({ children }: { children: ReactNode }) {
   return (
     <ContextoAvisos.Provider value={api}>
       {children}
-      <div className="fixed bottom-4 right-4 left-4 sm:left-auto z-[60] flex flex-col items-end gap-2 pointer-events-none print:hidden">
+      <div className="fixed bottom-4 right-4 left-4 sm:left-auto z-[55] flex flex-col items-end gap-2 pointer-events-none print:hidden">
         {avisos.map(a => (
           <div key={a.id} role={a.tipo === 'error' ? 'alert' : 'status'} data-aviso={a.tipo}
             className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl animate-slide-up max-w-md text-white ${

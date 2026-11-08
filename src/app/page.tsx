@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { productos } from '@/demo/catalogo';
+import { miniProductos } from '@/demo/subconjunto';
 import { metadatosPagina, SITIO_NOMBRE } from '@/lib/sitio';
 import { jsonLdInicio } from '@/lib/json-ld';
 import { Camera, Search, ShoppingBag, ChevronRight } from 'lucide-react';
-import Vitrina from '@/components/Vitrina';
-import NewsCarousel from '@/components/NewsCarousel';
+import { PromocionesDiferidas, VitrinaDiferida } from '@/components/home/Diferidos';
 import DemoEnVivo from '@/components/home/DemoEnVivo';
+import { IDS_DEMO, PIEZAS } from '@/components/home/datos';
 import UtilesFlotantes from '@/components/home/UtilesFlotantes';
 import Categorias from '@/components/home/Categorias';
 import { FotoLista, Mochila, TodoListo, TresOpciones } from '@/components/home/Ilustraciones';
@@ -22,11 +22,12 @@ export const metadata: Metadata = {
 
 /** Tres productos del catálogo que se abren en abanico al pasar el mouse */
 function AbanicoProductos() {
-  const imgs = ['cu-dibujos', 'co-m', 'ti-m'].map(id => productos.find(p => p.id === id)?.imageUrl);
+  const cat = miniProductos(['cu-dibujos', 'co-m', 'ti-m']);
+  const imgs = ['cu-dibujos', 'co-m', 'ti-m'].map(id => cat[id]?.imageUrl);
   const pos = ['-rotate-12 -translate-x-10 group-hover:-translate-x-16 group-hover:-rotate-[20deg]', 'z-10 -translate-y-1 group-hover:-translate-y-3 group-hover:scale-110', 'rotate-12 translate-x-10 group-hover:translate-x-16 group-hover:rotate-[20deg]'];
   return (
     <span className="relative flex h-28 w-28 items-center justify-center">
-      {imgs.map((src, i) => <img key={i} src={src} alt="" className={`absolute h-24 w-24 object-contain drop-shadow-md transition-transform duration-500 ease-out ${pos[i]}`} />)}
+      {imgs.map((src, i) => <img key={i} src={src} alt="" aria-hidden="true" width={96} height={96} loading="lazy" decoding="async" className={`absolute h-24 w-24 object-contain drop-shadow-md transition-transform duration-500 ease-out ${pos[i]}`} />)}
     </span>
   );
 }
@@ -40,7 +41,7 @@ export default function HomePage() {
 
       {/* Hero */}
       <section className="papel-cuadriculado relative overflow-hidden border-b border-linea">
-        <UtilesFlotantes />
+        <UtilesFlotantes imagenes={Object.fromEntries(Object.values(miniProductos(PIEZAS.map(p => p.id))).map(p => [p.id, p.imageUrl]))} />
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:px-6 md:py-20 lg:grid-cols-[1.05fr_1fr] [&>*]:min-w-0">
           <div>
             <h1 className="text-[2.6rem] font-extrabold leading-[1.02] tracking-[-0.035em] text-grafito sm:text-6xl">
@@ -53,7 +54,7 @@ export default function HomePage() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/upload"
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-acento px-6 py-4 text-base font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.12)] transition-colors hover:bg-acento-oscuro">
-                <Camera className="h-5 w-5" aria-hidden="true" /> Subir mi lista
+                <Camera className="h-5 w-5" aria-hidden="true" /> Sube la foto de tu lista
               </Link>
               <Link href="/lists"
                 className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-grafito bg-papel px-6 py-4 text-base font-bold text-grafito transition-colors hover:bg-fondo">
@@ -65,7 +66,7 @@ export default function HomePage() {
               <Link href="/catalog" className="font-semibold text-primario underline underline-offset-2">Arma tu pedido producto por producto</Link>.
             </p>
           </div>
-          <DemoEnVivo />
+          <DemoEnVivo catalogo={miniProductos(IDS_DEMO)} />
         </div>
       </section>
 
@@ -118,11 +119,11 @@ export default function HomePage() {
 
       <Categorias />
 
-      <Vitrina />
+      <VitrinaDiferida />
 
       {/* Promociones */}
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-        <NewsCarousel />
+        <PromocionesDiferidas />
       </section>
 
       {/* Cierre */}
@@ -135,7 +136,7 @@ export default function HomePage() {
           </div>
           <Link href="/upload"
             className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-acento px-6 py-4 font-bold text-grafito shadow-[inset_0_-4px_0_rgba(0,0,0,0.15)] hover:bg-acento-oscuro">
-            <Camera className="h-5 w-5" aria-hidden="true" /> Subir mi lista
+            <Camera className="h-5 w-5" aria-hidden="true" /> Sube la foto de tu lista
           </Link>
         </div>
       </section>

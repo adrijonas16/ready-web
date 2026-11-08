@@ -17,7 +17,7 @@ function Linea({ item, onQuitar, onCantidad, onFoto }: { item: CartItem; onQuita
       <button type="button" aria-label={`Ver foto de ${item.product.name}`} onClick={onFoto}
         className="h-16 w-16 shrink-0 cursor-zoom-in overflow-hidden rounded-xl border border-linea bg-white">
         {item.product.imageUrl
-          ? <img src={item.product.imageUrl} alt="" width={64} height={64} className="h-full w-full object-contain p-1" />
+          ? <img decoding="async" src={item.product.imageUrl} alt="" aria-hidden="true" width={64} height={64} className="h-full w-full object-contain p-1" />
           : <span className="flex h-full items-center justify-center"><Package className="h-6 w-6 text-tenue/40" aria-hidden="true" /></span>}
       </button>
       <div className="min-w-0 flex-1">
@@ -35,15 +35,15 @@ function Linea({ item, onQuitar, onCantidad, onFoto }: { item: CartItem; onQuita
         </div>
         <div className="mt-2 flex items-center justify-between gap-3">
           <button onClick={onQuitar} aria-label={`Quitar ${item.product.name}`}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-1.5 py-1 text-sm text-tenue hover:bg-profe-claro hover:text-profe">
+            className="inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-sm text-tenue hover:bg-profe-claro hover:text-profe">
             <Trash2 className="h-4 w-4" aria-hidden="true" /> Quitar
           </button>
           <div className="flex items-center rounded-lg border border-linea bg-papel" role="group" aria-label={`Cantidad de ${item.product.name}`}>
             <button onClick={() => onCantidad(Math.max(1, item.quantity - 1))} disabled={item.quantity <= 1} aria-label="Uno menos"
-              className="cursor-pointer p-2 hover:text-primario disabled:opacity-40"><Minus className="h-3.5 w-3.5" aria-hidden="true" /></button>
+              className="flex h-10 w-10 cursor-pointer items-center justify-center hover:text-primario disabled:opacity-40"><Minus className="h-3.5 w-3.5" aria-hidden="true" /></button>
             <span className="w-7 text-center text-sm font-bold tabular-nums">{item.quantity}</span>
             <button onClick={() => onCantidad(Math.min(99, item.quantity + 1))} aria-label="Uno más"
-              className="cursor-pointer p-2 hover:text-primario"><Plus className="h-3.5 w-3.5" aria-hidden="true" /></button>
+              className="flex h-10 w-10 cursor-pointer items-center justify-center hover:text-primario"><Plus className="h-3.5 w-3.5" aria-hidden="true" /></button>
           </div>
         </div>
       </div>
@@ -84,11 +84,11 @@ export default function CartPage() {
           <h1 className="mb-1 text-2xl font-extrabold">Tu carrito está vacío</h1>
           <p className="mb-8 text-tenue">Elige la lista de tu colegio o explora nuestro catálogo.</p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/lists" className="inline-flex items-center gap-2 rounded-xl bg-primario px-6 py-3 text-sm font-bold text-white hover:bg-primario-oscuro">
-              <ClipboardList className="h-4 w-4" aria-hidden="true" /> Ver listas
+            <Link href="/lists" className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro px-6 py-3 text-sm font-bold">
+              <ClipboardList className="h-4 w-4" aria-hidden="true" /> Buscar la lista de mi colegio
             </Link>
-            <Link href="/catalog" className="inline-flex items-center gap-2 rounded-xl border-2 border-grafito px-6 py-2.5 text-sm font-bold hover:bg-papel">
-              <ShoppingBag className="h-4 w-4" aria-hidden="true" /> Catálogo
+            <Link href="/catalog" className="inline-flex min-h-12 items-center gap-2 rounded-xl border-2 border-grafito px-6 py-2.5 text-sm font-bold hover:bg-papel">
+              <ShoppingBag className="h-4 w-4" aria-hidden="true" /> Ver el catálogo
             </Link>
           </div>
         </div>
@@ -107,8 +107,8 @@ export default function CartPage() {
       Ir a pagar <ArrowRight className="h-4 w-4" aria-hidden="true" />
     </Link>
   ) : (
-    <Link href="/login?redirect=/checkout" className={`flex items-center justify-center gap-2 rounded-xl bg-primario px-5 py-3.5 font-bold text-white hover:bg-primario-oscuro ${clase}`}>
-      Iniciar sesión para comprar
+    <Link href="/login?redirect=/checkout" className={`flex items-center justify-center gap-2 rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro px-5 py-3.5 font-bold ${clase}`}>
+      Inicia sesión para pagar <ArrowRight className="h-4 w-4" aria-hidden="true" />
     </Link>
   );
 
@@ -123,7 +123,7 @@ export default function CartPage() {
 
         {foto && (
           <div className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setFoto(null)}>
-            <img src={foto} alt="Foto del producto" className="max-h-[90vh] max-w-[90vw] rounded-2xl bg-white object-contain" />
+            <img src={foto} alt="Foto del producto ampliada" width={800} height={800} decoding="async" className="max-h-[90vh] max-w-[90vw] rounded-2xl bg-white object-contain" />
           </div>
         )}
 
@@ -229,8 +229,8 @@ export default function CartPage() {
                   <dt className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-tenue" aria-hidden="true" /> Envío en Arequipa</dt>
                   <dd className="font-semibold tabular-nums">{envio === 0 ? 'Gratis' : formatPrice(envio)}</dd>
                 </div>
-                {faltaGratis > 0 && <p className="rounded-lg bg-eco-claro px-3 py-2 text-xs">Te faltan <b>{formatPrice(faltaGratis)}</b> para el envío gratis.</p>}
               </dl>
+              {faltaGratis > 0 && <p className="mt-2.5 rounded-lg bg-eco-claro px-3 py-2 text-xs">Te faltan <b>{formatPrice(faltaGratis)}</b> para el envío gratis.</p>}
               <div className="mt-4 flex items-baseline justify-between border-t border-linea pt-4">
                 <span className="font-semibold">Total</span>
                 <span className="text-3xl font-extrabold tracking-tight tabular-nums">{formatPrice(totalFinal)}</span>

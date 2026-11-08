@@ -9,7 +9,7 @@ const CON_BARRA = [/^\/lists\/[^/]+$/, /^\/cart$/, /^\/checkout$/];
 /** Botón flotante para escribir a la tienda por WhatsApp (no se muestra en el panel de administración). */
 export default function WhatsappFlotante() {
   const pathname = usePathname() ?? '/';
-  const { whatsapp } = useAjustes();
+  const { whatsapp } = useAjustes({ diferido: true });
   if (!whatsapp || pathname.startsWith('/admin')) return null;
   const conBarra = CON_BARRA.some(r => r.test(pathname));
   const texto = pathname.startsWith('/orders/')

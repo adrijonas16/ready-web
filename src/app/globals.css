@@ -16,7 +16,7 @@
 @theme {
   --font-sans: var(--fuente-texto);
   --font-display: var(--fuente-titulos);
-  --font-mano: "Caveat", "Comic Sans MS", cursive;
+  --font-mano: var(--nf-mano, "Caveat"), "Comic Sans MS", cursive;
 
   --color-primario: var(--t-primario);
   --color-primario-oscuro: var(--t-primario-oscuro);
@@ -59,7 +59,11 @@
   --color-slate-200: var(--t-linea);
   --color-slate-100: var(--t-linea);
   --color-slate-50: var(--t-fondo);
+  --color-gray-900: var(--t-texto);
+  --color-gray-800: var(--t-texto);
   --color-gray-700: var(--t-texto-2);
+  --color-gray-600: var(--t-texto-2);
+  --color-gray-200: var(--t-linea);
   --color-gray-500: var(--t-tenue);
   --color-gray-400: var(--t-tenue);
   --color-gray-300: var(--t-linea-fuerte);
@@ -73,8 +77,9 @@
 
 /* Tema "Tienda familiar" (elegido con UI/UX Pro Max): Rubik + Nunito Sans, azul familia y ámbar. */
 :root {
-  --fuente-titulos: "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
-  --fuente-texto: "Nunito Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  /* Las fuentes las define next/font en src/app/fuentes.ts (variables --nf-*) */
+  --fuente-titulos: var(--nf-titulos), ui-sans-serif, system-ui, sans-serif;
+  --fuente-texto: var(--nf-texto), ui-sans-serif, system-ui, sans-serif;
   --t-primario: #1D4ED8;
   --t-primario-oscuro: #1E3A8A;
   --t-primario-claro: #E8EFFE;
@@ -145,10 +150,22 @@
   color: var(--t-eco-texto);
 }
 
+/* Textos de estado del panel (rojo, verde, naranja, ámbar): tonos con 4.5:1 en claro y en oscuro */
+.text-red-400, .text-red-500, .text-red-600, .text-red-700 { color: var(--t-error); }
+.text-green-600, .text-green-700, .text-emerald-600, .text-emerald-700 { color: var(--t-eco-texto); }
+.text-orange-500, .text-orange-600, .text-orange-700, .text-amber-700, .text-yellow-600, .text-yellow-700 { color: #B45309; }
+[data-theme="dark"] .text-orange-500, [data-theme="dark"] .text-orange-600, [data-theme="dark"] .text-orange-700,
+[data-theme="dark"] .text-amber-700, [data-theme="dark"] .text-yellow-600, [data-theme="dark"] .text-yellow-700 { color: #FCD34D; }
+
+[data-theme="dark"] .bg-red-50 { background-color: var(--t-error-claro); }
+[data-theme="dark"] .bg-green-50, [data-theme="dark"] .bg-emerald-50 { background-color: var(--t-eco-claro); }
+[data-theme="dark"] .bg-orange-50, [data-theme="dark"] .bg-yellow-50, [data-theme="dark"] .bg-amber-50 { background-color: var(--t-acento-claro); }
+
 /* Botones de color claro: texto oscuro para que se lea en ambos temas */
 [data-theme="dark"] .bg-acento,
 [data-theme="dark"] .bg-eco,
-[data-theme="dark"] .bg-premium {
+[data-theme="dark"] .bg-premium,
+[data-theme="dark"] .bg-profe {
   color: #0F172A;
 }
 
@@ -290,8 +307,9 @@ input::placeholder, textarea::placeholder {
 }
 
 @keyframes escaneo {
-  0%   { top: 0%; }
-  100% { top: calc(100% - 4px); }
+  /* Solo transform (sin "top"): el navegador lo anima sin recalcular el diseño en cada cuadro */
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(100%); }
 }
 
 .animate-escaneo {
@@ -438,10 +456,10 @@ img {
 
 /* Barra de lectura que recorre la hoja en la demo del inicio */
 @keyframes escaneo-hoja {
-  0% { top: 40px; opacity: 0; }
+  0% { transform: translateY(0); opacity: 0; }
   10% { opacity: 1; }
   90% { opacity: 1; }
-  100% { top: calc(100% - 30px); opacity: 0; }
+  100% { transform: translateY(100%); opacity: 0; }
 }
 .animate-escaneo-hoja { animation: escaneo-hoja 4s var(--ease-out) forwards; }
 

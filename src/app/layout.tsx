@@ -1,10 +1,6 @@
 import AvisoDemo from '@/components/AvisoDemo';
 import type { Metadata, Viewport } from "next";
-import "@fontsource-variable/nunito-sans";
-import "@fontsource-variable/rubik";
-import "@fontsource-variable/rubik/wght-italic.css";
-import "@fontsource/caveat/500.css";
-import "@fontsource/caveat/700.css";
+import { clasesFuentes } from "./fuentes";
 import "./globals.css";
 import Link from "next/link";
 import { AuthProvider } from "@/lib/auth-context";
@@ -60,7 +56,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es-PE" suppressHydrationWarning>
+    <html lang="es-PE" className={clasesFuentes} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: scriptTema }} />
       </head>
@@ -68,7 +64,8 @@ export default function RootLayout({
         <AuthProvider>
           <CartProvider>
             <Header />
-            <main className="flex-1">{children}</main>
+            {/* min-h: el pie empieza fuera de la pantalla y no "salta" cuando la página termina de cargar */}
+            <main className="flex-1 min-h-[100svh]">{children}</main>
             <WhatsappFlotante />
             <ConsentimientoCookies />
             <Analitica />

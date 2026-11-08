@@ -3,11 +3,11 @@
 import { volarAlCarrito } from '@/lib/efectos';
 import { API, apiFetch } from '@/lib/api-base';
 import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
 import { ArrowLeft, ShoppingCart, Star, Check, Package, Minus, Plus, Truck } from 'lucide-react';
 import Link from 'next/link';
+import NoEncontrado from '@/components/NoEncontrado';
 import { tierLabel, Tier } from '@/lib/lista';
 import { descuentoPct, enOferta, precioVenta, redondear } from '@/lib/precio';
 import { fechaLarga, fechasEntrega, textoEnvio, useAjustes } from '@/lib/ajustes';
@@ -26,7 +26,6 @@ interface ProductDetail {
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const router = useRouter();
   const { addItem } = useCart();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,11 +54,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><div className="w-8 h-8 border-2 border-primario border-t-transparent rounded-full animate-spin" /></div>;
   if (!product) return (
-    <div className="mx-auto max-w-md px-4 py-24 text-center">
-      <Package className="mx-auto h-10 w-10 text-tenue" aria-hidden="true" />
-      <h1 className="mt-4 text-2xl font-extrabold">No encontramos este producto</h1>
-      <Link href="/catalog" className="mt-6 inline-block rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Ver el catálogo</Link>
-    </div>
+    <NoEncontrado titulo="No encontramos este producto" texto="Puede que el enlace esté mal escrito o que ya no lo vendamos. Mira otros útiles parecidos en el catálogo."
+      principal={{ href: '/catalog', texto: 'Ver el catálogo' }} secundarias={[{ href: '/', texto: 'Ir al inicio' }]} />
   );
 
   const priceModifier = redondear(Object.values(selectedVariants).reduce((sum, v) => sum + (v.price_modifier || 0), 0));
@@ -104,9 +100,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   return (
     <div className="min-h-screen">
       <div className="max-w-5xl mx-auto py-6 px-4">
-        <button onClick={() => router.back()} className="flex items-center gap-1.5 text-tenue hover:text-grafito mb-4 text-sm">
+        <Link href="/catalog" className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm text-tenue hover:text-grafito">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al catálogo
-        </button>
+        </Link>
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Left: Gallery with vertical thumbnails */}
@@ -115,11 +111,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             {allImages.length > 1 && (
               <div className="flex flex-col gap-2 w-16 flex-shrink-0">
                 {allImages.map((img, i) => (
-                  <button key={i} onClick={() => setActiveImage(img.url)}
+                  <button key={i} type="button" onClick={() => setActiveImage(img.url)} aria-pressed={activeImage === img.url}
+                    aria-label={`Ver foto ${i + 1} de ${allImages.length}${img.label && !/^(Foto|Principal)$/.test(img.label) ? `: ${img.label}` : ''}`}
                     className={`w-16 h-16 rounded-xl overflow-hidden border-2 transition-all duration-150 flex-shrink-0 ${
                       activeImage === img.url ? 'border-blue-500 shadow-md shadow-blue-500/20' : 'border-transparent hover:border-slate-300'
                     }`}>
-                    <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
+                    <img src={img.url} alt="" aria-hidden="true" width={64} height={64} decoding="async" className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -130,9 +127,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
                 <div className="aspect-square bg-slate-50 flex items-center justify-center p-6">
                   {activeImage ? (
-                    <img key={activeImage} id="foto-producto" src={activeImage} alt={product.name} className="max-w-full max-h-full object-contain rounded-lg animate-scale-in" />
+                    <img key={activeImage} id="foto-producto" src={activeImage} alt={product.name} width={480} height={480} fetchPriority="high" decoding="async" className="h-full w-full max-w-full max-h-full object-contain rounded-lg animate-scale-in" />
                   ) : (
-                    <Package className="h-24 w-24 text-neutral-200" />
+                    <Package className="h-24 w-24 text-neutral-200" aria-hidden="true" />
                   )}
                 </div>
               </div>
@@ -187,9 +184,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   {vt.values.some(v => v.color_hex) ? (
                     <div className="flex flex-wrap gap-2.5">
                       {vt.values.filter(v => v.is_active).map(v => (
-                        <button key={v.id} onClick={() => selectVariant(vt.id, v)} title={v.stock > 0 ? v.value : `${v.value} (agotado)`}
+                        <button key={v.id} type="button" onClick={() => selectVariant(vt.id, v)} title={v.stock > 0 ? v.value : `${v.value} (agotado)`}
                           aria-label={v.stock > 0 ? v.value : `${v.value}, agotado`} aria-pressed={selectedVariants[vt.id]?.id === v.id} disabled={v.stock <= 0}
-                          className={`relative w-9 h-9 rounded-full transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed ${
+                          className={`relative w-11 h-11 rounded-full transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed ${
                             selectedVariants[vt.id]?.id === v.id ? 'ring-2 ring-blue-500 ring-offset-2 scale-110' : 'hover:scale-105 ring-1 ring-slate-200'
                           }`} style={{ backgroundColor: v.color_hex || '#ccc' }}>
                           {selectedVariants[vt.id]?.id === v.id && (
@@ -203,12 +200,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {vt.values.filter(v => v.is_active).map(v => (
-                        <button key={v.id} onClick={() => selectVariant(vt.id, v)} disabled={v.stock <= 0} aria-pressed={selectedVariants[vt.id]?.id === v.id}
-                          className={`rounded-xl text-sm font-medium transition-all duration-150 flex items-center gap-2 overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed ${
+                        <button key={v.id} type="button" onClick={() => selectVariant(vt.id, v)} disabled={v.stock <= 0} aria-pressed={selectedVariants[vt.id]?.id === v.id}
+                          className={`min-h-11 rounded-xl text-sm font-medium transition-all duration-150 flex items-center gap-2 overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed ${
                             selectedVariants[vt.id]?.id === v.id ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                           }`}>
                           {v.image_url && (
-                            <img src={v.image_url} alt={v.value} className="w-8 h-8 object-cover" />
+                            <img src={v.image_url} alt="" aria-hidden="true" width={32} height={32} loading="lazy" decoding="async" className="w-8 h-8 object-cover" />
                           )}
                           <span className={`${v.image_url ? 'pr-3 py-1.5' : 'px-4 py-2'}`}>
                             {v.value}
@@ -228,18 +225,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
               {/* Quantity + Add to cart */}
               <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
-                <div className="flex items-center gap-1.5">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-9 h-9 rounded-xl border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50"><Minus className="h-4 w-4" /></button>
-                  <span className="w-8 text-center text-lg font-bold">{quantity}</span>
-                  <button onClick={() => setQuantity(Math.min(Math.max(1, stockElegido), quantity + 1))}
-                    className="w-9 h-9 rounded-xl bg-blue-500 text-white flex items-center justify-center hover:shadow-md hover:shadow-blue-500/25"><Plus className="h-4 w-4" /></button>
+                <div className="flex items-center gap-1.5" role="group" aria-label="Cantidad">
+                  <button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} aria-label="Uno menos" disabled={quantity <= 1}
+                    className="w-11 h-11 rounded-xl border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50 disabled:opacity-40"><Minus className="h-4 w-4" aria-hidden="true" /></button>
+                  <span className="w-8 text-center text-lg font-bold" aria-live="polite">{quantity}</span>
+                  <button type="button" onClick={() => setQuantity(Math.min(Math.max(1, stockElegido), quantity + 1))} aria-label="Uno más" disabled={quantity >= stockElegido}
+                    className="w-11 h-11 rounded-xl border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50 disabled:opacity-40"><Plus className="h-4 w-4" aria-hidden="true" /></button>
                 </div>
-                <button onClick={handleAddToCart} disabled={agotado}
-                  className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 ${
-                    added ? 'bg-eco text-white' : agotado ? 'bg-slate-200 text-tenue' : 'bg-blue-500 text-white hover:shadow-lg hover:shadow-blue-500/25'
+                <button type="button" onClick={handleAddToCart} disabled={agotado}
+                  className={`min-h-12 flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 ${
+                    added ? 'bg-eco text-white' : agotado ? 'bg-slate-200 text-tenue' : 'bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro'
                   }`}>
-                  {added ? <><Check className="h-4 w-4" /> Agregado</> : <><ShoppingCart className="h-4 w-4" /> Agregar - {formatPrice(finalPrice * quantity)}</>}
+                  {added ? <><Check className="h-4 w-4" aria-hidden="true" /> Agregado al carrito</> : agotado ? 'Agotado' : <><ShoppingCart className="h-4 w-4" aria-hidden="true" /> Agregar al carrito · {formatPrice(finalPrice * quantity)}</>}
                 </button>
               </div>
 

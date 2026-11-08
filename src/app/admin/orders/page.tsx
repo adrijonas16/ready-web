@@ -73,6 +73,7 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
   const [search, setSearch] = useState('');
+  const [cambiando, setCambiando] = useState<string | null>(null);
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -92,10 +93,12 @@ export default function AdminOrdersPage() {
   }, [imprimiendo]);
 
   const changeStatus = async (o: Order, status: string) => {
-    if (status === o.status) return;
+    if (status === o.status || cambiando) return;
     if (status === 'CANCELADO' && !confirm(`¿Cancelar el pedido ${o.id}?`)) return;
-    try { await ordersApi.updateStatus(o.id, status, `Cambiado a "${getStatusLabel(status)}" desde el panel`); avisos.exito(`Pedido ${o.id}: ${getStatusLabel(status)}`); load(); }
+    setCambiando(o.id);
+    try { await ordersApi.updateStatus(o.id, status, `Cambiado a "${getStatusLabel(status)}" desde el panel`); avisos.exito(`Pedido ${o.id}: ${getStatusLabel(status)}`); await load(); }
     catch (e) { avisos.error(e, 'No pudimos cambiar el estado'); }
+    finally { setCambiando(null); }
   };
 
   const filtered = useMemo(() => {
@@ -184,7 +187,7 @@ export default function AdminOrdersPage() {
                   </div>
                   <span className="text-sm font-bold text-slate-900 text-right self-start sm:self-center">{formatPrice(order.total)}</span>
                   <div className="col-span-2 flex items-center gap-2 no-imprimir">
-                    <select value={order.status} onChange={e => changeStatus(order, e.target.value)} aria-label={`Estado del pedido ${order.id}`}
+                    <select value={order.status} disabled={cambiando === order.id} onChange={e => changeStatus(order, e.target.value)} aria-label={`Estado del pedido ${order.id}`}
                       className="flex-1 sm:flex-none px-2 py-1.5 border border-slate-200 rounded-lg text-xs">
                       {STATUSES.map(s => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
                     </select>

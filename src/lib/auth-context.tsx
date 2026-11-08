@@ -16,8 +16,6 @@ interface AuthContextType {
   /** Guarda el perfil (PUT /auth/me) y actualiza la sesión */
   guardarPerfil: (datos: PerfilInput) => Promise<User>;
   isAdmin: boolean;
-  loginWithGoogle: () => void;
-  loginWithToken: (token: string, userId: string) => void;
   notifications: Notification[];
   addNotification: (message: string, type: 'success' | 'error' | 'info') => void;
   markAsRead: (id: string) => void;
@@ -138,26 +136,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     addNotification('Sesión cerrada', 'info');
   };
 
-  const loginWithGoogle = () => {
-    addNotification('Google login no disponible en modo local', 'info');
-  };
-
-  const loginWithToken = (newToken: string, userId: string) => {
-    setToken(newToken);
-    localStorage.setItem('token', newToken);
-    apiFetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${newToken}` } })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.data) {
-          setUser(data.data);
-          localStorage.setItem('user', JSON.stringify(data.data));
-          addNotification('¡Bienvenido!', 'success');
-          evento('login', { method: 'google' });
-        }
-      })
-      .catch(console.error);
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -169,8 +147,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         guardarPerfil,
         isAdmin: user?.role === 'ADMIN' || user?.role === 'OPERATOR',
-        loginWithGoogle,
-        loginWithToken,
         notifications,
         addNotification,
         markAsRead,

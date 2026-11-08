@@ -12,10 +12,10 @@ export function LogoMark({ className = 'h-8 w-8' }: { className?: string }) {
 
 export default function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2 rounded-lg" aria-label="Ready, ir al inicio">
+    <Link href="/" className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg" aria-label="Ready, ir al inicio">
       <LogoMark />
-      <span translate="no"
-        className={`font-display text-[1.55rem] font-black italic uppercase leading-none tracking-[0.01em] ${light ? 'text-white' : 'text-grafito'}`}>
+      <span translate="no" style={{ fontFamily: 'var(--nf-titulos-cursiva), var(--fuente-titulos)' }}
+        className={` text-[1.55rem] font-black italic uppercase leading-none tracking-[0.01em] ${light ? 'text-white' : 'text-grafito'}`}>
         Ready
       </span>
     </Link>

@@ -150,3 +150,9 @@ export function getStatusLabel(status: string): string {
   };
   return labels[status] || status;
 }
+/** Revisa una imagen que sube el panel (logo, foto de producto, banner): tipo y tamaño. */
+export function validarArchivoImagen(file: File, maxMb = 5): string | null {
+  if (!/^image\/(jpeg|png|webp|gif|svg\+xml)$/.test(file.type)) return `${file.name}: sube una imagen JPG, PNG o WebP.`;
+  if (file.size > maxMb * 1024 * 1024) return `${file.name}: la imagen pesa más de ${maxMb} MB.`;
+  return null;
+}
