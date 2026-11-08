@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { Product, CartItem, NotaPedido } from '@/lib/types';
 import { precioVenta, redondear } from '@/lib/precio';
+import { datosItems, evento, itemGA } from '@/lib/analytics';
 
 /** Datos de una línea al agregarla. Sin unitPrice se usa el precio de venta del producto (+ recargo). */
 export interface OpcionesLinea {
@@ -119,7 +120,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, notasPedido, listaIds, cargado]);
 
   const addItem = useCallback((product: Product, quantity = 1, opciones?: OpcionesLinea) => {
-    setItems(prev => sumar(prev, crearLinea(product, quantity, opciones)));
+    const linea = crearLinea(product, quantity, opciones);
+    setItems(prev => sumar(prev, linea));
+    evento('add_to_cart', datosItems([itemGA(product, linea.unitPrice, quantity)]));
   }, []);
 
   const removeItem = useCallback((lineId: string) => setItems(prev => prev.filter(i => i.id !== lineId)), []);
@@ -143,6 +146,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       (acc, l) => sumar(acc, crearLinea(l.product, l.quantity, { ...l, para, listaId })),
       prev.filter(i => i.listaId !== listaId)));
     setNotasPedido(prev => [...prev.filter(n => n.listaId !== listaId), ...notas.map(texto => ({ texto, listaId, para }))]);
+    evento('add_to_cart', datosItems(lineas.map(l => itemGA(l.product, crearLinea(l.product, l.quantity, l).unitPrice, l.quantity)), { item_list_id: listaId }));
     return para;
   };
 

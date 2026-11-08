@@ -63,7 +63,7 @@ export function ElegirPaquete({ items, qty, onElegir, eligiendo }: {
                   {fotos.map((src, k) => (
                     <span key={k} style={{ ['--k' as string]: k, zIndex: 10 - k }}
                       className="absolute right-0 top-0 flex h-12 w-12 translate-x-[calc(var(--k)*-16px)] rotate-[calc((var(--k)-2)*5deg)] items-center justify-center rounded-xl border border-linea bg-white shadow-sm transition-[translate,rotate] duration-500 ease-out group-hover:translate-x-[calc(var(--k)*-26px)] group-hover:-translate-y-1 group-hover:rotate-[calc((var(--k)-2)*9deg)]">
-                      <img src={src} alt="" className="h-10 w-10 object-contain" />
+                      <img decoding="async" src={src} alt="" aria-hidden="true" width={40} height={40} loading="lazy" className="h-10 w-10 object-contain" />
                     </span>
                   ))}
                 </div>
@@ -87,7 +87,7 @@ export function ElegirPaquete({ items, qty, onElegir, eligiendo }: {
               </ul>
               <div className="px-5 pb-5 pt-4 md:pt-0">
                 <button onClick={() => onElegir(t.id)} disabled={!!eligiendo}
-                  className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 font-bold transition ${e.boton} disabled:opacity-60`}>
+                  className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-xl py-3 font-bold transition ${e.boton} disabled:opacity-60`}>
                   {eligiendo === t.id ? 'Armando…' : `Elegir ${t.label}`}
                 </button>
               </div>

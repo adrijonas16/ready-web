@@ -1,5 +1,7 @@
 'use client';
 
+import { ErrorCampo } from '@/components/form/Campo';
+import { LARGO } from '@/lib/validar';
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { listsApi, productsApi, schoolsApi } from '@/services/api';
@@ -40,6 +42,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
   const avisos = useAvisos();
   const [decision, setDecision] = useState<Decision | null>(null);
   const [textoObs, setTextoObs] = useState('');
+  const [errorObs, setErrorObs] = useState<string | null>(null);
   const [oficial, setOficial] = useState(false);
   const [foto, setFoto] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -102,6 +105,9 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
   };
 
   const saveItems = async () => {
+    if (saving) return;
+    const vacio = localItems.findIndex(it => !it.isNew && !it.nombreOriginal.trim());
+    if (vacio >= 0) { avisos.error(null, `Escribe el nombre del útil ${vacio + 1} o quítalo.`); return; }
     setSaving(true);
     try {
       // Delete removed items
@@ -116,9 +122,9 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
           }
         } else {
           await listsApi.updateItem(id, item.id, {
-            nombreOriginal: item.nombreOriginal,
+            nombreOriginal: item.nombreOriginal.trim(),
             cantidad: item.cantidad,
-            notas: item.notas,
+            notas: item.notas?.trim(),
           });
         }
       }
@@ -145,12 +151,17 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
 
   const abrirDecision = (d: Decision) => {
     setDecision(d);
+    setErrorObs(null);
     setTextoObs(d === 'VALIDADA' ? '' : (data?.list.estado === d ? data?.list.observaciones ?? '' : ''));
     setOficial(!!data?.list.esOficial || (d === 'VALIDADA' && !data?.list.userId));
   };
   const confirmarDecision = async () => {
     if (!decision) return;
-    if (decision !== 'VALIDADA' && !textoObs.trim()) { avisos.error(null, 'Escribe el motivo para que el cliente sepa qué corregir'); return; }
+    const err = decision !== 'VALIDADA' && textoObs.trim().length < 5 ? 'Escribe el motivo para que el cliente sepa qué corregir.'
+      : textoObs.trim().length > 500 ? 'Máximo 500 caracteres.' : null;
+    setErrorObs(err);
+    if (err) { avisos.error(null, err); document.getElementById('texto-decision')?.focus(); return; }
+    if (saving) return;
     if (hasChanges && !confirm('Hay útiles sin guardar. ¿Continuar sin guardarlos?')) return;
     const ok = decision === 'VALIDADA'
       ? await updateStatus('VALIDADA', textoObs.trim() || undefined, oficial, oficial ? 'Lista validada y publicada como oficial del colegio' : 'Lista validada')
@@ -358,7 +369,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
           <div className="mt-3 flex gap-2 overflow-x-auto">
             {fotos.map((url, i) => (
               <button key={i} onClick={() => { setFoto(url); setZoom(1); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-gray-200 hover:opacity-80" aria-label={`Ver foto ${i + 1} de la lista en grande`}>
-                <img src={url} alt={`Foto ${i + 1} de la lista`} className="h-24 object-cover" />
+                <img width={72} height={96} src={url} alt={`Foto ${i + 1} de la lista`} className="h-24 object-cover" />
               </button>
             ))}
           </div>
@@ -424,16 +435,16 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
               {localItems.map((item, i) => (
                 <div key={item.id} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 bg-gray-50 rounded-xl">
                   <span className="text-xs text-gray-400 w-5 text-right font-mono">{i + 1}.</span>
-                  <input type="text" value={item.nombreOriginal} aria-label={`Útil ${i + 1}`}
+                  <input type="text" value={item.nombreOriginal} aria-label={`Útil ${i + 1}`} maxLength={LARGO.titulo} required aria-invalid={!item.nombreOriginal.trim() || undefined}
                     onChange={(e) => updateLocal(i, 'nombreOriginal', e.target.value)}
                     placeholder="Nombre del útil"
                     className="flex-1 min-w-[160px] px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none" />
-                  <input type="number" value={item.cantidad} min={1} aria-label={`Cantidad del útil ${i + 1}`}
-                    onChange={(e) => updateLocal(i, 'cantidad', e.target.value === '' ? 1 : Math.max(1, parseInt(e.target.value) || 1))}
+                  <input type="number" inputMode="numeric" value={item.cantidad} min={1} max={999} step={1} aria-label={`Cantidad del útil ${i + 1}`}
+                    onChange={(e) => updateLocal(i, 'cantidad', e.target.value === '' ? 1 : Math.min(999, Math.max(1, parseInt(e.target.value) || 1)))}
                     className="w-16 px-2 py-2 border border-gray-200 rounded-lg text-sm text-center bg-white focus:border-blue-500 outline-none" />
                   <input type="text" value={item.notas}
                     onChange={(e) => updateLocal(i, 'notas', e.target.value)}
-                    placeholder="Notas…" aria-label={`Notas del útil ${i + 1}`}
+                    placeholder="Notas…" aria-label={`Notas del útil ${i + 1}`} maxLength={200}
                     className="flex-1 sm:flex-none sm:w-40 min-w-0 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:border-blue-500 outline-none" />
                   <button onClick={() => removeLocalItem(i)} aria-label={`Quitar útil ${i + 1}`} className="text-gray-300 hover:text-red-500 p-1">
                     <Trash2 className="h-4 w-4" />
@@ -469,7 +480,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
                   <div key={item.id} data-item-nivel={item.nombreOriginal} className={`flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 rounded-xl ${product ? 'bg-gray-50' : 'bg-orange-50 border border-orange-200'}`}>
                     <span className="text-xs text-gray-400 w-5 text-right font-mono">{i + 1}.</span>
                     <div className="w-12 h-12 bg-white rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-100">
-                      {product?.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="h-5 w-5 text-gray-300" />}
+                      {product?.imageUrl ? <img width={64} height={64} decoding="async" src={product.imageUrl} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <Package className="h-5 w-5 text-gray-300" />}
                     </div>
                     <div className="flex-1 min-w-[140px]">
                       <p className="text-xs text-gray-400 truncate">{item.nombreOriginal} ×{item.cantidad}</p>
@@ -543,7 +554,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
               ) : searchResults.map(product => (
                 <div key={product.id} onClick={() => assignProduct(product)}
                   className="p-3 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer flex items-center gap-3">
-                  {product.imageUrl ? <img src={product.imageUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                  {product.imageUrl ? <img width={56} height={56} decoding="async" src={product.imageUrl} alt="" aria-hidden="true" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
                     : <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0"><Package className="h-5 w-5 text-gray-300" /></div>}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -595,7 +606,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
                     <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
                       <span className="text-xs text-gray-400 w-5 text-right">{i + 1}.</span>
                       <div className="w-11 h-11 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
-                        {product?.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="h-4 w-4 text-gray-300" />}
+                        {product?.imageUrl ? <img width={64} height={64} decoding="async" src={product.imageUrl} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <Package className="h-4 w-4 text-gray-300" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{product?.name || item.nombreOriginal}</p>
@@ -630,9 +641,11 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
                   : 'El cliente verá el motivo. Úsalo si la foto no es una lista de útiles o no se puede atender.'}</p>
                 <label className="block">
                   <span className="block text-xs text-gray-700 mb-1">{decision === 'OBSERVADA' ? 'Observación para el cliente *' : 'Motivo del rechazo *'}</span>
-                  <textarea value={textoObs} onChange={e => setTextoObs(e.target.value)} rows={4} autoFocus className={campo}
+                  <textarea id="texto-decision" value={textoObs} onChange={e => { setTextoObs(e.target.value); setErrorObs(null); }} rows={4} autoFocus className={`${campo} ${errorObs ? '!border-profe' : ''}`}
+                    maxLength={500} required aria-invalid={errorObs ? true : undefined} aria-describedby={errorObs ? 'texto-decision-error' : undefined}
                     placeholder={decision === 'OBSERVADA' ? 'Ej: La foto está cortada abajo; envíanos la segunda página.' : 'Ej: La foto no corresponde a una lista de útiles.'} />
                 </label>
+                <ErrorCampo id="texto-decision" error={errorObs} />
               </>
             ) : (
               <>
@@ -643,7 +656,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
                 </label>
                 <label className="block">
                   <span className="block text-xs text-gray-700 mb-1">Nota interna (opcional)</span>
-                  <textarea value={textoObs} onChange={e => setTextoObs(e.target.value)} rows={2} className={campo} />
+                  <textarea value={textoObs} onChange={e => setTextoObs(e.target.value)} rows={2} maxLength={500} className={campo} />
                 </label>
               </>
             )}

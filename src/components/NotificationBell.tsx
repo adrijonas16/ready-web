@@ -32,7 +32,7 @@ export default function NotificationBell() {
         onClick={() => setIsOpen(!isOpen)}
         aria-label={unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : 'Notificaciones'}
         aria-expanded={isOpen}
-        className="relative cursor-pointer rounded-xl p-2.5 transition-[background-color,transform] duration-200 hover:bg-gray-100 active:scale-95"
+        className="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl transition-[background-color,transform] duration-200 hover:bg-gray-100 active:scale-95"
       >
         <Bell aria-hidden="true" className={`h-5 w-5 text-gray-500 transition-transform duration-300 ${isOpen ? 'scale-110' : ''}`} />
         {unreadCount > 0 && (

@@ -52,7 +52,7 @@ export default function MyListsPage() {
           <div className="text-center">
             <h1 className="mb-2 text-2xl font-extrabold">Inicia sesión para ver tus listas</h1>
             <p className="mb-6 text-tenue">Aquí verás tus listas subidas y tus pedidos.</p>
-            <Link href="/login?redirect=/my-lists" className="rounded-xl bg-primario px-5 py-3 font-bold text-white hover:bg-primario-oscuro">Iniciar sesión</Link>
+            <Link href="/login?redirect=/my-lists" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-acento text-grafito shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] hover:bg-acento-oscuro px-5 py-3 font-bold">Iniciar sesión</Link>
           </div>
         )}
       </div>
@@ -63,7 +63,7 @@ export default function MyListsPage() {
     <div className="mx-auto max-w-5xl px-4 py-8 md:py-12">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-3xl font-extrabold tracking-tight">Mis listas y pedidos</h1>
-        <Link href="/upload" className="inline-flex items-center gap-2 rounded-xl bg-acento px-4 py-2.5 text-sm font-bold text-grafito hover:brightness-95">
+        <Link href="/upload" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-acento px-4 py-2.5 text-sm font-bold text-grafito hover:brightness-95">
           <Upload className="h-4 w-4" aria-hidden="true" /> Subir otra lista
         </Link>
       </div>

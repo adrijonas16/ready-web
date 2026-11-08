@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .caja { fill: #1D4ED8; }
+    @media (prefers-color-scheme: dark) { .caja { fill: #3360DD; } }
+  </style>
+  <rect class="caja" x="2" y="4" width="24" height="24" rx="6"/>
+  <path d="M8.5 16.5l5 5L29 6" fill="none" stroke="#F59E0B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

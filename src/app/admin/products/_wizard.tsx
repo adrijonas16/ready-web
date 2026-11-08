@@ -12,6 +12,9 @@ import { formatPrice } from '@/lib/utils';
 import { Check, Plus, Package, Trash2, Upload, Star, Save } from 'lucide-react';
 import SearchSelect from '@/components/SearchSelect';
 import { Interruptor, NIVELES, NivelBadge, campo, tarjeta, useAvisos } from '../_ui';
+import { ErrorCampo } from '@/components/form/Campo';
+import { LARGO, enfocar, primerError, validarEntero, validarPrecio, validarTexto } from '@/lib/validar';
+import { validarArchivoImagen } from '@/lib/utils';
 
 const STEPS = [
   { num: 1, label: 'Información' },
@@ -41,6 +44,8 @@ export default function ProductWizard({ productId }: { productId?: string }) {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [variants, setVariants] = useState<VariantType[]>([]);
   const [newTypeName, setNewTypeName] = useState('');
+  const [errores, setErrores] = useState<Partial<Record<keyof Formulario, string | null>>>({});
+  const ac = (k: keyof Formulario) => ({ id: `p-${k}`, 'aria-invalid': errores[k] ? true : undefined, 'aria-describedby': errores[k] ? `p-${k}-error` : undefined });
 
   useEffect(() => {
     categoriesApi.getAll().then(setCategories).catch(e => avisos.error(e, 'No pudimos cargar las categorías'));
@@ -67,7 +72,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
     productImagesApi.getAll(productId).then(setImages).catch(e => avisos.error(e, 'No pudimos cargar las fotos'));
   }, [productId, avisos]);
 
-  const updateForm = <K extends keyof Formulario>(key: K, val: Formulario[K]) => setForm(prev => ({ ...prev, [key]: val }));
+  const updateForm = <K extends keyof Formulario>(key: K, val: Formulario[K]) => { setForm(prev => ({ ...prev, [key]: val })); setErrores(e => ({ ...e, [key]: null })); };
   const cambiosSinGuardar = JSON.stringify(form) !== JSON.stringify(guardado);
   const esServicio = form.category === 'Servicios' || /^SRV-/.test(guardado.sku);
 
@@ -79,9 +84,23 @@ export default function ProductWizard({ productId }: { productId?: string }) {
 
   /** Crea o actualiza el producto con lo que hay en el formulario. Devuelve el id o null si falló. */
   const guardarInfo = async (mensaje?: string): Promise<string | null> => {
-    if (!form.name.trim() || !form.category) { avisos.error(null, 'Escribe el nombre y elige la categoría'); setStep(1); return null; }
-    const precio = parseFloat(form.basePrice);
-    if (!Number.isFinite(precio) || precio < 0) { avisos.error(null, 'El precio no es válido'); setStep(1); return null; }
+    if (saving) return null;
+    const errs: Partial<Record<keyof Formulario, string | null>> = {
+      name: validarTexto(form.name, { campo: 'el nombre del producto', min: 3, max: LARGO.titulo }),
+      sku: form.sku.trim() && form.sku.trim() !== guardado.sku && !/^[A-Z0-9-]{2,40}$/.test(form.sku.trim()) ? 'El código lleva solo letras, números y guiones (2 a 40).' : null,
+      category: form.category ? null : 'Elige la categoría.',
+      basePrice: validarPrecio(form.basePrice, { permitirCero: esServicio }),
+      stock: validarEntero(form.stock, { campo: 'el stock', min: 0, max: 99999 }),
+      description: validarTexto(form.description, { obligatorio: false, max: 1000 }),
+    };
+    setErrores(errs);
+    const primero = primerError(errs);
+    if (primero) {
+      setStep(1);
+      avisos.error(null, 'Revisa los datos marcados en rojo');
+      setTimeout(() => enfocar(`p-${primero}`), 50);
+      return null;
+    }
     setSaving(true);
     try {
       let id = savedId;
@@ -104,10 +123,12 @@ export default function ProductWizard({ productId }: { productId?: string }) {
   // ── Fotos ──
   const subirFotos = async (files: FileList) => {
     if (!savedId) return;
+    const validas = Array.from(files).filter(f => { const err = validarArchivoImagen(f); if (err) avisos.error(null, err); return !err; });
+    if (!validas.length) return;
     setSubiendo(true);
     let n = 0;
     try {
-      for (const f of Array.from(files).slice(0, Math.max(0, 8 - images.length))) {
+      for (const f of validas.slice(0, Math.max(0, 8 - images.length))) {
         await productImagesApi.upload(savedId, f, images.length === 0 && n === 0);
         n++;
       }
@@ -199,16 +220,17 @@ export default function ProductWizard({ productId }: { productId?: string }) {
           {step === 1 && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Campo label="Nombre *" full>
-                  <input value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Cuaderno A4 rayado 100 hojas" className={campo} />
+                <Campo label="Nombre *" full error={errores.name} id="p-name">
+                  <input {...ac('name')} required maxLength={LARGO.titulo} value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Cuaderno A4 rayado 100 hojas" className={campo} />
                 </Campo>
-                <Campo label="Código">
-                  <input value={form.sku} onChange={e => updateForm('sku', e.target.value.toUpperCase())} disabled={esServicio && !!guardado.sku}
+                <Campo label="Código" error={errores.sku} id="p-sku">
+                  <input {...ac('sku')} maxLength={40} autoComplete="off" value={form.sku} onChange={e => updateForm('sku', e.target.value.toUpperCase())} disabled={esServicio && !!guardado.sku}
                     placeholder="Se genera solo si lo dejas vacío" className={`${campo} font-mono disabled:bg-slate-50 disabled:text-slate-400`} />
                   {esServicio && !!guardado.sku && <p className="text-[10px] text-neutral-400 mt-1">El código de los servicios no se cambia: la tienda lo usa para encontrarlos.</p>}
                 </Campo>
-                <Campo label="Categoría *" grupo>
-                  <SearchSelect value={form.category} onChange={v => updateForm('category', v)} placeholder="Elegir categoría"
+                <Campo label="Categoría *" grupo error={errores.category} id="p-category">
+                  <SearchSelect id="p-category" invalido={!!errores.category} describedBy={errores.category ? 'p-category-error' : undefined}
+                    value={form.category} onChange={v => updateForm('category', v)} placeholder="Elegir categoría"
                     options={categories.map(c => ({ value: c.name, label: c.name }))} />
                 </Campo>
                 <Campo label="Marca" grupo>
@@ -220,14 +242,14 @@ export default function ProductWizard({ productId }: { productId?: string }) {
                     {NIVELES.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}
                   </select>
                 </Campo>
-                <Campo label="Precio (S/) *">
-                  <input type="number" min={0} step="0.1" value={form.basePrice} onChange={e => updateForm('basePrice', e.target.value)} className={campo} />
+                <Campo label="Precio (S/) *" error={errores.basePrice} id="p-basePrice">
+                  <input {...ac('basePrice')} type="number" inputMode="decimal" required min={0} max={99999} step="0.01" value={form.basePrice} onChange={e => updateForm('basePrice', e.target.value)} className={campo} />
                 </Campo>
-                <Campo label="Stock">
-                  <input type="number" min={0} value={form.stock} onChange={e => updateForm('stock', e.target.value)} className={campo} />
+                <Campo label="Stock" error={errores.stock} id="p-stock">
+                  <input {...ac('stock')} type="number" inputMode="numeric" min={0} max={99999} step={1} value={form.stock} onChange={e => updateForm('stock', e.target.value)} className={campo} />
                 </Campo>
-                <Campo label="Descripción" full>
-                  <textarea value={form.description} onChange={e => updateForm('description', e.target.value)} maxLength={1000} rows={4}
+                <Campo label="Descripción" full error={errores.description} id="p-description">
+                  <textarea {...ac('description')} value={form.description} onChange={e => updateForm('description', e.target.value)} maxLength={1000} rows={4}
                     placeholder="Qué es, medidas, para qué sirve…" className={campo} />
                 </Campo>
                 <div className="sm:col-span-2">
@@ -237,7 +259,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
               <div className="flex flex-wrap justify-end items-center gap-3 pt-2">
                 {cambiosSinGuardar && savedId && <span className="text-xs text-orange-500 font-medium">Hay cambios sin guardar</span>}
                 <button onClick={async () => { const id = await guardarInfo(savedId ? 'Cambios guardados' : 'Producto creado'); if (id) setStep(2); }}
-                  disabled={saving || !form.name.trim() || !form.category}
+                  disabled={saving}
                   className="bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-medium disabled:opacity-40 hover:shadow-lg hover:shadow-blue-500/25 transition-shadow">
                   {saving ? 'Guardando…' : 'Guardar y continuar'}
                 </button>
@@ -253,7 +275,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
               <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3" aria-label="Fotos">
                 {images.map(im => (
                   <li key={im.id} data-foto={im.id} className={`relative rounded-xl overflow-hidden border-2 ${im.isPrimary ? 'border-blue-500' : 'border-slate-200'}`}>
-                    <img src={im.imageUrl} alt={im.altText || form.name} className="w-full aspect-square object-cover bg-slate-50" />
+                    <img width={240} height={240} src={im.imageUrl} alt={im.altText || form.name} className="w-full aspect-square object-cover bg-slate-50" />
                     {im.isPrimary && <span className="absolute top-1.5 left-1.5 bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Principal</span>}
                     <div className="flex border-t border-slate-200 bg-white">
                       {!im.isPrimary && (
@@ -363,7 +385,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
             <p className="text-sm font-medium text-slate-900 mb-3">Vista previa</p>
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <div className="aspect-[4/3] bg-slate-50 flex items-center justify-center relative">
-                {imagenPrincipal ? <img src={imagenPrincipal} alt="" className="w-full h-full object-cover" /> : <Package className="h-10 w-10 text-neutral-200" aria-hidden="true" />}
+                {imagenPrincipal ? <img width={64} height={64} decoding="async" src={imagenPrincipal} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <Package className="h-10 w-10 text-neutral-200" aria-hidden="true" />}
                 <span className="absolute top-2 left-2"><NivelBadge tier={form.tier} /></span>
                 {!form.isActive && <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-900 text-white">Inactivo</span>}
               </div>
@@ -392,14 +414,17 @@ export default function ProductWizard({ productId }: { productId?: string }) {
 
 // ── Piezas ──
 
-function Campo({ label, children, full, grupo }: { label: string; children: React.ReactNode; full?: boolean; grupo?: boolean }) {
+function Campo({ label, children, full, grupo, error, id }: { label: string; children: React.ReactNode; full?: boolean; grupo?: boolean; error?: string | null; id?: string }) {
   // Con un desplegable propio (botón + buscador) no se usa <label>, que le cambiaría el nombre al botón
   const Tag = grupo ? 'div' : 'label';
   return (
-    <Tag className={`block ${full ? 'sm:col-span-2' : ''}`} {...(grupo ? { role: 'group', 'aria-label': label.replace(' *', '') } : {})}>
-      <span className="block text-xs text-slate-900 mb-1">{label}</span>
-      {children}
-    </Tag>
+    <div className={full ? 'sm:col-span-2' : ''}>
+      <Tag className="block" {...(grupo ? { role: 'group', 'aria-label': label.replace(' *', '') } : {})}>
+        <span className="block text-xs text-slate-900 mb-1">{label}</span>
+        {children}
+      </Tag>
+      {id && <ErrorCampo id={id} error={error} />}
+    </div>
   );
 }
 
@@ -436,12 +461,12 @@ function FilaValor({ val, base, onGuardar, onBorrar, onFoto }: {
     <div data-valor={val.id} className={`flex flex-wrap items-end gap-2 p-2.5 rounded-xl ${d.isActive ? 'bg-slate-50' : 'bg-slate-50 opacity-60'}`}>
       <label className="relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-100 hover:bg-blue-50"
         title="Cambiar foto" style={d.colorHex && !val.image_url ? { backgroundColor: d.colorHex, borderStyle: 'solid' } : undefined}>
-        {val.image_url ? <img src={val.image_url} alt="" className="w-full h-full object-cover" /> : !d.colorHex && <Upload className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />}
+        {val.image_url ? <img width={64} height={64} decoding="async" src={val.image_url} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : !d.colorHex && <Upload className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />}
         <input type="file" accept="image/*" className="sr-only" aria-label={`Foto de ${val.value}`} onChange={e => { const f = e.target.files?.[0]; if (f) onFoto(f); e.target.value = ''; }} />
       </label>
       <label className="flex-1 min-w-[120px]">
         <span className="block text-[10px] text-slate-500 mb-0.5">Opción</span>
-        <input value={d.value} onChange={e => set('value', e.target.value)} aria-label="Nombre de la opción" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+        <input value={d.value} onChange={e => set('value', e.target.value)} aria-label="Nombre de la opción" maxLength={LARGO.corto} required className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
       </label>
       <div>
         <span className="block text-[10px] text-slate-500 mb-0.5">Color</span>
@@ -452,11 +477,11 @@ function FilaValor({ val, base, onGuardar, onBorrar, onFoto }: {
       </div>
       <label className="w-20">
         <span className="block text-[10px] text-slate-500 mb-0.5">Recargo S/</span>
-        <input type="number" step="0.1" value={d.priceModifier} onChange={e => set('priceModifier', parseFloat(e.target.value) || 0)} aria-label="Recargo" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+        <input type="number" inputMode="decimal" step="0.1" min={-9999} max={9999} value={d.priceModifier} onChange={e => set('priceModifier', Math.max(-9999, Math.min(9999, Math.round((parseFloat(e.target.value) || 0) * 100) / 100)))} aria-label="Recargo" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
       </label>
       <label className="w-16">
         <span className="block text-[10px] text-slate-500 mb-0.5">Stock</span>
-        <input type="number" min={0} value={d.stock} onChange={e => set('stock', Math.max(0, parseInt(e.target.value) || 0))} aria-label="Stock de la opción" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+        <input type="number" inputMode="numeric" min={0} max={99999} step={1} value={d.stock} onChange={e => set('stock', Math.min(99999, Math.max(0, parseInt(e.target.value) || 0)))} aria-label="Stock de la opción" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
       </label>
       <div className="pb-1.5"><Interruptor activo={d.isActive} onChange={v => set('isActive', v)} etiqueta="Activa" /></div>
       <span className="text-[10px] text-neutral-400 pb-2 w-16">{formatPrice(base + d.priceModifier)}</span>
@@ -475,40 +500,50 @@ function AgregarValor({ onAdd }: { onAdd: (d: { value: string; priceModifier: nu
   const [price, setPrice] = useState('0');
   const [stock, setStock] = useState('100');
   const [color, setColor] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
 
   if (!open) return (
-    <button onClick={() => setOpen(true)} className="text-xs text-blue-500 font-bold flex items-center gap-0.5 mt-1">
+    <button type="button" onClick={() => setOpen(true)} className="min-h-10 text-xs text-blue-500 font-bold flex items-center gap-0.5 mt-1">
       <Plus className="h-3 w-3" aria-hidden="true" /> Agregar opción
     </button>
   );
   const agregar = async () => {
-    if (!val.trim()) return;
-    if (await onAdd({ value: val.trim(), priceModifier: parseFloat(price) || 0, stock: parseInt(stock) || 0, colorHex: color })) {
-      setVal(''); setPrice('0'); setStock('100'); setColor(null); setOpen(false);
-    }
+    if (enviando) return;
+    const err = validarTexto(val, { campo: 'el nombre de la opción', max: LARGO.corto })
+      ?? (Math.abs(Number(price)) > 9999 || validarPrecio(Math.abs(Number(price) || 0), { permitirCero: true }) ? 'El recargo no es válido (máximo 2 decimales).' : null)
+      ?? validarEntero(stock, { campo: 'el stock', min: 0, max: 99999 });
+    setError(err);
+    if (err) return;
+    setEnviando(true);
+    const ok = await onAdd({ value: val.trim(), priceModifier: parseFloat(price) || 0, stock: parseInt(stock) || 0, colorHex: color });
+    setEnviando(false);
+    if (ok) { setVal(''); setPrice('0'); setStock('100'); setColor(null); setOpen(false); }
   };
   return (
     <div className="mt-2 p-2.5 bg-blue-50 rounded-xl flex flex-wrap gap-2 items-end">
       <label className="flex-1 min-w-[120px]">
         <span className="block text-[10px] text-slate-500 mb-0.5">Nueva opción</span>
-        <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && agregar()} placeholder="Ej: Rojo, A4, 100 hojas…" autoFocus
+        <input value={val} onChange={e => { setVal(e.target.value); setError(null); }} onKeyDown={e => e.key === 'Enter' && agregar()} placeholder="Ej: Rojo, A4, 100 hojas…" autoFocus maxLength={LARGO.corto}
+          aria-invalid={error ? true : undefined} aria-describedby={error ? 'nueva-opcion-error' : undefined}
           className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
       </label>
       <label className="w-20">
         <span className="block text-[10px] text-slate-500 mb-0.5">Recargo S/</span>
-        <input type="number" step="0.1" value={price} onChange={e => setPrice(e.target.value)} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+        <input type="number" inputMode="decimal" step="0.1" min={-9999} max={9999} value={price} onChange={e => { setPrice(e.target.value); setError(null); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
       </label>
       <label className="w-16">
         <span className="block text-[10px] text-slate-500 mb-0.5">Stock</span>
-        <input type="number" min={0} value={stock} onChange={e => setStock(e.target.value)} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
+        <input type="number" inputMode="numeric" min={0} max={99999} step={1} value={stock} onChange={e => { setStock(e.target.value); setError(null); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white" />
       </label>
       <div className="flex items-center gap-1 h-[30px]">
         <input type="checkbox" checked={!!color} onChange={e => setColor(e.target.checked ? '#3b82f6' : null)} aria-label="Nueva opción con color" />
         <span className="text-[10px] text-slate-500">Color</span>
         {color && <input type="color" value={color} onChange={e => setColor(e.target.value)} aria-label="Color de la nueva opción" className="w-7 h-6 rounded border-0 cursor-pointer" />}
       </div>
-      <button onClick={agregar} disabled={!val.trim()} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40">Agregar</button>
-      <button onClick={() => setOpen(false)} className="text-neutral-400 text-xs px-1 py-1.5">Cancelar</button>
+      <button type="button" onClick={agregar} disabled={enviando} className="min-h-10 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40">Agregar</button>
+      <button type="button" onClick={() => setOpen(false)} className="min-h-10 text-tenue text-xs px-2 py-1.5">Cancelar</button>
+      {error && <div className="w-full"><ErrorCampo id="nueva-opcion" error={error} /></div>}
     </div>
   );
 }

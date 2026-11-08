@@ -28,8 +28,8 @@ export default function Categorias() {
             <Link href={`/catalog?categoria=${encodeURIComponent(c.nombre)}`}
               className="group block overflow-hidden rounded-2xl border border-linea bg-papel transition-[border-color,box-shadow] hover:border-primario/40 hover:shadow-[0_16px_32px_-20px_rgba(15,23,42,0.5)]">
               <div className={`relative h-28 ${c.fondo}`}>
-                <img src={img(c.ids[1])} alt="" className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-[30%] -translate-y-1/2 rotate-[10deg] object-contain transition-transform duration-500 ease-out group-hover:translate-x-[5%] group-hover:rotate-[18deg]" />
-                <img src={img(c.ids[0])} alt="" className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-[70%] -translate-y-1/2 -rotate-[6deg] object-contain drop-shadow-md transition-transform duration-500 ease-out group-hover:-translate-x-[95%] group-hover:-rotate-[14deg] group-hover:scale-110" />
+                <img src={img(c.ids[1])} alt="" aria-hidden="true" width={80} height={80} loading="lazy" decoding="async" className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-[30%] -translate-y-1/2 rotate-[10deg] object-contain transition-transform duration-500 ease-out group-hover:translate-x-[5%] group-hover:rotate-[18deg]" />
+                <img src={img(c.ids[0])} alt="" aria-hidden="true" width={96} height={96} loading="lazy" decoding="async" className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-[70%] -translate-y-1/2 -rotate-[6deg] object-contain drop-shadow-md transition-transform duration-500 ease-out group-hover:-translate-x-[95%] group-hover:-rotate-[14deg] group-hover:scale-110" />
               </div>
               <div className="flex items-baseline justify-between gap-2 px-4 py-3">
                 <span className="font-bold">{c.nombre}</span>

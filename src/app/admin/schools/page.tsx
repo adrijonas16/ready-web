@@ -6,6 +6,8 @@ import { Plus, Edit2, Trash2, Search, X, ChevronDown, ChevronUp, GraduationCap }
 import { Section, School, Grade } from '@/lib/types';
 import { groupSections } from '@/lib/constants';
 import { Cargando, añoEscolar, añosElegibles, botonPrimario, campo, tarjeta, useAvisos } from '../_ui';
+import { ErrorCampo } from '@/components/form/Campo';
+import { LARGO, limpiarTexto } from '@/lib/validar';
 
 export default function AdminSchoolsPage() {
   const avisos = useAvisos();
@@ -17,6 +19,8 @@ export default function AdminSchoolsPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [errores, setErrores] = useState<{ nombre?: string | null; direccion?: string | null }>({});
+  const [enviando, setEnviando] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [newGrade, setNewGrade] = useState('');
@@ -39,13 +43,24 @@ export default function AdminSchoolsPage() {
     sectionsApi.getAll().then(setAllSections).catch(e => avisos.error(e, 'No pudimos cargar los grados'));
   }, [load, avisos]);
 
-  const save = async () => {
-    if (!name.trim()) { avisos.error(null, 'Escribe el nombre del colegio'); return; }
+  const save = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (enviando) return;
+    const nombre = limpiarTexto(name), dir = limpiarTexto(address);
+    const errs = {
+      nombre: nombre.length < 3 ? 'Escribe el nombre del colegio.' : nombre.length > LARGO.nombre ? `Máximo ${LARGO.nombre} caracteres.`
+        : schools.some(x => x.id !== editId && x.name.toLowerCase() === nombre.toLowerCase()) ? 'Ya existe un colegio con ese nombre.' : null,
+      direccion: dir.length > LARGO.direccion ? `Máximo ${LARGO.direccion} caracteres.` : null,
+    };
+    setErrores(errs);
+    if (errs.nombre || errs.direccion) { document.getElementById(errs.nombre ? 'nombre-colegio' : 'direccion-colegio')?.focus(); return; }
+    setEnviando(true);
     try {
-      if (editId) { await schoolsApi.update(editId, name.trim(), address.trim() || undefined); avisos.exito('Colegio guardado'); }
-      else { await schoolsApi.create(name.trim(), address.trim() || undefined); avisos.exito(`Colegio "${name.trim()}" creado`); }
+      if (editId) { await schoolsApi.update(editId, nombre, dir || undefined); avisos.exito('Colegio guardado'); }
+      else { await schoolsApi.create(nombre, dir || undefined); avisos.exito(`Colegio "${nombre}" creado`); }
       setName(''); setAddress(''); setEditId(null); setShowForm(false); load();
     } catch (e) { avisos.error(e, 'No pudimos guardar el colegio'); }
+    finally { setEnviando(false); }
   };
 
   const deleteSchool = async (s: School) => {
@@ -100,20 +115,30 @@ export default function AdminSchoolsPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 className="text-xl font-bold text-slate-900">Colegios ({schools.length})</h1>
-        <button onClick={() => { setShowForm(true); setEditId(null); setName(''); setAddress(''); }} className={botonPrimario}>
+        <button type="button" onClick={() => { setShowForm(true); setEditId(null); setName(''); setAddress(''); setErrores({}); }} className={botonPrimario}>
           <Plus className="h-4 w-4" aria-hidden="true" /> Nuevo colegio
         </button>
       </div>
 
       {showForm && (
-        <div className={`${tarjeta} p-4 mb-4 space-y-2`}>
-          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nombre del colegio" aria-label="Nombre del colegio" className={campo} autoFocus />
-          <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Dirección (opcional)" aria-label="Dirección" className={campo} />
-          <div className="flex gap-2">
-            <button onClick={save} className="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold">{editId ? 'Guardar' : 'Crear'}</button>
-            <button onClick={() => setShowForm(false)} className="text-neutral-400 text-xs">Cancelar</button>
+        <form onSubmit={save} noValidate className={`${tarjeta} p-4 mb-4 space-y-2`}>
+          <div>
+            <input id="nombre-colegio" type="text" value={name} onChange={e => { setName(e.target.value); setErrores(x => ({ ...x, nombre: null })); }} placeholder="Nombre del colegio" aria-label="Nombre del colegio"
+              maxLength={LARGO.nombre} required autoComplete="off" aria-invalid={errores.nombre ? true : undefined} aria-describedby={errores.nombre ? 'nombre-colegio-error' : undefined}
+              className={`${campo} ${errores.nombre ? '!border-profe' : ''}`} autoFocus />
+            <ErrorCampo id="nombre-colegio" error={errores.nombre} />
           </div>
-        </div>
+          <div>
+            <input id="direccion-colegio" type="text" value={address} onChange={e => { setAddress(e.target.value); setErrores(x => ({ ...x, direccion: null })); }} placeholder="Dirección (opcional)" aria-label="Dirección"
+              maxLength={LARGO.direccion} autoComplete="off" aria-invalid={errores.direccion ? true : undefined} aria-describedby={errores.direccion ? 'direccion-colegio-error' : undefined}
+              className={`${campo} ${errores.direccion ? '!border-profe' : ''}`} />
+            <ErrorCampo id="direccion-colegio" error={errores.direccion} />
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={enviando} className="min-h-10 bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50">{editId ? 'Guardar' : 'Crear'}</button>
+            <button type="button" onClick={() => setShowForm(false)} className="min-h-10 px-3 text-tenue text-xs">Cancelar</button>
+          </div>
+        </form>
       )}
 
       <div className={`${tarjeta} p-3 mb-4`}>

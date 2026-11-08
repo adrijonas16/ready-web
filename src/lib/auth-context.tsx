@@ -4,6 +4,7 @@ import { API, apiFetch } from '@/lib/api-base';
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '@/lib/types';
 import { authApi, PerfilInput } from '@/services/api';
+import { evento } from '@/lib/analytics';
 
 interface AuthContextType {
   user: User | null;
@@ -15,8 +16,6 @@ interface AuthContextType {
   /** Guarda el perfil (PUT /auth/me) y actualiza la sesión */
   guardarPerfil: (datos: PerfilInput) => Promise<User>;
   isAdmin: boolean;
-  loginWithGoogle: () => void;
-  loginWithToken: (token: string, userId: string) => void;
   notifications: Notification[];
   addNotification: (message: string, type: 'success' | 'error' | 'info') => void;
   markAsRead: (id: string) => void;
@@ -116,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('token', response.token);
     localStorage.setItem('user', JSON.stringify(response.user));
     addNotification('¡Bienvenido de vuelta!', 'success');
+    evento('login', { method: 'email' });
   };
 
   const register = async (email: string, password: string, name: string) => {
@@ -125,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('token', response.token);
     localStorage.setItem('user', JSON.stringify(response.user));
     addNotification('¡Cuenta creada exitosamente!', 'success');
+    evento('sign_up', { method: 'email' });
   };
 
   const logout = () => {
@@ -133,25 +134,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     addNotification('Sesión cerrada', 'info');
-  };
-
-  const loginWithGoogle = () => {
-    addNotification('Google login no disponible en modo local', 'info');
-  };
-
-  const loginWithToken = (newToken: string, userId: string) => {
-    setToken(newToken);
-    localStorage.setItem('token', newToken);
-    apiFetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${newToken}` } })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.data) {
-          setUser(data.data);
-          localStorage.setItem('user', JSON.stringify(data.data));
-          addNotification('¡Bienvenido!', 'success');
-        }
-      })
-      .catch(console.error);
   };
 
   return (
@@ -165,8 +147,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         guardarPerfil,
         isAdmin: user?.role === 'ADMIN' || user?.role === 'OPERATOR',
-        loginWithGoogle,
-        loginWithToken,
         notifications,
         addNotification,
         markAsRead,

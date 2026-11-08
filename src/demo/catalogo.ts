@@ -29,8 +29,25 @@ export interface ValorVariante {
 }
 export interface TipoVariante { id: string; name: string; values: ValorVariante[] }
 
-const svg = (vb: string, cuerpo: string) =>
-  'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}">${cuerpo}</svg>`);
+/** SVG compacto: sin espacios de más, decimales a 1 cifra y comillas simples. */
+const minSvg = (t: string) => t
+  .replace(/\s{2,}/g, ' ').replace(/>\s+</g, '><')
+  .replace(/\d+\.\d{2,}/g, m => String(Math.round(Number(m) * 10) / 10))
+  .replace(/"/g, "'");
+/** Dibujos de la demo: clave → SVG. Los sirve app/demo-img/[archivo]/route.ts como archivos estáticos. */
+export const dibujos = new Map<string, string>();
+/** Clave corta según el contenido (si el dibujo cambia, cambia la dirección y no queda en caché uno viejo) */
+const clave = (t: string) => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length.toString(36); };
+/**
+ * Registra el dibujo y devuelve su dirección (/demo-img/<clave>.svg). Así las páginas llevan
+ * una ruta corta en vez del SVG completo y el navegador lo guarda en caché.
+ */
+const svg = (vb: string, cuerpo: string) => {
+  const t = minSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}">${cuerpo}</svg>`);
+  const k = clave(t);
+  dibujos.set(k, t);
+  return `/demo-img/${k}.svg`;
+};
 
 const rango = (n: number) => Array.from({ length: n }, (_, i) => i);
 
@@ -219,6 +236,15 @@ export const colegios = [
 ];
 
 // Plantilla de lista: [texto como viene en la lista, cantidad, ids por nivel, notas]
+/** Listas oficiales con las que arranca la demo: [id, colegio, grado, plantilla]. También las usa el sitemap. */
+export const LISTAS_OFICIALES: [string, string, string, 'primaria' | 'primaria3' | 'inicial' | 'secundaria'][] = [
+  ['lista-alamos-2p', 'col-1', '2do Primaria', 'primaria'],
+  ['lista-alamos-5i', 'col-1', 'Inicial - 5 años', 'inicial'],
+  ['lista-santarosa-3p', 'col-2', '3ro Primaria', 'primaria3'],
+  ['lista-arcoiris-1s', 'col-3', '1ro Secundaria', 'secundaria'],
+  ['lista-sanmartin-4i', 'col-4', 'Inicial - 4 años', 'inicial'],
+];
+
 export type Linea = [string, number, Partial<Record<Tier, string>>, string?];
 export const plantillaPrimaria: Linea[] = [
   ['4 cuadernos A4 cuadriculados de 100 h.', 4, { economico: 'cu-e', medio: 'cu-m', premium: 'cu-p' }, 'Forrados de azul'],

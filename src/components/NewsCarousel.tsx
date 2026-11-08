@@ -4,6 +4,7 @@ import { API, apiFetch } from '@/lib/api-base';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { evento } from '@/lib/analytics';
 
 
 interface NewsItem { id: string; title: string; content?: string; image_url?: string; campaign_slug?: string; campaign_name?: string }
@@ -29,7 +30,7 @@ export default function NewsCarousel() {
     <div className="relative overflow-hidden rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)]">
       <div className="relative h-48 md:h-56 bg-slate-900">
         {item.image_url && (
-          <img src={item.image_url} alt={item.title} className="absolute inset-0 w-full h-full object-cover opacity-60" />
+          <img width={64} height={64} src={item.image_url} alt={item.title} className="absolute inset-0 w-full h-full object-cover opacity-60" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-5">
@@ -41,7 +42,7 @@ export default function NewsCarousel() {
           <h3 className="text-white text-lg font-bold mb-1">{item.title}</h3>
           {item.content && <p className="text-white/70 text-xs line-clamp-2">{item.content}</p>}
           {item.campaign_slug && (
-            <Link href={`/catalog?campaign=${item.campaign_slug}`}
+            <Link href={`/catalog?campaign=${item.campaign_slug}`} onClick={() => evento('select_promotion', { promotion_id: item.campaign_slug, promotion_name: item.campaign_name ?? undefined })}
               className="mt-2 inline-block bg-white text-slate-900 px-4 py-1.5 rounded-lg text-xs font-bold hover:shadow-lg transition-shadow">
               Ver ofertas
             </Link>

@@ -5,17 +5,13 @@ import Link from 'next/link';
 import { AlertCircle, Check, ClipboardList, Loader2, LogOut, UserRound } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { authApi } from '@/services/api';
-import { validarCelular, validarDireccion } from '@/lib/validar';
+import { LARGO, enfocar, limpiarTexto, primerError, validarCelularOpcional, validarDireccion, validarDocumento, validarNombre } from '@/lib/validar';
+import { mensajeError } from '@/lib/api-base';
 
 const claseCampo = (error?: string | null) =>
-  `w-full rounded-xl border bg-papel px-3 py-2.5 text-sm focus:outline-none focus-visible:ring-2 ${error ? 'border-profe focus-visible:ring-profe/25' : 'border-linea focus:border-primario focus-visible:ring-primario/25'}`;
+  `w-full rounded-xl border bg-papel px-3 py-2.5 text-base sm:text-sm focus:outline-none focus-visible:ring-2 ${error ? 'border-profe focus-visible:ring-profe/25' : 'border-linea-fuerte focus:border-primario focus-visible:ring-primario/25'}`;
 
 type Campo = 'name' | 'phone' | 'address' | 'documento';
-
-function validarDocumento(v: string): string | null {
-  if (!v.trim()) return null;
-  return /^\d{8}$/.test(v) || /^\d{11}$/.test(v) ? null : 'Escribe un DNI de 8 dígitos o un RUC de 11.';
-}
 
 export default function PerfilPage() {
   const { user, isLoading, guardarPerfil, logout } = useAuth();
@@ -39,8 +35,8 @@ export default function PerfilPage() {
   }, [user?.id]);
 
   const validar = (d = datos) => ({
-    name: d.name.trim().length < 2 ? 'Escribe tu nombre.' : null,
-    phone: d.phone.trim() ? validarCelular(d.phone) : null,
+    name: validarNombre(d.name),
+    phone: validarCelularOpcional(d.phone),
     address: d.address.trim() ? validarDireccion(d.address) : null,
     documento: validarDocumento(d.documento),
   });
@@ -55,14 +51,17 @@ export default function PerfilPage() {
     e.preventDefault();
     const errs = validar();
     setErrores(errs);
-    const primero = (Object.keys(errs) as Campo[]).find(k => errs[k]);
-    if (primero) { document.getElementById(`perfil-${primero}`)?.focus(); return; }
+    const primero = primerError(errs);
+    if (primero) { enfocar(`perfil-${primero}`); return; }
+    if (guardando) return;
     setGuardando(true);
+    const limpio = { name: limpiarTexto(datos.name), phone: datos.phone.trim(), address: limpiarTexto(datos.address), documento: datos.documento.trim() };
+    setDatos(limpio);
     try {
-      await guardarPerfil({ name: datos.name.trim(), phone: datos.phone.trim(), address: datos.address.trim(), documento: datos.documento.trim() });
+      await guardarPerfil(limpio);
       setMensaje({ ok: true, texto: 'Guardamos tus datos. Los usaremos para llenar tu próxima compra.' });
-    } catch {
-      setMensaje({ ok: false, texto: 'No pudimos guardar tus datos. Intenta de nuevo.' });
+    } catch (err) {
+      setMensaje({ ok: false, texto: mensajeError(err, 'No pudimos guardar tus datos. Intenta de nuevo.') });
     } finally { setGuardando(false); }
   };
 
@@ -113,12 +112,12 @@ export default function PerfilPage() {
         <form onSubmit={guardar} noValidate className="space-y-4 rounded-2xl border border-linea bg-papel p-5 sm:p-6" aria-busy={!cargado}>
           <h2 className="flex items-center gap-2 font-bold"><UserRound className="h-4 w-4 text-primario" aria-hidden="true" /> Datos para tus pedidos</h2>
           <p className="text-sm text-tenue">Los usamos para llenar el pago. Los campos con <span className="text-profe">*</span> son obligatorios.</p>
-          {campo('name', 'Nombre y apellido', { obligatorio: true, autoComplete: 'name', placeholder: 'Ej.: Carmen Quispe' })}
-          {campo('phone', 'Celular', { type: 'tel', inputMode: 'tel', autoComplete: 'tel', placeholder: '+51 999 123 456', ayuda: '9 dígitos; puedes poner +51.' })}
-          {campo('address', 'Dirección de entrega', { autoComplete: 'street-address', placeholder: 'Calle, número, urbanización, distrito…' })}
+          {campo('name', 'Nombre y apellido', { obligatorio: true, required: true, autoComplete: 'name', maxLength: LARGO.nombre, placeholder: 'Ej.: Carmen Quispe' })}
+          {campo('phone', 'Celular', { type: 'tel', inputMode: 'tel', autoComplete: 'tel', maxLength: LARGO.celular, placeholder: '+51 999 123 456', ayuda: '9 dígitos; puedes poner +51.' })}
+          {campo('address', 'Dirección de entrega', { autoComplete: 'street-address', maxLength: LARGO.direccion, placeholder: 'Calle, número, urbanización, distrito…' })}
           {campo('documento', 'DNI o RUC', { inputMode: 'numeric', autoComplete: 'off', maxLength: 11, placeholder: '12345678', ayuda: 'DNI (8 dígitos) para la boleta o RUC (11) para la factura.', onChange: e => cambiar('documento', e.target.value.replace(/\D/g, '').slice(0, 11)) })}
           {mensaje && (
-            <p role="status" className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm ${mensaje.ok ? 'bg-eco-claro' : 'bg-profe-claro text-profe'}`}>
+            <p role={mensaje.ok ? 'status' : 'alert'} className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm ${mensaje.ok ? 'bg-eco-claro' : 'bg-profe-claro text-profe'}`}>
               {mensaje.ok ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-eco" aria-hidden="true" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}{mensaje.texto}
             </p>
           )}
@@ -132,7 +131,7 @@ export default function PerfilPage() {
           <Link href="/my-lists" className="flex items-center gap-2 rounded-xl border border-linea bg-papel px-4 py-3 font-semibold hover:border-primario">
             <ClipboardList className="h-4 w-4 text-primario" aria-hidden="true" /> Mis listas y pedidos
           </Link>
-          <button onClick={logout} className="flex w-full items-center gap-2 rounded-xl border border-linea bg-papel px-4 py-3 font-semibold text-profe hover:border-profe">
+          <button type="button" onClick={logout} className="flex w-full items-center gap-2 rounded-xl border border-linea bg-papel px-4 py-3 font-semibold text-profe hover:border-profe">
             <LogOut className="h-4 w-4" aria-hidden="true" /> Cerrar sesión
           </button>
         </nav>

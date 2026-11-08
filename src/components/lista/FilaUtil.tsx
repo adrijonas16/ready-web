@@ -45,7 +45,7 @@ export default function FilaUtil({ item, indice = 0, incluido, qty, precio, prec
       <button onClick={onAbrir} disabled={!incluido} aria-label={`Ver opciones para ${item.nombreOriginal}`}
         className="h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-linea bg-fondo transition-[border-color] hover:border-primario disabled:cursor-default sm:h-20 sm:w-20">
         {foto
-          ? <img src={foto} alt="" width={80} height={80} loading="lazy" className="h-full w-full object-contain p-1" />
+          ? <img decoding="async" src={foto} alt="" aria-hidden="true" width={80} height={80} loading="lazy" className="h-full w-full object-contain p-1" />
           : <span className="flex h-full items-center justify-center"><Package className="h-6 w-6 text-tenue/40" aria-hidden="true" /></span>}
       </button>
 

@@ -17,10 +17,12 @@ interface ProductCardProps {
   showAddToCart?: boolean;
   onClick?: () => void;
   index?: number;
+  /** Las primeras tarjetas (arriba de la pantalla) cargan su foto de inmediato */
+  prioridad?: boolean;
 }
 
 /** Tarjeta de producto de tienda: foto, marca, nivel, precio y botón para agregar al carrito. */
-export default function ProductCard({ product, showAddToCart = true, onClick }: ProductCardProps) {
+export default function ProductCard({ product, showAddToCart = true, onClick, prioridad = false }: ProductCardProps) {
   const { addItem, items } = useCart();
   const [added, setAdded] = useState(false);
   const enCarrito = items.filter(i => i.product.id === product.id && !i.para).reduce((s, i) => s + i.quantity, 0);
@@ -52,7 +54,7 @@ export default function ProductCard({ product, showAddToCart = true, onClick }: 
     <>
       <div ref={foto} className="relative aspect-square overflow-hidden rounded-xl bg-fondo">
         {product.imageUrl
-          ? <img src={product.imageUrl} alt={product.name} width={300} height={300} loading="lazy"
+          ? <img src={product.imageUrl} alt={product.name} width={300} height={300} loading={prioridad ? 'eager' : 'lazy'} decoding="async" fetchPriority={prioridad ? 'high' : 'auto'}
               className="h-full w-full object-contain p-2 transition-transform duration-500 ease-out group-hover:-translate-y-1 group-hover:scale-[1.07] group-hover:-rotate-2" />
           : <div className="flex h-full items-center justify-center"><Package className="h-10 w-10 text-tenue/40" aria-hidden="true" /></div>}
         {agotado && <span className="absolute left-2 top-2 rounded-full bg-grafito px-2 py-0.5 text-xs font-semibold text-white">Agotado</span>}
@@ -81,7 +83,7 @@ export default function ProductCard({ product, showAddToCart = true, onClick }: 
         </span>
         {showAddToCart && (
           <button onClick={agregar} disabled={agotado} aria-label={`Agregar ${product.name} al carrito`}
-            className={`inline-flex h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-2.5 sm:px-3 text-sm font-bold transition-[background-color,transform] active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`inline-flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-2.5 sm:px-3 text-sm font-bold transition-[background-color,transform] active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 ${
               added ? 'bg-eco text-white' : 'bg-acento text-grafito hover:bg-acento-oscuro'}`}>
             {added
               ? <><Check className="h-4 w-4 animate-check-pop" aria-hidden="true" /><span className="hidden sm:inline">Listo</span></>
