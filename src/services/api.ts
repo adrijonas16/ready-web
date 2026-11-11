@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import type { ApiResponse, User, School, Grade, Section, SupplyList, SupplyItem, ListDetail, Product, ProductDetail, Order, Settings, Entrega, Comprobante, VariantType, VariantValue, Consulta, EstadoConsulta } from '@/lib/types';
+import type { ApiResponse, User, School, Grade, Section, SupplyList, SupplyItem, ListDetail, Product, ProductDetail, Order, Settings, Entrega, Comprobante, VariantType, VariantValue, Consulta, EstadoConsulta, ColegioContacto, RegistroContacto, ConfigContactoColegios, EstadoContactoColegio, CanalContacto } from '@/lib/types';
 import { API, MODO_DEMO, llamarDemo } from '@/lib/api-base';
 import { evento, medirCompra } from '@/lib/analytics';
 import type { DatosAntiSpam } from '@/lib/antispam';
@@ -338,4 +338,28 @@ export const consultasApi = {
   /** (panel) Sí o no, con un mensaje opcional para el cliente */
   responder: (id: string, data: { disponible: boolean; respuesta?: string }) =>
     api.put<Consulta>(`/consultas/${id}/respuesta`, data),
+};
+
+// Pedir listas a los colegios (panel)
+export const contactoColegiosApi = {
+  listar: () => api.get<ColegioContacto[]>('/contacto-colegios'),
+  actualizar: (id: string, data: { telefono?: string; whatsapp?: string; correo?: string; contactoNombre?: string; notas?: string; estado?: EstadoContactoColegio }) =>
+    api.put<ColegioContacto>(`/contacto-colegios/${id}`, data),
+  /** Enlace del colegio (se crea la primera vez) y los mensajes ya armados */
+  mensaje: (id: string) => api.post<{ enlace: string; mensaje: string; recordatorio: string; asunto: string }>(`/contacto-colegios/${id}/mensaje`),
+  registrar: (id: string, data: { canal: Exclude<CanalContacto, 'ENLACE'>; resultado?: string; nota?: string; estado?: EstadoContactoColegio; esRecordatorio?: boolean }) =>
+    api.post<ColegioContacto>(`/contacto-colegios/${id}/registro`, data),
+  historial: (id: string) => api.get<RegistroContacto[]>(`/contacto-colegios/${id}/historial`),
+  enviarCorreos: (ids: string[], recordatorio = false) =>
+    api.post<{ enviados: number; sinCorreo: string[]; omitidos: string[]; fallidos: string[] }>('/contacto-colegios/correo', { ids, recordatorio }),
+  enviarRecordatoriosPendientes: () => api.post<number>('/contacto-colegios/recordatorios'),
+  config: () => api.get<{ config: ConfigContactoColegios; correoConfigurado: boolean; remitente?: string | null }>('/contacto-colegios/config'),
+  guardarConfig: (c: ConfigContactoColegios) =>
+    api.put<{ config: ConfigContactoColegios; correoConfigurado: boolean; remitente?: string | null }>('/contacto-colegios/config', c),
+};
+
+// Página del colegio para subir sus listas (sin cuenta)
+export const colegioEnlaceApi = {
+  get: (token: string) => api.get<{ nombre: string; anio: number; grados: string[]; enviados: string[] }>(`/colegio-enlace/${encodeURIComponent(token)}`),
+  subir: (token: string, fd: FormData) => api.uploadFormData<SupplyList>(`/colegio-enlace/${encodeURIComponent(token)}/lista`, fd),
 };

@@ -290,3 +290,33 @@ export interface Consulta {
   userEmail?: string | null;
   userPhone?: string | null;
 }
+
+/** Seguimiento de cada colegio al pedirle su lista de útiles (Admin > Pedir listas). */
+export type EstadoContactoColegio = 'SIN_CONTACTAR' | 'CONTACTADO' | 'RESPONDIO' | 'LISTA_RECIBIDA' | 'NO_INTERESADO';
+export type CanalContacto = 'WHATSAPP' | 'CORREO' | 'LLAMADA' | 'NOTA' | 'ENLACE';
+export interface ColegioContacto {
+  id: string;
+  nombre: string;
+  direccion?: string | null;
+  gestion?: string | null;
+  niveles?: string | null;
+  telefono?: string | null;
+  whatsapp?: string | null;
+  correo?: string | null;
+  contactoNombre?: string | null;
+  notas?: string | null;
+  estado: EstadoContactoColegio;
+  ultimoContactoAt?: string | null;
+  proximoContactoAt?: string | null;
+  recordatorios: number;
+  listasAprobadas: number;
+  listasPorRevisar: number;
+  enlace?: string | null;
+}
+export interface RegistroContacto {
+  id: string; canal: CanalContacto; automatico: boolean; resultado?: string | null; nota?: string | null; autor?: string | null; createdAt: string;
+}
+export interface ConfigContactoColegios {
+  mensaje: string; recordatorio: string; asunto: string;
+  diasRecordatorio: number; maxRecordatorios: number; recordatoriosAutomaticos: boolean;
+}

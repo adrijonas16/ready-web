@@ -59,6 +59,18 @@ interface ConsultaDemo {
   estado: 'PENDIENTE' | 'DISPONIBLE' | 'NO_DISPONIBLE'; respuesta?: string; createdAt: string; respondidaAt?: string;
 }
 const PLAZO_CONSULTA_MS = 24 * 3_600_000;
+/** Igual que las columnas de contacto de schools en la API */
+interface ContactoDemo {
+  telefono?: string | null; whatsapp?: string | null; correo?: string | null; contactoNombre?: string | null; notas?: string | null;
+  estado: string; ultimoContactoAt?: string | null; proximoContactoAt?: string | null; recordatorios: number; token?: string;
+}
+interface RegistroDemo { id: string; canal: string; automatico: boolean; resultado?: string | null; nota?: string | null; autor?: string | null; createdAt: string }
+const CONFIG_CONTACTO_DEMO = {
+  mensaje: 'Buenos días, le saluda Ready, tienda de útiles escolares en Arequipa.\n\nQueremos ayudar a las familias de {colegio} a conseguir su lista de útiles {anio} completa y a buen precio. ¿Nos podrían compartir la lista de útiles de cada grado?\n\nPueden subirla aquí, sin crear cuenta: {enlace}\no respondernos por este medio con una foto o el PDF.\n\n¡Muchas gracias!',
+  recordatorio: 'Buenos días, le escribimos nuevamente de Ready. ¿Ya tienen la lista de útiles {anio} de {colegio}? Pueden subirla aquí: {enlace}\n\nSi prefieren que no les escribamos más, respondan BAJA. ¡Gracias!',
+  asunto: 'Lista de útiles {anio} de {colegio}', diasRecordatorio: 4, maxRecordatorios: 2, recordatoriosAutomaticos: true,
+};
+const anioEscolarDemo = () => { const d = new Date(); return d.getMonth() >= 9 ? d.getFullYear() + 1 : d.getFullYear(); };
 interface Imagen { id: string; imageUrl: string; altText?: string | null; isPrimary: boolean; displayOrder: number }
 
 interface Estado {
@@ -79,6 +91,10 @@ interface Estado {
   avisos: { tipo: string; mensaje: string; userId?: string; admin?: boolean }[];
   /** Consultas de productos (opcional: las demos guardadas antes no lo tienen) */
   consultas?: ConsultaDemo[];
+  /** Pedido de listas a los colegios (opcional: las demos guardadas antes no lo tienen) */
+  contactos?: Record<string, ContactoDemo>;
+  contactoLog?: (RegistroDemo & { schoolId: string })[];
+  contactoConfig?: Json;
   /** Fotos de cada producto (si falta, se arma con imageUrl) */
   imagenes?: Record<string, Imagen[]>;
   ajustes: Ajustes;
@@ -829,6 +845,97 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       Object.assign(c, { estado: bj.disponible ? 'DISPONIBLE' : 'NO_DISPONIBLE', respuesta, respondidaAt: ahora() });
       if (c.userId) avisar('InquiryAnswered', bj.disponible ? `¡Sí conseguimos ${c.producto}! Mira la respuesta en Mis consultas.` : `No pudimos conseguir ${c.producto}. Mira la respuesta en Mis consultas.`, { userId: c.userId });
       return cambia(resp(c, true));
+    }
+  }
+
+  // Pedir listas a los colegios (mismas reglas que ContactoColegiosController; en la demo no hay correo)
+  const contactoDe = (id: string): ContactoDemo => ((e.contactos ??= {})[id] ??= { estado: 'SIN_CONTACTAR', recordatorios: 0 });
+  const configContacto = () => ({ ...CONFIG_CONTACTO_DEMO, ...(e.contactoConfig ?? {}) }) as typeof CONFIG_CONTACTO_DEMO;
+  const enlaceDe = (id: string) => { const c = contactoDe(id); c.token ??= nuevoId('tok').replace(/[^a-z0-9]/gi, ''); return `${typeof location !== 'undefined' ? location.origin : ''}/colegio/${c.token}`; };
+  const armar = (t: string, nombre: string, enlace: string, contacto?: string | null) =>
+    t.replaceAll('{colegio}', nombre).replaceAll('{enlace}', enlace).replaceAll('{anio}', String(anioEscolarDemo())).replaceAll('{contacto}', contacto || 'equipo directivo');
+  const contactoRespuesta = (col: { id: string; name: string; address?: string }) => {
+    const c = contactoDe(col.id);
+    const deAnio = e.listas.filter(l => l.schoolId === col.id && !l.copiaDe && l.year === anioEscolarDemo());
+    const grupos = [...new Set((e.seccionesColegio[col.id] ?? []).map(id => e.secciones.find(x => x.id === id)?.groupName).filter(Boolean))];
+    return {
+      id: col.id, nombre: col.name, direccion: col.address ?? null, gestion: null, niveles: grupos.join(', ') || null,
+      telefono: c.telefono ?? null, whatsapp: c.whatsapp ?? null, correo: c.correo ?? null, contactoNombre: c.contactoNombre ?? null, notas: c.notas ?? null,
+      estado: c.estado, ultimoContactoAt: c.ultimoContactoAt ?? null, proximoContactoAt: c.proximoContactoAt ?? null, recordatorios: c.recordatorios,
+      listasAprobadas: deAnio.filter(l => l.esOficial || l.estado === 'VALIDADA').length,
+      listasPorRevisar: deAnio.filter(l => l.estado === 'PENDIENTE_REVISION' || l.estado === 'EN_REVISION').length,
+      enlace: c.token ? `${typeof location !== 'undefined' ? location.origin : ''}/colegio/${c.token}` : null,
+    };
+  };
+  const registrarContacto = (schoolId: string, canal: string, automatico: boolean, resultado?: string, nota?: string, estado?: string, esRecordatorio = false) => {
+    const c = contactoDe(schoolId);
+    (e.contactoLog ??= []).unshift({ id: nuevoId('reg'), schoolId, canal, automatico, resultado: resultado ?? null, nota: nota ?? null, autor: automatico ? null : yo?.name ?? null, createdAt: ahora() });
+    const esContacto = canal === 'WHATSAPP' || canal === 'CORREO' || canal === 'LLAMADA';
+    c.estado = estado ?? (esContacto && c.estado === 'SIN_CONTACTAR' ? 'CONTACTADO' : c.estado);
+    if (esContacto) c.ultimoContactoAt = ahora();
+    if (esRecordatorio) c.recordatorios++;
+    if (c.estado === 'LISTA_RECIBIDA' || c.estado === 'NO_INTERESADO') c.proximoContactoAt = null;
+    else if (esContacto) c.proximoContactoAt = new Date(Date.now() + configContacto().diasRecordatorio * 86_400_000).toISOString();
+  };
+  if (r0 === 'contacto-colegios') {
+    exigirEquipo(yo);
+    const sinCorreo = () => { throw new ErrorDemo('El envío de correos aún no está configurado. Falta la clave del servicio de correo.', 503, 'EMAIL_NOT_CONFIGURED'); };
+    if (!r1 && M === 'GET') return e.colegios.map(contactoRespuesta).sort((a, x) => a.nombre.localeCompare(x.nombre, 'es'));
+    if (r1 === 'config' && M === 'GET') return { config: configContacto(), correoConfigurado: false, remitente: null };
+    if (r1 === 'config' && M === 'PUT') {
+      const c = { ...configContacto(), ...bj } as typeof CONFIG_CONTACTO_DEMO;
+      if (!String(c.mensaje ?? '').includes('{enlace}')) throw new ErrorDemo('El mensaje debe incluir {enlace} para que el colegio pueda subir su lista');
+      e.contactoConfig = c as unknown as Json;
+      return cambia({ config: c, correoConfigurado: false, remitente: null });
+    }
+    if (r1 === 'correo' || r1 === 'recordatorios') return sinCorreo();
+    const col = e.colegios.find(x => x.id === r1);
+    if (!col) throw new ErrorDemo('Colegio no encontrado', 404);
+    if (!r2 && M === 'PUT') {
+      const c = contactoDe(col.id);
+      const cel = texto(bj.whatsapp)?.replace(/[\s\-().+]/g, '').replace(/^51(?=9\d{8}$)/, '');
+      if (cel && !/^9\d{8}$/.test(cel)) throw new ErrorDemo('El WhatsApp debe ser un celular de 9 dígitos que empiece con 9');
+      const correo = texto(bj.correo)?.trim().toLowerCase();
+      if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)) throw new ErrorDemo('El correo no es válido');
+      Object.assign(c, { whatsapp: cel || null, correo: correo || null, telefono: texto(bj.telefono)?.trim() || null, contactoNombre: texto(bj.contactoNombre)?.trim() || null, notas: texto(bj.notas)?.trim() || null });
+      if (bj.estado) c.estado = String(bj.estado);
+      return cambia(contactoRespuesta(col));
+    }
+    if (r2 === 'mensaje' && M === 'POST') {
+      const cfg = configContacto(); const enlace = enlaceDe(col.id); const c = contactoDe(col.id);
+      guardar();
+      return { enlace, mensaje: armar(cfg.mensaje, col.name, enlace, c.contactoNombre), recordatorio: armar(cfg.recordatorio, col.name, enlace, c.contactoNombre), asunto: armar(cfg.asunto, col.name, enlace, c.contactoNombre) };
+    }
+    if (r2 === 'registro' && M === 'POST') {
+      registrarContacto(col.id, String(bj.canal), false, texto(bj.resultado), texto(bj.nota), texto(bj.estado), !!bj.esRecordatorio);
+      return cambia(contactoRespuesta(col));
+    }
+    if (r2 === 'historial' && M === 'GET') return (e.contactoLog ?? []).filter(x => x.schoolId === col.id).map(x => ({ id: x.id, canal: x.canal, automatico: x.automatico, resultado: x.resultado, nota: x.nota, autor: x.autor, createdAt: x.createdAt }));
+  }
+  if (r0 === 'colegio-enlace') {
+    const col = e.colegios.find(x => e.contactos?.[x.id]?.token === r1);
+    if (!col) throw new ErrorDemo('Este enlace no es válido. Pídenos uno nuevo por WhatsApp.', 404);
+    const anio = anioEscolarDemo();
+    const grados = (e.seccionesColegio[col.id] ?? []).map(id => e.secciones.find(x => x.id === id)?.name).filter(Boolean) as string[];
+    const enviados = () => [...new Set(e.listas.filter(l => l.schoolId === col.id && !l.copiaDe && l.year === anio).map(l => e.grados.find(g => g.id === l.gradeId)?.name).filter(Boolean))] as string[];
+    if (!r2 && M === 'GET') return { nombre: col.name, anio, grados, enviados: enviados() };
+    if (r2 === 'lista' && M === 'POST' && b instanceof FormData) {
+      revisarAntiSpam(b);
+      const nombreGrado = String(b.get('grado') ?? '');
+      if (!grados.includes(nombreGrado)) throw new ErrorDemo('Elige el grado de la lista');
+      let g = e.grados.find(x => x.schoolId === col.id && x.name === nombreGrado && x.year === anio);
+      if (!g) { g = { id: nuevoId('gr'), schoolId: col.id, name: nombreGrado, year: anio }; e.grados.push(g); }
+      const archivo = b.getAll('files').find(f => f instanceof File) as File | undefined;
+      if (!archivo) throw new ErrorDemo('Debe subir al menos una imagen');
+      const l: Lista = {
+        id: nuevoId('lista'), schoolId: col.id, gradeId: g.id, year: anio,
+        imageUrl: archivo.type.startsWith('image/') ? await leerArchivo(archivo) : imagenListaEjemplo,
+        estado: 'PENDIENTE_REVISION', esOficial: false, iaEstado: 'PROCESANDO', creada: Date.now(), plantilla: plantillaDe(nombreGrado), items: [],
+      };
+      e.listas.unshift(l);
+      registrarContacto(col.id, 'ENLACE', true, 'LISTA_SUBIDA', nombreGrado, 'LISTA_RECIBIDA');
+      avisar('NewList', `${col.name} envió su lista de ${nombreGrado}`, { admin: true });
+      return cambia(listaRespuesta(l));
     }
   }
 

@@ -124,8 +124,8 @@ export function añosElegibles(hoy = new Date()) { const a = hoy.getFullYear(); 
 export const aSlug = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 // ── Permisos del panel ──
-/** El operador atiende pedidos, listas y consultas de productos */
-export const RUTAS_OPERADOR = ['/admin', '/admin/orders', '/admin/lists', '/admin/consultas'];
+/** El operador atiende pedidos, listas, consultas de productos y el pedido de listas a los colegios */
+export const RUTAS_OPERADOR = ['/admin', '/admin/orders', '/admin/lists', '/admin/consultas', '/admin/pedir-listas'];
 export function puedeVer(rol: string | undefined, ruta: string) {
   if (rol === 'ADMIN') return true;
   if (rol !== 'OPERATOR') return false;
