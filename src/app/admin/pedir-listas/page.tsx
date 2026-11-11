@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckSquare, Clock, Copy, History, Mail, MessageCircle, Pencil, Phone, Search, Send, Settings2, Square } from 'lucide-react';
 import { contactoColegiosApi } from '@/services/api';
+import { buscarOpciones } from '@/lib/buscar';
 import type { ColegioContacto, ConfigContactoColegios, EstadoContactoColegio, RegistroContacto } from '@/lib/types';
 import { Cargando, Interruptor, Modal, botonPrimario, campo, fechaCorta, tarjeta, useAvisos } from '../_ui';
 
@@ -60,15 +61,19 @@ export default function PedirListasPage() {
   }, [colegios, ahora]);
 
   const visibles = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    return (colegios ?? []).filter(c => {
+    const q = busqueda.trim();
+    // Con búsqueda: misma búsqueda amigable que en la tienda (cualquier palabra, sin tildes, con errores de tipeo)
+    const base = q ? buscarOpciones((colegios ?? []).map(c => ({ ...c, label: c.nombre })), q,
+      c => `${c.nombre} ${c.contactoNombre ?? ''} ${c.correo ?? ''} ${c.whatsapp ?? ''}`) : (colegios ?? []);
+    const filtrados = base.filter(c => {
       if (soloSinLista && c.listasAprobadas > 0 && filtro !== 'LISTA_RECIBIDA') return false;
       if (filtro === 'HOY' && !vencido(c, ahora)) return false;
       if (filtro === 'SIN_DATOS' && (c.whatsapp || c.correo || c.telefono)) return false;
       if (filtro !== 'TODOS' && filtro !== 'HOY' && filtro !== 'SIN_DATOS' && c.estado !== filtro) return false;
-      if (q && !`${c.nombre} ${c.contactoNombre ?? ''} ${c.correo ?? ''} ${c.whatsapp ?? ''}`.toLowerCase().includes(q)) return false;
       return true;
-    }).sort((a, b) => Number(vencido(b, ahora)) - Number(vencido(a, ahora)) || a.nombre.localeCompare(b.nombre, 'es'));
+    });
+    // Sin búsqueda: primero a quienes toca recordar; con búsqueda se respeta el orden por parecido
+    return q ? filtrados : filtrados.sort((a, b) => Number(vencido(b, ahora)) - Number(vencido(a, ahora)) || a.nombre.localeCompare(b.nombre, 'es'));
   }, [colegios, filtro, busqueda, soloSinLista, ahora]);
 
   const alternar = (id: string) => setElegidos(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });

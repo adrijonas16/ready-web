@@ -2,11 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
+import { buscarOpciones } from '@/lib/buscar';
 
 export interface SelectOption {
   value: string;
   label: string;
   group?: string;
+  /** Texto extra para encontrarla (no se muestra): código, dirección, sinónimos */
+  buscar?: string;
 }
 
 interface SearchSelectProps {
@@ -44,9 +47,8 @@ export default function SearchSelect({ options, value, onChange, placeholder = '
     if (open) setTimeout(() => inputRef.current?.focus(), 50);
   }, [open]);
 
-  const filtered = search
-    ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
-    : options;
+  // Búsqueda amigable: cualquier palabra del nombre, en cualquier orden, sin tildes y con errores de tipeo
+  const filtered = search ? buscarOpciones(options, search, o => `${o.label} ${o.buscar ?? ''}`) : options;
 
   // Group options
   const groups = filtered.reduce<Record<string, SelectOption[]>>((acc, o) => {
@@ -87,6 +89,8 @@ export default function SearchSelect({ options, value, onChange, placeholder = '
                 autoComplete="off"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                // Enter elige la primera opción encontrada
+                onKeyDown={e => { if (e.key === 'Enter' && search && filtered[0]) { e.preventDefault(); onChange(filtered[0].value); setOpen(false); setSearch(''); } }}
                 placeholder="Buscar…"
                 className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-lg text-base sm:text-xs focus:border-blue-500 focus:outline-none"
               />
