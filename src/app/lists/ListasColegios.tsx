@@ -6,6 +6,7 @@ import { Camera, ChevronRight, GraduationCap, ShoppingBag } from 'lucide-react';
 import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
 import { SupplyList, School, Section } from '@/lib/types';
 import SearchSelect from '@/components/SearchSelect';
+import { opcionesColegios } from '@/lib/colegios';
 import Escudo from '@/components/Escudo';
 import type { FotosNivel } from './utiles-nivel';
 import Paginador, { usePaginacion } from '@/components/Paginador';
@@ -61,7 +62,7 @@ export default function ListasColegios({ fotos }: { fotos: FotosNivel }) {
         <div>
           <label className="mb-1 block text-sm font-semibold">Colegio</label>
           <SearchSelect value={colegio} onChange={elegirColegio} placeholder="Escribe el nombre de tu colegio…"
-            options={colegios.map(c => ({ value: c.id, label: c.name }))} />
+            options={opcionesColegios(colegios)} />
         </div>
         <div>
           <label className="mb-1 block text-sm font-semibold">Grado</label>

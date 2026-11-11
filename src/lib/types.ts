@@ -30,6 +30,9 @@ export interface School {
   id: string;
   name: string;
   address?: string;
+  departamento?: string;
+  provincia?: string | null;
+  distrito?: string | null;
 }
 
 export interface Grade {
@@ -227,6 +230,8 @@ export interface Order {
   total: number;
   status: OrderStatus;
   shippingAddress: string;
+  /** Departamento de entrega (los pedidos de antes son de Arequipa) */
+  shippingDepartamento?: string;
   shippingPhone: string;
   trackingNumber?: string;
   createdAt: string;
@@ -264,6 +269,12 @@ export interface Settings {
   horarioEntrega: string;
   diasEntrega: number;
   zonas?: string;
+  /** false = solo Arequipa (colegios y envíos); true = todo el Perú */
+  coberturaNacional?: boolean;
+  /** Envío fuera de Arequipa; null = el mismo que en Arequipa */
+  costoEnvioProvincias?: number | null;
+  /** Días hábiles fuera de Arequipa; null = los mismos que en Arequipa */
+  diasEntregaProvincias?: number | null;
 }
 
 export interface OrderStatusHistory {
@@ -299,6 +310,9 @@ export interface ColegioContacto {
   nombre: string;
   direccion?: string | null;
   gestion?: string | null;
+  departamento?: string;
+  provincia?: string | null;
+  distrito?: string | null;
   niveles?: string | null;
   telefono?: string | null;
   whatsapp?: string | null;

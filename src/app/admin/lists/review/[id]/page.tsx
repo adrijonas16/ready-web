@@ -1,6 +1,8 @@
 'use client';
 
 import { ErrorCampo } from '@/components/form/Campo';
+import SearchSelect from '@/components/SearchSelect';
+import { opcionesColegios } from '@/lib/colegios';
 import { LARGO } from '@/lib/validar';
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
@@ -174,7 +176,7 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
     setCorr({ schoolId: data.list.schoolId, gradeId: data.list.gradeId, year: data.list.year });
     setCorrigiendo(true);
     try {
-      const [cs, gs] = await Promise.all([schoolsApi.getAll(), schoolsApi.getGrades(data.list.schoolId)]);
+      const [cs, gs] = await Promise.all([schoolsApi.getAll({ todos: true }), schoolsApi.getGrades(data.list.schoolId)]);
       setColegios(cs); setGrados(gs);
     } catch (err) { avisos.error(err, 'No pudimos cargar los colegios'); }
   };
@@ -675,11 +677,9 @@ export default function ReviewListPage({ params }: { params: Promise<{ id: strin
       {corrigiendo && (
         <Modal titulo="Cambiar colegio, grado o año" onClose={() => setCorrigiendo(false)}>
           <div className="p-4 space-y-3">
-            <label className="block"><span className="block text-xs text-gray-700 mb-1">Colegio</span>
-              <select value={corr.schoolId} onChange={e => cambiarColegio(e.target.value)} className={campo}>
-                {colegios.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </label>
+            <div className="block"><span className="block text-xs text-gray-700 mb-1">Colegio</span>
+              <SearchSelect value={corr.schoolId} onChange={v => { if (v) cambiarColegio(v); }} placeholder="Busca el colegio…" options={opcionesColegios(colegios)} />
+            </div>
             <label className="block"><span className="block text-xs text-gray-700 mb-1">Grado</span>
               <select value={corr.gradeId} onChange={e => { const g = grados.find(x => x.id === e.target.value); setCorr(c => ({ ...c, gradeId: e.target.value, year: g?.year ?? c.year })); }} className={campo}>
                 <option value="">Elegir grado</option>

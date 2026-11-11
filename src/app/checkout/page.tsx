@@ -9,7 +9,8 @@ import { ordersApi, CreateOrderInput } from '@/services/api';
 import { formatPrice } from '@/lib/utils';
 import Link from 'next/link';
 import { CheckCircle, Package, ShoppingCart, ArrowRight, Loader2, MapPin, Phone, MessageSquare, CreditCard, Lock, FlaskConical, XCircle, Check, CalendarDays, FileText, Ticket, Mail, AlertCircle } from 'lucide-react';
-import { FRANJAS, costoEnvio, fechaLarga, fechasEntrega, useAjustes } from '@/lib/ajustes';
+import { FRANJAS, costoEnvio, diasEntregaPara, fechaLarga, fechasEntrega, useAjustes } from '@/lib/ajustes';
+import { BASE, DEPARTAMENTOS, atiende } from '@/lib/peru';
 import { aplicarCupon, redondear } from '@/lib/precio';
 import { LARGO, validarCelular, validarCorreo, validarCvv, validarDireccion, validarDni, validarNombre, validarRuc, validarRazonSocial, validarTarjeta, validarTexto, validarVencimiento } from '@/lib/validar';
 import { useAntiSpam } from '@/lib/antispam';
@@ -186,7 +187,7 @@ const Tarjeta = ({ icono, titulo, children }: { icono: React.ReactNode; titulo: 
 /** Número de operación del pago de prueba */
 const nuevaOperacion = () => `PRUEBA-${Date.now().toString(36).toUpperCase().slice(-6)}`;
 
-type Errores = Partial<Record<'address' | 'phone' | 'email' | 'fecha' | 'franja' | 'dni' | 'ruc' | 'razon' | 'observaciones' | 'card' | 'card-name' | 'expiry' | 'cvv', string | null>>;
+type Errores = Partial<Record<'departamento' | 'address' | 'phone' | 'email' | 'fecha' | 'franja' | 'dni' | 'ruc' | 'razon' | 'observaciones' | 'card' | 'card-name' | 'expiry' | 'cvv', string | null>>;
 
 export default function CheckoutPage() {
   const { user, addNotification, guardarPerfil } = useAuth();
@@ -208,8 +209,12 @@ export default function CheckoutPage() {
   const [observations, setObservations] = useState('');
   const [email, setEmail] = useState(user?.email || '');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  // Mientras el envío nacional esté apagado, siempre Arequipa
+  const [departamentoElegido, setDepartamento] = useState<string>(BASE);
+  const departamento = ajustes.coberturaNacional ? departamentoElegido : BASE;
+  const diasEntrega = diasEntregaPara(ajustes, departamento);
   const [paymentMethod, setPaymentMethod] = useState('card');
-  const fechas = fechasEntrega(ajustes.diasEntrega);
+  const fechas = fechasEntrega(diasEntrega);
   const [fecha, setFecha] = useState('');
   const [franja, setFranja] = useState<string>(FRANJAS[0]);
   const fechaElegida = fechas.some(f => f.valor === fecha) ? fecha : fechas[0]?.valor ?? '';
@@ -249,7 +254,7 @@ export default function CheckoutPage() {
 
   const cuponAplicado = aplicarCupon(cupon, total);
   const descuento = cuponAplicado?.descuento ?? 0;
-  const envio = costoEnvio(total, ajustes);
+  const envio = costoEnvio(total, ajustes, departamento);
   const totalPagar = redondear(total - descuento + envio);
 
   const formatCardNumber = (v: string) => {
@@ -270,6 +275,7 @@ export default function CheckoutPage() {
   };
 
   const validar = (): Errores => ({
+    departamento: atiende(ajustes, departamento) ? null : ajustes.coberturaNacional ? 'Elige el departamento de entrega.' : `Por ahora solo entregamos en ${BASE}.`,
     address: validarDireccion(address),
     phone: validarCelular(phone),
     email: validarCorreo(email),
@@ -354,6 +360,7 @@ export default function CheckoutPage() {
           quantity: item.quantity, notes: item.notes, para: item.para,
         })),
         shippingAddress: address.trim(),
+        shippingDepartamento: departamento,
         shippingPhone: phone.trim(),
         pago: { metodo: nombreMetodo[paymentMethod] ?? paymentMethod, operacion: op, estado: 'APROBADO' },
         entrega: { fecha: fechaElegida, franja },
@@ -471,10 +478,25 @@ export default function CheckoutPage() {
 
             <Tarjeta icono={<MapPin className="h-4 w-4" aria-hidden="true" />} titulo="Datos de entrega">
               <div className="space-y-4">
+                {ajustes.coberturaNacional ? (
+                  <Campo id="departamento" etiqueta="Departamento" obligatorio error={errores.departamento}
+                    ayuda={envio > 0 ? `Envío a ${departamento}: ${formatPrice(envio)}. Llega en ${diasEntrega} ${diasEntrega === 1 ? 'día hábil' : 'días hábiles'}.` : `Llega en ${diasEntrega} ${diasEntrega === 1 ? 'día hábil' : 'días hábiles'}.`}>
+                    <select id="departamento" name="departamento" autoComplete="address-level1" required value={departamento}
+                      onChange={e => { setDepartamento(e.target.value); setCoords(null); setErrores(x => ({ ...x, departamento: null })); }}
+                      {...props('departamento')} className={claseCampo(errores.departamento)}>
+                      {DEPARTAMENTOS.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </Campo>
+                ) : (
+                  <p className="flex items-start gap-2 rounded-xl bg-fondo px-3 py-2.5 text-sm text-tenue">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primario" aria-hidden="true" />
+                    Por ahora entregamos solo en {BASE}. Muy pronto llegaremos a todo el Perú.
+                  </p>
+                )}
                 <div>
                   <p className="mb-1 text-sm font-semibold">Marca tu ubicación en el mapa <span className="font-normal text-tenue">(opcional)</span></p>
                   {verMapa
-                    ? <MapPicker onLocationSelect={(lat, lng) => setCoords({ lat, lng })} />
+                    ? <MapPicker departamento={departamento} nacional={!!ajustes.coberturaNacional} onLocationSelect={(lat, lng) => setCoords({ lat, lng })} />
                     : <button type="button" onClick={() => setVerMapa(true)}
                         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-linea-fuerte bg-fondo px-4 py-3 text-sm font-semibold text-primario hover:border-primario">
                         <MapPin className="h-4 w-4" aria-hidden="true" /> Marcar mi ubicación en el mapa
@@ -535,7 +557,7 @@ export default function CheckoutPage() {
                   ))}
                 </div>
               </fieldset>
-              <p className="mt-3 text-xs text-tenue">Entregamos {ajustes.horarioEntrega.charAt(0).toLowerCase() + ajustes.horarioEntrega.slice(1)}. El primer día disponible es en {ajustes.diasEntrega} {ajustes.diasEntrega === 1 ? 'día hábil' : 'días hábiles'}.</p>
+              <p className="mt-3 text-xs text-tenue">Entregamos {ajustes.horarioEntrega.charAt(0).toLowerCase() + ajustes.horarioEntrega.slice(1)}. El primer día disponible es en {diasEntrega} {diasEntrega === 1 ? 'día hábil' : 'días hábiles'}.</p>
             </Tarjeta>
 
             <Tarjeta icono={<FileText className="h-4 w-4" aria-hidden="true" />} titulo="Comprobante">

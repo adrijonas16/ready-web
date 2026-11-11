@@ -10,6 +10,7 @@ import { ErrorCampo } from '@/components/form/Campo';
 import { LARGO, limpiarTexto } from '@/lib/validar';
 import Paginador, { usePaginacion } from '@/components/Paginador';
 import { buscarOpciones } from '@/lib/buscar';
+import { BASE, DEPARTAMENTOS } from '@/lib/peru';
 
 export default function AdminSchoolsPage() {
   const avisos = useAvisos();
@@ -21,6 +22,10 @@ export default function AdminSchoolsPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [departamento, setDepartamento] = useState<string>(BASE);
+  const [provincia, setProvincia] = useState('');
+  const [distrito, setDistrito] = useState('');
+  const [filtroDep, setFiltroDep] = useState('');
   const [errores, setErrores] = useState<{ nombre?: string | null; direccion?: string | null }>({});
   const [enviando, setEnviando] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -31,7 +36,7 @@ export default function AdminSchoolsPage() {
   const [schoolSectionIds, setSchoolSectionIds] = useState<Set<string>>(new Set());
   const [savingSections, setSavingSections] = useState(false);
 
-  const load = useCallback(() => Promise.all([schoolsApi.getAll(), listsApi.getAll().catch(() => [])])
+  const load = useCallback(() => Promise.all([schoolsApi.getAll({ todos: true }), listsApi.getAll().catch(() => [])])
     .then(([s, ls]) => {
       setSchools(s);
       const n: Record<string, number> = {};
@@ -51,19 +56,23 @@ export default function AdminSchoolsPage() {
     const nombre = limpiarTexto(name), dir = limpiarTexto(address);
     const errs = {
       nombre: nombre.length < 3 ? 'Escribe el nombre del colegio.' : nombre.length > LARGO.nombre ? `Máximo ${LARGO.nombre} caracteres.`
-        : schools.some(x => x.id !== editId && x.name.toLowerCase() === nombre.toLowerCase()) ? 'Ya existe un colegio con ese nombre.' : null,
+        : schools.some(x => x.id !== editId && x.name.toLowerCase() === nombre.toLowerCase() && (x.departamento ?? BASE) === departamento)
+          ? `Ya existe un colegio con ese nombre en ${departamento}.` : null,
       direccion: dir.length > LARGO.direccion ? `Máximo ${LARGO.direccion} caracteres.` : null,
     };
     setErrores(errs);
     if (errs.nombre || errs.direccion) { document.getElementById(errs.nombre ? 'nombre-colegio' : 'direccion-colegio')?.focus(); return; }
     setEnviando(true);
     try {
-      if (editId) { await schoolsApi.update(editId, nombre, dir || undefined); avisos.exito('Colegio guardado'); }
-      else { await schoolsApi.create(nombre, dir || undefined); avisos.exito(`Colegio "${nombre}" creado`); }
-      setName(''); setAddress(''); setEditId(null); setShowForm(false); load();
+      const datos = { name: nombre, address: dir || undefined, departamento, provincia: limpiarTexto(provincia) || undefined, distrito: limpiarTexto(distrito) || undefined };
+      if (editId) { await schoolsApi.update(editId, datos); avisos.exito('Colegio guardado'); }
+      else { await schoolsApi.create(datos); avisos.exito(`Colegio "${nombre}" creado`); }
+      limpiarForm(); setShowForm(false); load();
     } catch (e) { avisos.error(e, 'No pudimos guardar el colegio'); }
     finally { setEnviando(false); }
   };
+
+  const limpiarForm = () => { setName(''); setAddress(''); setDepartamento(filtroDep || BASE); setProvincia(''); setDistrito(''); setEditId(null); setErrores({}); };
 
   const deleteSchool = async (s: School) => {
     const n = listasPorColegio[s.id] ?? 0;
@@ -111,15 +120,17 @@ export default function AdminSchoolsPage() {
   };
 
   // Misma búsqueda amigable que en la tienda (cualquier palabra, sin tildes, con errores de tipeo)
-  const filtered = search.trim() ? buscarOpciones(schools.map(s => ({ ...s, label: s.name })), search) : schools;
-  const pag = usePaginacion(filtered, 20, search);
+  const delDepartamento = filtroDep ? schools.filter(s => (s.departamento ?? BASE) === filtroDep) : schools;
+  const filtered = search.trim() ? buscarOpciones(delDepartamento.map(s => ({ ...s, label: s.name })), search) : delDepartamento;
+  const pag = usePaginacion(filtered, 20, `${filtroDep}|${search}`);
+  const porDepartamento = schools.reduce<Record<string, number>>((n, s) => { const d = s.departamento ?? BASE; n[d] = (n[d] ?? 0) + 1; return n; }, {});
   const ordenGrado = (g: Grade) => allSections.find(s => s.name === g.name)?.sortOrder ?? 999;
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 className="text-xl font-bold text-slate-900">Colegios ({schools.length})</h1>
-        <button type="button" onClick={() => { setShowForm(true); setEditId(null); setName(''); setAddress(''); setErrores({}); }} className={botonPrimario}>
+        <button type="button" onClick={() => { limpiarForm(); setShowForm(true); }} className={botonPrimario}>
           <Plus className="h-4 w-4" aria-hidden="true" /> Nuevo colegio
         </button>
       </div>
@@ -138,6 +149,19 @@ export default function AdminSchoolsPage() {
               className={`${campo} ${errores.direccion ? '!border-profe' : ''}`} />
             <ErrorCampo id="direccion-colegio" error={errores.direccion} />
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <label className="text-[11px] text-slate-600">Departamento
+              <select value={departamento} onChange={e => setDepartamento(e.target.value)} className={`${campo} mt-0.5`}>
+                {DEPARTAMENTOS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </label>
+            <label className="text-[11px] text-slate-600">Provincia <span className="text-tenue">(opcional)</span>
+              <input type="text" value={provincia} onChange={e => setProvincia(e.target.value)} maxLength={80} autoComplete="off" className={`${campo} mt-0.5`} />
+            </label>
+            <label className="text-[11px] text-slate-600">Distrito <span className="text-tenue">(opcional)</span>
+              <input type="text" value={distrito} onChange={e => setDistrito(e.target.value)} maxLength={80} autoComplete="off" className={`${campo} mt-0.5`} />
+            </label>
+          </div>
           <div className="flex gap-2">
             <button type="submit" disabled={enviando} className="min-h-10 bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50">{editId ? 'Guardar' : 'Crear'}</button>
             <button type="button" onClick={() => setShowForm(false)} className="min-h-10 px-3 text-tenue text-xs">Cancelar</button>
@@ -145,12 +169,16 @@ export default function AdminSchoolsPage() {
         </form>
       )}
 
-      <div className={`${tarjeta} p-3 mb-4`}>
-        <div className="relative">
+      <div className={`${tarjeta} p-3 mb-4 flex flex-wrap gap-2`}>
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" aria-hidden="true" />
           <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar colegio…" aria-label="Buscar colegio"
             className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs" />
         </div>
+        <select value={filtroDep} onChange={e => setFiltroDep(e.target.value)} aria-label="Departamento" className="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-700">
+          <option value="">Todos los departamentos</option>
+          {DEPARTAMENTOS.map(d => <option key={d} value={d}>{d} ({porDepartamento[d] ?? 0})</option>)}
+        </select>
       </div>
 
       <div id="lista-colegios" className="space-y-2 scroll-mt-20">
@@ -162,12 +190,12 @@ export default function AdminSchoolsPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-900 truncate">{s.name}</p>
-                <p className="text-[10px] text-neutral-400 truncate">{s.address || 'Sin dirección'} · {listasPorColegio[s.id] ?? 0} listas</p>
+                <p className="text-[10px] text-neutral-400 truncate">{s.address || 'Sin dirección'} · {[s.distrito, s.departamento ?? BASE].filter(Boolean).join(', ')} · {listasPorColegio[s.id] ?? 0} listas</p>
               </div>
               <button onClick={() => toggleGrades(s.id)} aria-expanded={expanded === s.id} aria-label={`Grados de ${s.name}`} className="p-1.5 bg-slate-100 rounded-lg hover:bg-slate-200">
                 {expanded === s.id ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               </button>
-              <button onClick={() => { setEditId(s.id); setName(s.name); setAddress(s.address || ''); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              <button onClick={() => { setEditId(s.id); setName(s.name); setAddress(s.address || ''); setDepartamento(s.departamento ?? BASE); setProvincia(s.provincia ?? ''); setDistrito(s.distrito ?? ''); setErrores({}); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 aria-label={`Editar ${s.name}`} className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100"><Edit2 className="h-3.5 w-3.5" /></button>
               <button onClick={() => deleteSchool(s)} aria-label={`Eliminar ${s.name}`} className="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-100"><Trash2 className="h-3.5 w-3.5" /></button>
             </div>

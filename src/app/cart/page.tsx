@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Package, Check, UserRound, ClipboardList, Truck } from 'lucide-react';
 import { agruparPorPara, useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
-import { costoEnvio, useAjustes } from '@/lib/ajustes';
+import { costoEnvio, envioProvinciasDistinto, useAjustes } from '@/lib/ajustes';
+import { BASE } from '@/lib/peru';
 import { formatPrice } from '@/lib/utils';
 import { CartItem, NotaPedido } from '@/lib/types';
 
@@ -226,10 +227,13 @@ export default function CartPage() {
                 <div className="flex justify-between"><dt className="font-semibold">Subtotal</dt><dd className="font-semibold tabular-nums">{formatPrice(total)}</dd></div>
                 {ahorro > 0 && <div className="flex justify-between text-profe"><dt>Ahorras con las ofertas</dt><dd className="tabular-nums">−{formatPrice(ahorro)}</dd></div>}
                 <div className="flex justify-between">
-                  <dt className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-tenue" aria-hidden="true" /> Envío en Arequipa</dt>
+                  <dt className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-tenue" aria-hidden="true" /> Envío {envioProvinciasDistinto(ajustes) ? `en ${BASE}` : ajustes.coberturaNacional ? 'a todo el Perú' : `en ${BASE}`}</dt>
                   <dd className="font-semibold tabular-nums">{envio === 0 ? 'Gratis' : formatPrice(envio)}</dd>
                 </div>
               </dl>
+              {envio > 0 && envioProvinciasDistinto(ajustes) && (
+                <p className="mt-1.5 text-xs text-tenue">A otros departamentos: {formatPrice(ajustes.costoEnvioProvincias!)}. Se calcula al elegir la dirección.</p>
+              )}
               {faltaGratis > 0 && <p className="mt-2.5 rounded-lg bg-eco-claro px-3 py-2 text-xs">Te faltan <b>{formatPrice(faltaGratis)}</b> para el envío gratis.</p>}
               <div className="mt-4 flex items-baseline justify-between border-t border-linea pt-4">
                 <span className="font-semibold">Total</span>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { Settings } from '@/lib/types';
 import { apiJson } from '@/lib/api-base';
+import { BASE, normalizarDepartamento } from '@/lib/peru';
 
 /** Valores por defecto (los mismos de la demo) mientras carga GET /settings o si falla. */
 export const AJUSTES_POR_DEFECTO: Settings = {
@@ -12,6 +13,9 @@ export const AJUSTES_POR_DEFECTO: Settings = {
   telefono: '951 237 582',
   horarioEntrega: 'Lunes a sábado, 9:00 a 18:00',
   diasEntrega: 2,
+  coberturaNacional: false,
+  costoEnvioProvincias: null,
+  diasEntregaProvincias: null,
 };
 
 let pedido: Promise<Settings> | null = null;
@@ -40,19 +44,32 @@ export function useAjustes({ diferido = false }: { diferido?: boolean } = {}): S
   return ajustes;
 }
 
-/** Costo del envío para un subtotal (gratis desde envioGratisDesde). */
-export function costoEnvio(subtotal: number, s: Settings): number {
+/** ¿El departamento queda fuera de Arequipa? (sin departamento = Arequipa) */
+const esProvincia = (departamento?: string | null) => (normalizarDepartamento(departamento) ?? BASE) !== BASE;
+
+/** Costo del envío para un subtotal (gratis desde envioGratisDesde). Fuera de Arequipa usa costoEnvioProvincias. */
+export function costoEnvio(subtotal: number, s: Settings, departamento?: string | null): number {
   if (subtotal <= 0) return 0;
   if (s.envioGratisDesde != null && subtotal >= s.envioGratisDesde) return 0;
-  return s.costoEnvio;
+  return esProvincia(departamento) && s.costoEnvioProvincias != null ? s.costoEnvioProvincias : s.costoEnvio;
 }
 
-/** Texto corto del envío: "S/ 8.00, gratis desde S/ 150.00". */
+/** Días hábiles para entregar en ese departamento. */
+export const diasEntregaPara = (s: Settings, departamento?: string | null): number =>
+  esProvincia(departamento) && s.diasEntregaProvincias != null ? s.diasEntregaProvincias : s.diasEntrega;
+
+/** ¿Las provincias tienen otro costo de envío que Arequipa? */
+export const envioProvinciasDistinto = (s: Settings) =>
+  !!s.coberturaNacional && s.costoEnvioProvincias != null && s.costoEnvioProvincias !== s.costoEnvio;
+
+/** Texto corto del envío: "Envío S/ 8.00, gratis desde S/ 150.00". */
 export function textoEnvio(s: Settings, formato: (n: number) => string): string {
-  if (s.costoEnvio <= 0) return 'Envío gratis en Arequipa';
-  return s.envioGratisDesde != null
-    ? `Envío ${formato(s.costoEnvio)}, gratis desde ${formato(s.envioGratisDesde)}`
-    : `Envío ${formato(s.costoEnvio)}`;
+  const donde = s.coberturaNacional ? ' a todo el Perú' : ` en ${BASE}`;
+  if (s.costoEnvio <= 0 && !envioProvinciasDistinto(s)) return `Envío gratis${donde}`;
+  const costo = envioProvinciasDistinto(s)
+    ? `Envío ${formato(s.costoEnvio)} en ${BASE} y ${formato(s.costoEnvioProvincias!)} a otros departamentos`
+    : `Envío ${formato(s.costoEnvio)}${donde}`;
+  return s.envioGratisDesde != null ? `${costo}, gratis desde ${formato(s.envioGratisDesde)}` : costo;
 }
 
 export const FRANJAS = ['9:00 a 13:00', '14:00 a 18:00'] as const;

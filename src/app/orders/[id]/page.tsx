@@ -263,7 +263,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
                 <span><span className="font-semibold">{fechaLarga(pedido.entrega.fecha, true)}</span>{pedido.entrega.franja ? `, de ${pedido.entrega.franja}` : ''}</span>
               </p>
             )}
-            <p className="mt-2 flex gap-2 text-sm"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-tenue" aria-hidden="true" />{pedido.shippingAddress || 'Sin dirección'}</p>
+            <p className="mt-2 flex gap-2 text-sm"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-tenue" aria-hidden="true" />{pedido.shippingAddress ? `${pedido.shippingAddress} · ${pedido.shippingDepartamento ?? 'Arequipa'}` : 'Sin dirección'}</p>
             <p className="mt-2 flex gap-2 text-sm"><Phone className="mt-0.5 h-4 w-4 shrink-0 text-tenue" aria-hidden="true" />{pedido.shippingPhone}</p>
             <p className="mt-2 flex gap-2 text-sm"><Truck className="mt-0.5 h-4 w-4 shrink-0 text-tenue" aria-hidden="true" />Envío: {envio === 0 ? 'gratis' : formatPrice(envio)}</p>
             {pedido.userName && <p className="mt-2 text-sm text-tenue">A nombre de {pedido.userName}</p>}

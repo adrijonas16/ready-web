@@ -3,23 +3,34 @@
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import type { Map as LeafletMap, Marker as LeafletMarker, LeafletMouseEvent } from 'leaflet';
+import { BASE, CENTROS, LIMITES_AREQUIPA, LIMITES_PERU, normalizarDepartamento } from '@/lib/peru';
 
-// Arequipa bounds
-const AREQUIPA_CENTER: [number, number] = [-16.4090, -71.5375];
-const AREQUIPA_BOUNDS: [[number, number], [number, number]] = [[-16.55, -71.65], [-16.25, -71.40]];
+type Limites = [[number, number], [number, number]];
+const dentro = (lat: number, lng: number, [[s, o], [n, e]]: Limites) => lat >= s && lat <= n && lng >= o && lng <= e;
 
 interface MapPickerProps {
   onLocationSelect: (lat: number, lng: number, address: string) => void;
   initialLat?: number;
   initialLng?: number;
+  /** Departamento de entrega: el mapa se abre en su capital. */
+  departamento?: string;
+  /** Envío a todo el Perú: el mapa deja marcar en cualquier parte del país (si no, solo en la ciudad de Arequipa). */
+  nacional?: boolean;
 }
 
-export default function MapPicker({ onLocationSelect, initialLat, initialLng }: MapPickerProps) {
+export default function MapPicker({ onLocationSelect, initialLat, initialLng, departamento, nacional = false }: MapPickerProps) {
+  const dep = normalizarDepartamento(departamento) ?? BASE;
+  const centro = CENTROS[dep];
+  const limites: Limites = nacional ? LIMITES_PERU : LIMITES_AREQUIPA;
+  // El mapa se crea una vez; estos valores cambian después (al elegir otro departamento)
+  const limitesRef = useRef(limites);
+  const avisarRef = useRef(onLocationSelect);
+  useEffect(() => { limitesRef.current = limites; avisarRef.current = onLocationSelect; });
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<LeafletMap | null>(null);
   const markerRef = useRef<LeafletMarker | null>(null);
   const [coords, setCoords] = useState<[number, number]>(
-    initialLat && initialLng ? [initialLat, initialLng] : AREQUIPA_CENTER
+    initialLat && initialLng ? [initialLat, initialLng] : centro
   );
   const [, setLoaded] = useState(false);
   // Si Leaflet o los mosaicos del mapa no cargan (sin internet, bloqueados), se explica qué hacer
@@ -49,8 +60,8 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
       const map = L.map(mapRef.current!, {
         center: coords,
         zoom: 14,
-        maxBounds: AREQUIPA_BOUNDS,
-        minZoom: 12,
+        maxBounds: limitesRef.current,
+        minZoom: nacional ? 5 : 12,
       });
 
       const capa = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -65,23 +76,21 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
 
       marker.on('dragend', () => {
         const pos = marker.getLatLng();
-        // Check if within Arequipa bounds
-        if (pos.lat < AREQUIPA_BOUNDS[0][0] || pos.lat > AREQUIPA_BOUNDS[1][0] ||
-            pos.lng < AREQUIPA_BOUNDS[0][1] || pos.lng > AREQUIPA_BOUNDS[1][1]) {
-          marker.setLatLng(AREQUIPA_CENTER);
+        // Fuera de la zona de entrega vuelve a donde estaba
+        if (!dentro(pos.lat, pos.lng, limitesRef.current)) {
+          marker.setLatLng(map.getCenter());
           return;
         }
         setCoords([pos.lat, pos.lng]);
-        onLocationSelect(pos.lat, pos.lng, `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`);
+        avisarRef.current(pos.lat, pos.lng, `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`);
       });
 
       map.on('click', (e: LeafletMouseEvent) => {
         const pos = e.latlng;
-        if (pos.lat < AREQUIPA_BOUNDS[0][0] || pos.lat > AREQUIPA_BOUNDS[1][0] ||
-            pos.lng < AREQUIPA_BOUNDS[0][1] || pos.lng > AREQUIPA_BOUNDS[1][1]) return;
+        if (!dentro(pos.lat, pos.lng, limitesRef.current)) return;
         marker.setLatLng(pos);
         setCoords([pos.lat, pos.lng]);
-        onLocationSelect(pos.lat, pos.lng, `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`);
+        avisarRef.current(pos.lat, pos.lng, `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`);
       });
 
       setLoaded(true);
@@ -95,7 +104,24 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
         mapInstanceRef.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- el mapa se crea una sola vez; los cambios se aplican abajo
   }, []);
+
+  // Al cambiar de departamento (o activar el envío nacional), el mapa se mueve a su capital
+  const [vistaPrevia, setVistaPrevia] = useState(`${dep}|${nacional}`);
+  if (vistaPrevia !== `${dep}|${nacional}`) {
+    setVistaPrevia(`${dep}|${nacional}`);
+    setCoords(centro);
+  }
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    map.setMaxBounds(limites);
+    map.setMinZoom(nacional ? 5 : 12);
+    map.setView(centro, 14);
+    markerRef.current?.setLatLng(centro);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- centro y limites se derivan de dep y nacional
+  }, [dep, nacional]);
 
   return (
     <div>
@@ -114,7 +140,7 @@ export default function MapPicker({ onLocationSelect, initialLat, initialLng }: 
         <div className="flex items-center gap-2 mt-2">
           <MapPin className="h-3 w-3 text-primario" aria-hidden="true" />
           <span className="text-xs text-tenue">
-            {coords[0].toFixed(4)}, {coords[1].toFixed(4)} · Solo entregas en Arequipa
+            {coords[0].toFixed(4)}, {coords[1].toFixed(4)}{nacional ? ` · ${dep}` : ` · Solo entregas en ${BASE}`}
           </span>
         </div>
       )}

@@ -105,6 +105,8 @@ export interface CreateOrderInput {
   supplyListId?: string;
   supplyListIds?: string[];
   shippingAddress: string;
+  /** Departamento de entrega; sin él, el servidor asume Arequipa */
+  shippingDepartamento?: string;
   shippingPhone: string;
   contactNotes?: string;
   items: { productId: string; productName?: string; quantity: number; unitPrice: number; recargo?: number; notes?: string; para?: string }[];
@@ -139,15 +141,18 @@ export const settingsApi = {
 };
 
 // Schools API
+export interface DatosColegio { name: string; address?: string; departamento?: string; provincia?: string; distrito?: string }
+
 export const schoolsApi = {
-  getAll: () => api.get<School[]>('/schools'),
+  /** Público: solo los colegios que atiende la tienda. El panel pide { todos: true }. */
+  getAll: (opciones?: { todos?: boolean; departamento?: string }) =>
+    api.get<School[]>('/schools', { ...(opciones?.todos ? { todos: true } : {}), ...(opciones?.departamento ? { departamento: opciones.departamento } : {}) }),
   getById: (id: string) => api.get<School>(`/schools/${id}`),
   getGrades: (id: string) => api.get<Grade[]>(`/schools/${id}/grades`),
-  create: (name: string, address?: string) =>
-    api.post<School>('/schools', { name, address }),
+  create: (datos: DatosColegio) => api.post<School>('/schools', datos),
   createGrade: (schoolId: string, name: string, year: number) =>
     api.post<Grade | string>(`/schools/${schoolId}/grades`, { name, year }),
-  update: (id: string, name: string, address?: string) => api.put<boolean>(`/schools/${id}`, { name, address }),
+  update: (id: string, datos: DatosColegio) => api.put<boolean>(`/schools/${id}`, datos),
   delete: (id: string) => api.delete<boolean>(`/schools/${id}`),
   deleteGrade: (schoolId: string, gradeId: string) => api.delete<boolean>(`/schools/${schoolId}/grades/${gradeId}`),
   getSchoolSections: (schoolId: string) => api.get<Section[]>(`/schools/${schoolId}/sections`),
@@ -321,6 +326,7 @@ export const usersApi = {
 export interface ConfiguracionTienda {
   costoEnvio: number; envioGratisDesde: number | null; whatsapp: string; telefono: string;
   horarioEntrega: string; diasEntrega: number; zonas?: string;
+  coberturaNacional: boolean; costoEnvioProvincias: number | null; diasEntregaProvincias: number | null;
 }
 export const configuracionApi = {
   get: () => api.get<ConfiguracionTienda>('/settings'),

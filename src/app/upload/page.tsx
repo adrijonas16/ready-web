@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Camera, Lock } from 'lucide-react';
 import ImageUploader from '@/components/ImageUploader';
 import SearchSelect from '@/components/SearchSelect';
+import { opcionesColegios } from '@/lib/colegios';
 import { useAuth } from '@/lib/auth-context';
 import { listsApi, schoolsApi, sectionsApi } from '@/services/api';
 import { School, Section } from '@/lib/types';
@@ -127,7 +128,7 @@ export default function UploadPage() {
               <label htmlFor="campo-colegio" className="mb-1 block text-sm font-semibold">Colegio <span className="text-profe" aria-hidden="true">*</span></label>
               <SearchSelect id="campo-colegio" value={selectedSchool} onChange={v => { elegirColegio(v); setErrores(x => ({ ...x, colegio: null })); }} placeholder="Busca tu colegio…"
                 invalido={!!errores.colegio} describedBy={errores.colegio ? 'campo-colegio-error' : undefined}
-                options={schools.map(s => ({ value: s.id, label: s.name }))} />
+                options={opcionesColegios(schools)} />
               <ErrorCampo id="campo-colegio" error={errores.colegio} />
             </div>
             <div>

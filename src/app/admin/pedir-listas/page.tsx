@@ -7,6 +7,7 @@ import { buscarOpciones } from '@/lib/buscar';
 import type { ColegioContacto, ConfigContactoColegios, EstadoContactoColegio, RegistroContacto } from '@/lib/types';
 import { Cargando, Interruptor, Modal, botonPrimario, campo, fechaCorta, tarjeta, useAvisos } from '../_ui';
 import Paginador, { usePaginacion } from '@/components/Paginador';
+import { BASE } from '@/lib/peru';
 
 // ── Estados y textos ──
 const ESTADOS: { id: EstadoContactoColegio; label: string; clase: string }[] = [
@@ -35,6 +36,7 @@ export default function PedirListasPage() {
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
   const [busqueda, setBusqueda] = useState('');
   const [soloSinLista, setSoloSinLista] = useState(true);
+  const [departamento, setDepartamento] = useState('');
   const [elegidos, setElegidos] = useState<Set<string>>(new Set());
   const [editando, setEditando] = useState<ColegioContacto | null>(null);
   const [llamando, setLlamando] = useState<ColegioContacto | null>(null);
@@ -53,18 +55,20 @@ export default function PedirListasPage() {
   const conteo = useMemo(() => {
     const r: Record<string, number> = { HOY: 0, SIN_DATOS: 0 };
     (colegios ?? []).forEach(c => {
+      if (departamento && (c.departamento ?? BASE) !== departamento) return;
       r[c.estado] = (r[c.estado] ?? 0) + 1;
       if (vencido(c, ahora)) r.HOY++;
       if (!c.whatsapp && !c.correo && !c.telefono) r.SIN_DATOS++;
     });
     return r;
-  }, [colegios, ahora]);
+  }, [colegios, departamento, ahora]);
 
   const visibles = useMemo(() => {
     const q = busqueda.trim();
     // Con búsqueda: misma búsqueda amigable que en la tienda (cualquier palabra, sin tildes, con errores de tipeo)
-    const base = q ? buscarOpciones((colegios ?? []).map(c => ({ ...c, label: c.nombre })), q,
-      c => `${c.nombre} ${c.contactoNombre ?? ''} ${c.correo ?? ''} ${c.whatsapp ?? ''}`) : (colegios ?? []);
+    const delDepartamento = departamento ? (colegios ?? []).filter(c => (c.departamento ?? BASE) === departamento) : (colegios ?? []);
+    const base = q ? buscarOpciones(delDepartamento.map(c => ({ ...c, label: c.nombre })), q,
+      c => `${c.nombre} ${c.contactoNombre ?? ''} ${c.correo ?? ''} ${c.whatsapp ?? ''}`) : delDepartamento;
     const filtrados = base.filter(c => {
       if (soloSinLista && c.listasAprobadas > 0 && filtro !== 'LISTA_RECIBIDA') return false;
       if (filtro === 'HOY' && !vencido(c, ahora)) return false;
@@ -74,9 +78,15 @@ export default function PedirListasPage() {
     });
     // Sin búsqueda: primero a quienes toca recordar; con búsqueda se respeta el orden por parecido
     return q ? filtrados : filtrados.sort((a, b) => Number(vencido(b, ahora)) - Number(vencido(a, ahora)) || a.nombre.localeCompare(b.nombre, 'es'));
-  }, [colegios, filtro, busqueda, soloSinLista, ahora]);
+  }, [colegios, filtro, busqueda, soloSinLista, departamento, ahora]);
 
-  const pag = usePaginacion(visibles, POR_PAGINA, `${filtro}|${busqueda}|${soloSinLista}`);
+  const pag = usePaginacion(visibles, POR_PAGINA, `${filtro}|${busqueda}|${soloSinLista}|${departamento}`);
+  // Departamentos con colegios cargados (el filtro aparece cuando hay más de uno)
+  const departamentos = useMemo(() => {
+    const n: Record<string, number> = {};
+    (colegios ?? []).forEach(c => { const d = c.departamento ?? BASE; n[d] = (n[d] ?? 0) + 1; });
+    return Object.entries(n).sort(([a], [b]) => a.localeCompare(b, 'es'));
+  }, [colegios]);
 
   const alternar = (id: string) => setElegidos(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const conCorreoElegidos = (colegios ?? []).filter(c => elegidos.has(c.id) && c.correo).length;
@@ -179,6 +189,12 @@ export default function PedirListasPage() {
           <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar colegio, contacto, correo…"
             aria-label="Buscar colegio" className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs" />
         </div>
+        {departamentos.length > 1 && (
+          <select value={departamento} onChange={e => setDepartamento(e.target.value)} aria-label="Departamento" className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700">
+            <option value="">Todos los departamentos</option>
+            {departamentos.map(([d, n]) => <option key={d} value={d}>{d} ({n})</option>)}
+          </select>
+        )}
         <Interruptor activo={soloSinLista} onChange={setSoloSinLista} etiqueta="Ocultar los que ya tienen lista" />
         <button onClick={enviarCorreos} disabled={!correo.configurado || conCorreoElegidos === 0 || enviando}
           title={!correo.configurado ? 'Activa el correo para enviar por lotes' : undefined}
@@ -227,7 +243,7 @@ function FilaColegio({ c, ahora, elegido, onElegir, correoActivo, onWhatsapp, on
         </button>
         <div className="min-w-[200px] flex-1">
           <p className="text-sm font-bold text-slate-900">{c.nombre}</p>
-          <p className="text-neutral-500">{[c.niveles, c.gestion].filter(Boolean).join(' · ')}</p>
+          <p className="text-neutral-500">{[c.niveles, c.gestion, [c.distrito, c.departamento ?? BASE].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}</p>
           <p className="mt-1 text-slate-700">
             {c.contactoNombre && <span className="mr-2 font-semibold">{c.contactoNombre}</span>}
             {c.whatsapp && <span className="mr-2">WhatsApp {c.whatsapp}</span>}

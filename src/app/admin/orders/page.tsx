@@ -52,16 +52,18 @@ const agrupar = (items: OrderItem[]) => {
   items.forEach(it => { const k = it.para?.trim() || ''; g.set(k, [...(g.get(k) ?? []), it]); });
   return [...g.entries()];
 };
+/** Dirección con su departamento (los pedidos de antes son de Arequipa). */
+const conDepartamento = (o: Order) => `${o.shippingAddress} · ${o.shippingDepartamento ?? 'Arequipa'}`;
 const nombreCaja = (para: string) => para || 'Otros productos';
 const utiles = (items: OrderItem[]) => { const n = items.reduce((s, i) => s + i.quantity, 0); return `${n} ${n === 1 ? 'útil' : 'útiles'}`; };
 
 function csv(orders: Order[]) {
   const esc = (v: unknown) => { const t = String(v ?? ''); return /[",;\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
-  const filas = [['Pedido', 'Fecha', 'Estado', 'Cliente', 'Correo', 'Teléfono', 'Dirección', 'Pago', 'Entrega', 'Útiles', 'Envío', 'Total', 'Notas']];
+  const filas = [['Pedido', 'Fecha', 'Estado', 'Cliente', 'Correo', 'Teléfono', 'Dirección', 'Departamento', 'Pago', 'Entrega', 'Útiles', 'Envío', 'Total', 'Notas']];
   for (const o of orders) {
     const n = leerNotas(o.contactNotes);
     filas.push([
-      o.id, formatDate(o.createdAt), getStatusLabel(o.status), o.userName ?? '', o.userEmail ?? n.email ?? '', o.shippingPhone, o.shippingAddress,
+      o.id, formatDate(o.createdAt), getStatusLabel(o.status), o.userName ?? '', o.userEmail ?? n.email ?? '', o.shippingPhone, o.shippingAddress, o.shippingDepartamento ?? 'Arequipa',
       o.pago ? `${o.pago.metodo} ${o.pago.operacion ?? ''}`.trim() : '', o.entrega?.fecha ? `${fechaCorta(o.entrega.fecha)} ${o.entrega.franja ?? ''}`.trim() : '',
       String(o.items?.reduce((s, i) => s + i.quantity, 0) ?? 0), String(o.costoEnvio ?? ''), o.total.toFixed(2),
       [...n.notas, ...n.libros.map(l => `Libros por cotizar: ${l}`), ...n.porConseguir.map(l => `Útiles por conseguir: ${l}`)].join(' | '),
@@ -76,6 +78,7 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterDep, setFilterDep] = useState('');
   const [search, setSearch] = useState('');
   const [cambiando, setCambiando] = useState<string | null>(null);
   const [desde, setDesde] = useState('');
@@ -111,18 +114,21 @@ export default function AdminOrdersPage() {
     const q = search.trim().toLowerCase();
     return orders.filter(o => {
       if (filterStatus && o.status !== filterStatus) return false;
+      if (filterDep && (o.shippingDepartamento ?? 'Arequipa') !== filterDep) return false;
       const dia = fechaLocal(o.createdAt);
       if (desde && dia < desde) return false;
       if (hasta && dia > hasta) return false;
       if (q) {
         const n = leerNotas(o.contactNotes);
-        const texto = [o.id, o.shippingPhone, o.userName, o.userEmail, n.email, o.shippingAddress].filter(Boolean).join(' ').toLowerCase();
+        const texto = [o.id, o.shippingPhone, o.userName, o.userEmail, n.email, o.shippingAddress, o.shippingDepartamento].filter(Boolean).join(' ').toLowerCase();
         if (!texto.includes(q)) return false;
       }
       return true;
     });
-  }, [orders, filterStatus, search, desde, hasta]);
-  const pag = usePaginacion(filtered, 20, [filterStatus, search, desde, hasta].join('|'));
+  }, [orders, filterStatus, filterDep, search, desde, hasta]);
+  const pag = usePaginacion(filtered, 20, [filterStatus, filterDep, search, desde, hasta].join('|'));
+  // Solo se ofrece el filtro cuando hay pedidos de más de un departamento
+  const departamentos = useMemo(() => [...new Set(orders.map(o => o.shippingDepartamento ?? 'Arequipa'))].sort((a, b) => a.localeCompare(b, 'es')), [orders]);
 
   const exportar = () => {
     if (!filtered.length) { avisos.error(null, 'No hay pedidos para exportar'); return; }
@@ -165,6 +171,12 @@ export default function AdminOrdersPage() {
           <option value="">Todos los estados</option>
           {STATUSES.map(s => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
         </select>
+        {(departamentos.length > 1 || filterDep) && (
+          <select value={filterDep} onChange={e => setFilterDep(e.target.value)} aria-label="Departamento" className="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-700">
+            <option value="">Todos los departamentos</option>
+            {departamentos.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        )}
         <label className="text-[10px] text-slate-500">Desde
           <input type="date" value={desde} max={hasta || undefined} onChange={e => setDesde(e.target.value)} className="block px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
         </label>
@@ -218,7 +230,7 @@ export default function AdminOrdersPage() {
                   </div>
                 </div>
 
-                {porCajas && <HojasPorCaja order={order} cajas={cajas} direccion={order.shippingAddress} />}
+                {porCajas && <HojasPorCaja order={order} cajas={cajas} direccion={conDepartamento(order)} />}
 
                 {abierto && !porCajas && (
                   <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50 space-y-3 text-xs" data-detalle>
@@ -229,7 +241,7 @@ export default function AdminOrdersPage() {
                         <p className="text-slate-700">Teléfono: {order.shippingPhone || n.celular || '—'}</p>
                       </Bloque>
                       <Bloque icono={Truck} titulo="Entrega">
-                        <p className="text-slate-700">{order.shippingAddress || '—'}</p>
+                        <p className="text-slate-700">{order.shippingAddress ? conDepartamento(order) : '—'}</p>
                         {n.gps && (
                           <p><a href={`https://www.google.com/maps?q=${n.gps.lat},${n.gps.lng}`} target="_blank" rel="noopener noreferrer"
                             className="text-blue-500 hover:underline inline-flex items-center gap-1"><MapPin className="h-3 w-3" aria-hidden="true" /> Ver ubicación en el mapa</a></p>

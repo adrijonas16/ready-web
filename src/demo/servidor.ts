@@ -8,6 +8,7 @@ import {
   type Linea, type ProductoDemo, type Tier, type TipoVariante,
 } from './catalogo';
 import { coincideAlguna } from '@/lib/buscar';
+import { BASE, atiende, normalizarDepartamento } from '@/lib/peru';
 import { aplicarCupon, redondear } from '@/lib/precio';
 
 const CLAVE = 'ready-demo-v1';
@@ -40,7 +41,7 @@ interface Lista {
 type Plantilla = 'primaria' | 'primaria3' | 'inicial' | 'secundaria';
 interface Pedido {
   id: string; userId: string; supplyListId?: string; supplyListIds?: string[]; total: number; status: string;
-  shippingAddress: string; shippingPhone: string; contactNotes?: string; createdAt: string;
+  shippingAddress: string; shippingDepartamento?: string; shippingPhone: string; contactNotes?: string; createdAt: string;
   pago: { metodo: string; operacion: string; estado: string };
   entrega?: { fecha?: string; franja?: string } | null;
   costoEnvio?: number;
@@ -49,8 +50,12 @@ interface Pedido {
   items: { id: string; productId: string; productName: string; imageUrl?: string; quantity: number; unitPrice: number; recargo?: number; notes?: string; para?: string | null }[];
   statusHistory: { status: string; notes?: string; createdAt: string }[];
 }
-interface Ajustes { costoEnvio: number; envioGratisDesde: number | null; whatsapp: string; telefono: string; horarioEntrega: string; diasEntrega: number; zonas?: string }
-const AJUSTES_DEMO: Ajustes = { costoEnvio: 8, envioGratisDesde: 150, whatsapp: '51951237582', telefono: '951 237 582', horarioEntrega: 'Lunes a sábado, 9:00 a 18:00', diasEntrega: 2 };
+interface Ajustes {
+  costoEnvio: number; envioGratisDesde: number | null; whatsapp: string; telefono: string; horarioEntrega: string; diasEntrega: number; zonas?: string;
+  coberturaNacional?: boolean; costoEnvioProvincias?: number | null; diasEntregaProvincias?: number | null;
+}
+const AJUSTES_DEMO: Ajustes = { costoEnvio: 8, envioGratisDesde: 150, whatsapp: '51951237582', telefono: '951 237 582', horarioEntrega: 'Lunes a sábado, 9:00 a 18:00', diasEntrega: 2, coberturaNacional: false, costoEnvioProvincias: null, diasEntregaProvincias: null };
+interface ColegioDemo { id: string; name: string; address?: string; departamento?: string; provincia?: string | null; distrito?: string | null }
 interface Campana { id: string; name: string; slug: string; description?: string; discount_percent: number; discount_fixed: number; start_date?: string | null; end_date?: string | null; is_active: boolean; image_url?: string | null; productIds: string[] }
 interface Noticia { id: string; title: string; content?: string; image_url?: string | null; link_url?: string | null; campaign_id?: string | null; campaign_slug?: string | null; display_order?: number; is_active: boolean; created_at: string }
 /** Igual que product_inquiries de la API: estado PENDIENTE, DISPONIBLE o NO_DISPONIBLE */
@@ -81,7 +86,7 @@ interface Estado {
   marcas: { id: string; name: string; logoUrl?: string | null }[];
   categorias: { id: string; name: string }[];
   secciones: typeof secciones;
-  colegios: { id: string; name: string; address?: string }[];
+  colegios: ColegioDemo[];
   seccionesColegio: Record<string, string[]>;
   grados: Grado[];
   listas: Lista[];
@@ -402,13 +407,28 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
   // Colegios y grados
   if (r0 === 'schools') {
     const col = r1 ? e.colegios.find(c => c.id === r1) : undefined;
-    if (!r1 && M === 'GET') return e.colegios;
+    if (!r1 && M === 'GET') {
+      // Igual que la API: la tienda solo ve los colegios que atiende; el panel pide ?todos=true
+      const personal = query.get('todos') === 'true' && (yo?.role === 'ADMIN' || yo?.role === 'OPERATOR');
+      const dep = query.get('departamento') ? normalizarDepartamento(query.get('departamento')) : null;
+      if (query.get('departamento') && !dep) throw new ErrorDemo('Departamento no válido');
+      return e.colegios.filter(c => {
+        const d = c.departamento ?? BASE;
+        if (dep && d !== dep) return false;
+        return personal || atiende(e.ajustes ?? AJUSTES_DEMO, d);
+      });
+    }
     // El cliente, al subir su lista, crea (o reutiliza) el grado de su colegio: eso sigue abierto a cualquier sesión
     if (M !== 'GET' && !(r2 === 'grades' && !r3 && M === 'POST')) exigirEquipo(yo);
     if (r2 === 'grades' && !r3 && M === 'POST' && !yo) throw new ErrorDemo('Inicia sesión para continuar', 401);
-    if (!r1 && M === 'POST') { const c = { id: nuevoId('col'), name: String(bj.name), address: texto(bj.address) }; e.colegios.push(c); e.seccionesColegio[c.id] = e.secciones.map(s => s.id); return cambia(c); }
+    const ubicacion = () => {
+      const dep = bj.departamento ? normalizarDepartamento(String(bj.departamento)) : BASE;
+      if (!dep) throw new ErrorDemo('Elige un departamento válido');
+      return { departamento: dep, provincia: texto(bj.provincia)?.trim() || null, distrito: texto(bj.distrito)?.trim() || null };
+    };
+    if (!r1 && M === 'POST') { const c = { id: nuevoId('col'), name: String(bj.name), address: texto(bj.address), ...ubicacion() }; e.colegios.push(c); e.seccionesColegio[c.id] = e.secciones.map(s => s.id); return cambia(c); }
     if (r1 && !r2 && M === 'GET') return col ?? null;
-    if (r1 && !r2 && M === 'PUT') { if (col) Object.assign(col, { name: bj.name ?? col.name, address: bj.address ?? col.address }); return cambia(true); }
+    if (r1 && !r2 && M === 'PUT') { if (col) Object.assign(col, { name: bj.name ?? col.name, address: bj.address ?? col.address, ...ubicacion() }); return cambia(true); }
     if (r1 && !r2 && M === 'DELETE') {
       const n = e.listas.filter(l => l.schoolId === r1).length;
       if (n) throw new ErrorDemo(`No se puede eliminar: el colegio tiene ${n} ${n === 1 ? 'lista' : 'listas'}. Elimina o mueve esas listas primero.`, 409);
@@ -665,7 +685,10 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       avisar('NewList', 'Llegó una lista nueva para revisar', { admin: true });
       return cambia({ id: l.id, estado: l.estado, iaEstado: l.iaEstado });
     }
-    if (r1 === 'official') return e.listas.filter(l => l.esOficial && l.estado === 'VALIDADA' && (!query.get('schoolId') || l.schoolId === query.get('schoolId')) && (!query.get('gradeId') || l.gradeId === query.get('gradeId'))).map(listaRespuesta);
+    if (r1 === 'official') {
+      const atendido = (schoolId: string) => atiende(e.ajustes ?? AJUSTES_DEMO, e.colegios.find(c => c.id === schoolId)?.departamento ?? BASE);
+      return e.listas.filter(l => l.esOficial && l.estado === 'VALIDADA' && atendido(l.schoolId) && (!query.get('schoolId') || l.schoolId === query.get('schoolId')) && (!query.get('gradeId') || l.gradeId === query.get('gradeId'))).map(listaRespuesta);
+    }
     if (r1 === 'from-text' && M === 'POST') {
       const l: Lista = { id: nuevoId('lista'), userId: texto(bj.userId), schoolId: String(bj.schoolId), gradeId: String(bj.gradeId), year: Number(bj.year), estado: 'PENDIENTE_REVISION', esOficial: false, iaEstado: 'LISTO', creada: Date.now(), plantilla: 'primaria',
         items: ((bj.items as Json[]) ?? []).map((x, i) => ({ id: `t${Date.now()}-${i}`, nombreOriginal: String(x.nombreOriginal), cantidad: Number(x.cantidad) || 1, notas: texto(x.notas), niveles: {} })) };
@@ -854,12 +877,13 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
   const enlaceDe = (id: string) => { const c = contactoDe(id); c.token ??= nuevoId('tok').replace(/[^a-z0-9]/gi, ''); return `${typeof location !== 'undefined' ? location.origin : ''}/colegio/${c.token}`; };
   const armar = (t: string, nombre: string, enlace: string, contacto?: string | null) =>
     t.replaceAll('{colegio}', nombre).replaceAll('{enlace}', enlace).replaceAll('{anio}', String(anioEscolarDemo())).replaceAll('{contacto}', contacto || 'equipo directivo');
-  const contactoRespuesta = (col: { id: string; name: string; address?: string }) => {
+  const contactoRespuesta = (col: ColegioDemo) => {
     const c = contactoDe(col.id);
     const deAnio = e.listas.filter(l => l.schoolId === col.id && !l.copiaDe && l.year === anioEscolarDemo());
     const grupos = [...new Set((e.seccionesColegio[col.id] ?? []).map(id => e.secciones.find(x => x.id === id)?.groupName).filter(Boolean))];
     return {
-      id: col.id, nombre: col.name, direccion: col.address ?? null, gestion: null, niveles: grupos.join(', ') || null,
+      id: col.id, nombre: col.name, direccion: col.address ?? null, gestion: null,
+      departamento: col.departamento ?? BASE, provincia: col.provincia ?? null, distrito: col.distrito ?? null, niveles: grupos.join(', ') || null,
       telefono: c.telefono ?? null, whatsapp: c.whatsapp ?? null, correo: c.correo ?? null, contactoNombre: c.contactoNombre ?? null, notas: c.notas ?? null,
       estado: c.estado, ultimoContactoAt: c.ultimoContactoAt ?? null, proximoContactoAt: c.proximoContactoAt ?? null, recordatorios: c.recordatorios,
       listasAprobadas: deAnio.filter(l => l.esOficial || l.estado === 'VALIDADA').length,
@@ -964,14 +988,18 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       const subtotal = redondear(items.reduce((s, x) => s + x.unitPrice * x.quantity, 0));
       const cupon = aplicarCupon(texto(bj.cupon), subtotal);
       const a = e.ajustes;
-      const costoEnvio = a.envioGratisDesde != null && subtotal >= a.envioGratisDesde ? 0 : a.costoEnvio;
+      const departamento = texto(bj.shippingDepartamento) ? normalizarDepartamento(String(bj.shippingDepartamento)) : BASE;
+      if (!departamento) throw new ErrorDemo('Elige un departamento de entrega válido');
+      if (!atiende(a, departamento)) throw new ErrorDemo(`Por ahora solo entregamos en ${BASE}. Muy pronto llegaremos a ${departamento}.`, 400, 'FUERA_DE_COBERTURA');
+      const costoEnvio = a.envioGratisDesde != null && subtotal >= a.envioGratisDesde ? 0
+        : departamento !== BASE && a.costoEnvioProvincias != null ? a.costoEnvioProvincias : a.costoEnvio;
       const pago = (bj.pago as Pedido['pago']) ?? { metodo: 'tarjeta', operacion: nuevoId('OP').toUpperCase(), estado: 'APROBADO' };
       const listas = Array.from(new Set([...((bj.supplyListIds as string[]) ?? []), texto(bj.supplyListId)].filter(Boolean) as string[]));
       const comp = bj.comprobante as Pedido['comprobante'];
       const ped: Pedido = {
         id: `RD-${String(1000 + e.pedidos.length + 1)}`, userId: yo.id, supplyListId: listas[0], supplyListIds: listas,
         total: redondear(subtotal - (cupon?.descuento ?? 0) + costoEnvio), status: 'RECIBIDO',
-        shippingAddress: String(bj.shippingAddress || ''), shippingPhone: String(bj.shippingPhone || ''), contactNotes: texto(bj.contactNotes), createdAt: ahora(), pago, items,
+        shippingAddress: String(bj.shippingAddress || ''), shippingDepartamento: departamento, shippingPhone: String(bj.shippingPhone || ''), contactNotes: texto(bj.contactNotes), createdAt: ahora(), pago, items,
         entrega: (bj.entrega as Pedido['entrega']) ?? null, costoEnvio,
         comprobante: comp?.tipo ? { tipo: comp.tipo === 'factura' ? 'factura' : 'boleta', documento: String(comp.documento ?? ''), ...(comp.razonSocial ? { razonSocial: String(comp.razonSocial) } : {}) } : null,
         cupon: cupon?.codigo ?? null, descuento: cupon?.descuento ?? 0,
@@ -1043,7 +1071,12 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
         horarioEntrega: String(cambiaSi(bj.horarioEntrega, actual.horarioEntrega)).trim(),
         diasEntrega: Math.round(num(bj.diasEntrega, actual.diasEntrega)),
         ...(bj.zonas !== undefined || actual.zonas !== undefined ? { zonas: String(cambiaSi(bj.zonas, actual.zonas ?? '')) } : {}),
+        coberturaNacional: bj.coberturaNacional === undefined ? !!actual.coberturaNacional : bj.coberturaNacional === true,
+        costoEnvioProvincias: bj.costoEnvioProvincias === null || bj.costoEnvioProvincias === '' ? null : bj.costoEnvioProvincias === undefined ? actual.costoEnvioProvincias ?? null : Number(bj.costoEnvioProvincias),
+        diasEntregaProvincias: bj.diasEntregaProvincias === null || bj.diasEntregaProvincias === '' ? null : bj.diasEntregaProvincias === undefined ? actual.diasEntregaProvincias ?? null : Math.round(Number(bj.diasEntregaProvincias)),
       };
+      if (nuevo.costoEnvioProvincias != null && (!Number.isFinite(nuevo.costoEnvioProvincias) || nuevo.costoEnvioProvincias < 0)) throw new ErrorDemo('El costo de envío a provincias no es válido');
+      if (nuevo.diasEntregaProvincias != null && (!Number.isFinite(nuevo.diasEntregaProvincias) || nuevo.diasEntregaProvincias < 0 || nuevo.diasEntregaProvincias > 60)) throw new ErrorDemo('Los días de entrega a provincias no son válidos');
       if (!Number.isFinite(nuevo.costoEnvio) || nuevo.costoEnvio < 0) throw new ErrorDemo('El costo de envío no es válido');
       if (nuevo.envioGratisDesde !== null && (!Number.isFinite(nuevo.envioGratisDesde) || nuevo.envioGratisDesde < 0)) throw new ErrorDemo('El monto para envío gratis no es válido');
       if (!Number.isFinite(nuevo.diasEntrega) || nuevo.diasEntrega < 0 || nuevo.diasEntrega > 60) throw new ErrorDemo('Los días de entrega no son válidos');

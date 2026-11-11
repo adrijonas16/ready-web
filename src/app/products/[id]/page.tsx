@@ -65,7 +65,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const precioSinOferta = redondear(product.basePrice + priceModifier);
   const stockElegido = Math.min(product.stock, ...Object.values(selectedVariants).map(v => v.stock));
   const agotado = stockElegido <= 0;
-  const primeraEntrega = fechasEntrega(ajustes.diasEntrega, 1)[0];
+  const primeraEntrega = fechasEntrega(ajustes.diasEntrega, 1)[0]; // en Arequipa (a provincias se calcula al pagar)
 
   // Build all available images: product gallery + selected variant images
   const allImages: { url: string; label: string }[] = [];
@@ -263,7 +263,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primario-claro text-primario"><Truck className="h-5 w-5" aria-hidden="true" /></span>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Envío en Arequipa</p>
+                  <p className="text-sm font-bold text-slate-900">Envío {ajustes.coberturaNacional ? 'a todo el Perú' : 'en Arequipa'}</p>
                   <p className="text-xs text-tenue">{textoEnvio(ajustes, formatPrice)}. Si lo pides hoy, llega desde el {fechaLarga(primeraEntrega?.valor)}.</p>
                 </div>
               </div>

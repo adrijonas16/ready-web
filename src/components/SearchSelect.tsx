@@ -10,7 +10,12 @@ export interface SelectOption {
   group?: string;
   /** Texto extra para encontrarla (no se muestra): código, dirección, sinónimos */
   buscar?: string;
+  /** Segunda línea en gris (p. ej. el distrito de un colegio con nombre repetido) */
+  detalle?: string;
 }
+
+/** Con miles de opciones (colegios de todo el Perú) se pintan solo las primeras; escribir afina la búsqueda. */
+const MAX_VISIBLES = 80;
 
 interface SearchSelectProps {
   options: SelectOption[];
@@ -33,7 +38,8 @@ export default function SearchSelect({ options, value, onChange, placeholder = '
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selectedLabel = options.find(o => o.value === value)?.label || '';
+  const elegida = options.find(o => o.value === value);
+  const selectedLabel = elegida ? `${elegida.label}${elegida.detalle ? ` (${elegida.detalle})` : ''}` : '';
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -48,10 +54,11 @@ export default function SearchSelect({ options, value, onChange, placeholder = '
   }, [open]);
 
   // Búsqueda amigable: cualquier palabra del nombre, en cualquier orden, sin tildes y con errores de tipeo
-  const filtered = search ? buscarOpciones(options, search, o => `${o.label} ${o.buscar ?? ''}`) : options;
+  const filtered = search ? buscarOpciones(options, search, o => `${o.label} ${o.detalle ?? ''} ${o.buscar ?? ''}`) : options;
+  const recortadas = filtered.length > MAX_VISIBLES;
 
   // Group options
-  const groups = filtered.reduce<Record<string, SelectOption[]>>((acc, o) => {
+  const groups = (recortadas ? filtered.slice(0, MAX_VISIBLES) : filtered).reduce<Record<string, SelectOption[]>>((acc, o) => {
     const g = o.group || '';
     if (!acc[g]) acc[g] = [];
     acc[g].push(o);
@@ -120,10 +127,16 @@ export default function SearchSelect({ options, value, onChange, placeholder = '
                     className={`w-full min-h-10 px-3 py-2 text-left text-sm sm:text-xs hover:bg-blue-50 transition-colors ${o.value === value ? 'bg-blue-50 text-blue-600 font-medium' : 'text-slate-700'}`}
                   >
                     {o.label}
+                    {o.detalle && <span className="block text-[11px] text-tenue">{o.detalle}</span>}
                   </button>
                 ))}
               </div>
             ))}
+            {recortadas && (
+              <p role="status" className="px-3 py-2 text-[11px] text-tenue text-center">
+                Hay {filtered.length.toLocaleString('es-PE')} resultados. Escribe más del nombre o el distrito para encontrarlo.
+              </p>
+            )}
             {filtered.length === 0 && (
               <p className="px-3 py-4 text-xs text-tenue text-center">Sin resultados</p>
             )}
