@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Fuse from 'fuse.js';
-import { Check, Minus, Package, Plus, Search, Send, X } from 'lucide-react';
+import { Check, MessageCircleQuestionMark, Minus, Package, Plus, Search, Send, X } from 'lucide-react';
+import ConsultarProducto from '@/components/ConsultarProducto';
 import { productsApi } from '@/services/api';
 import { formatPrice } from '@/lib/utils';
 import { ItemVariante, Product, ProductDetail, SupplyItem, VariantValue } from '@/lib/types';
@@ -26,12 +27,14 @@ function Foto({ src, alt, className }: { src?: string | null; alt: string; class
  * - Con `item`: cambia el producto de ese útil por otro de la misma categoría.
  * - Sin `item`: agrega a la lista cualquier producto de la tienda, o pide uno que no está.
  */
-export default function SelectorProducto({ item, variantesActuales = [], onElegir, onPedirTexto, onClose }: {
+export default function SelectorProducto({ item, variantesActuales = [], onElegir, onPedirTexto, onClose, listaId }: {
   item?: SupplyItem;
   variantesActuales?: ItemVariante[];
   onElegir: (producto: Product, valores: ItemVariante[], cantidad: number, anti?: DatosAntiSpam) => void;
   /** Pide un útil que no está en la tienda; devuelve un mensaje de error o null si se agregó */
   onPedirTexto?: (nombre: string, cantidad: number, anti: DatosAntiSpam) => Promise<string | null>;
+  /** Lista desde la que se busca (para las consultas de productos que no están en la tienda) */
+  listaId?: string;
   onClose: () => void;
 }) {
   const agregar = !item;
@@ -163,6 +166,7 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
       imagen: v.image_url,
     })), cantidad, extra);
   };
+  const [consultando, setConsultando] = useState(false);
   const pedirTexto = async () => {
     if (!onPedirTexto || pidiendo) return;
     const t = busqueda.trim().replace(/\s{2,}/g, ' ');
@@ -349,6 +353,16 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
                   <Send className="h-4 w-4" aria-hidden="true" />
                   {pidiendo ? 'Agregando…' : busqueda.trim().length >= 3 ? `Pedir «${busqueda.trim()}»` : 'Pedir un útil por su nombre'}
                 </button>
+                <div className="mt-4 border-t border-linea pt-4">
+                  {consultando ? (
+                    <ConsultarProducto compacto productoInicial={busqueda.trim()} supplyListId={listaId} />
+                  ) : (
+                    <button type="button" onClick={() => setConsultando(true)}
+                      className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-primario hover:underline">
+                      <MessageCircleQuestionMark className="h-4 w-4" aria-hidden="true" /> Prefiero preguntar primero si lo consiguen (respuesta en 24 h)
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </section>

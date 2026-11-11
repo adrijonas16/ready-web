@@ -8,6 +8,7 @@ import { Search, SlidersHorizontal, X, Camera, Percent } from 'lucide-react';
 import { productsApi } from '@/services/api';
 import { Product } from '@/lib/types';
 import ProductCard from '@/components/ProductCard';
+import ConsultarProducto from '@/components/ConsultarProducto';
 import { TIERS } from '@/lib/lista';
 import { coincide as coincideBusqueda } from '@/lib/buscar';
 import { precioVenta } from '@/lib/precio';
@@ -249,12 +250,18 @@ function Catalogo() {
                 {busqueda && <button onClick={() => setBusqueda('')} className="cursor-pointer rounded-xl border-2 border-grafito px-4 py-2 font-bold">Limpiar búsqueda</button>}
                 {activos > 0 && <button onClick={limpiar} className="cursor-pointer rounded-xl bg-primario px-4 py-2.5 font-bold text-white">Quitar filtros</button>}
               </div>
+              <div className="mx-auto mt-8 max-w-lg border-t border-linea pt-6">
+                <ConsultarProducto key={busqueda.trim()} productoInicial={busqueda.trim()} />
+              </div>
             </div>
           ) : (
             <>
               <h2 className="sr-only">Productos</h2>
               <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                 {visibles.map((p, i) => <ProductCard key={p.id} product={p} prioridad={i < 4} />)}
+              </div>
+              <div className="mt-10 rounded-2xl border border-dashed border-linea-fuerte bg-papel px-5 py-5">
+                <ConsultarProducto />
               </div>
             </>
           )}

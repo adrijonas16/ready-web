@@ -116,6 +116,8 @@ export interface VariantValue {
   stock: number;
   is_active: boolean;
   color_hex?: string | null;
+  /** Descripción propia de la opción (se ve en la ficha al elegirla) */
+  description?: string | null;
 }
 
 export interface VariantType {
@@ -268,4 +270,23 @@ export interface OrderStatusHistory {
   status: string;
   notes?: string;
   createdAt: string;
+}
+/** Consulta de un producto que no está en la tienda: la tienda responde sí o no en 24 horas. */
+export type EstadoConsulta = 'PENDIENTE' | 'DISPONIBLE' | 'NO_DISPONIBLE';
+export interface Consulta {
+  id: string;
+  producto: string;
+  detalle?: string | null;
+  estado: EstadoConsulta;
+  respuesta?: string | null;
+  createdAt: string;
+  /** Plazo de respuesta (24 h desde la consulta) */
+  venceAt: string;
+  respondidaAt?: string | null;
+  supplyListId?: string | null;
+  // Solo en el panel
+  nombre?: string | null;
+  contacto?: string | null;
+  userEmail?: string | null;
+  userPhone?: string | null;
 }

@@ -446,12 +446,14 @@ function Navegacion({ atras, siguiente }: { atras: () => void; siguiente: () => 
   );
 }
 
-type DatosValor = { value: string; colorHex: string | null; priceModifier: number; stock: number; isActive: boolean };
+type DatosValor = { value: string; colorHex: string | null; priceModifier: number; stock: number; isActive: boolean; description: string };
+/** Mismo tope que la API (ProductVariantsController.MaxDescripcion) */
+const MAX_DESC_OPCION = 1000;
 
 function FilaValor({ val, base, onGuardar, onBorrar, onFoto }: {
   val: VariantValue; base: number; onGuardar: (d: DatosValor) => Promise<boolean>; onBorrar: () => void; onFoto: (f: File) => void;
 }) {
-  const inicial = (): DatosValor => ({ value: val.value, colorHex: val.color_hex ?? null, priceModifier: Number(val.price_modifier) || 0, stock: Number(val.stock) || 0, isActive: val.is_active !== false });
+  const inicial = (): DatosValor => ({ value: val.value, colorHex: val.color_hex ?? null, priceModifier: Number(val.price_modifier) || 0, stock: Number(val.stock) || 0, isActive: val.is_active !== false, description: val.description ?? '' });
   const [d, setD] = useState<DatosValor>(inicial);
   const [guardando, setGuardando] = useState(false);
   const sucio = JSON.stringify(d) !== JSON.stringify(inicial());
@@ -490,16 +492,23 @@ function FilaValor({ val, base, onGuardar, onBorrar, onFoto }: {
           className="bg-blue-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold disabled:opacity-30">{guardando ? '…' : 'Guardar'}</button>
         <button onClick={onBorrar} aria-label={`Eliminar ${val.value}`} className="text-red-300 hover:text-red-500 p-1.5"><Trash2 className="h-3.5 w-3.5" /></button>
       </div>
+      <label className="basis-full">
+        <span className="block text-[10px] text-slate-500 mb-0.5">Descripción de la opción (opcional, se ve en la tienda al elegirla)</span>
+        <textarea value={d.description} onChange={e => set('description', e.target.value)} maxLength={MAX_DESC_OPCION} rows={2}
+          aria-label={`Descripción de ${val.value}`} placeholder="Ej: Tapa dura con dinosaurios, 100 hojas de 80 g"
+          className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white resize-y" />
+      </label>
     </div>
   );
 }
 
-function AgregarValor({ onAdd }: { onAdd: (d: { value: string; priceModifier: number; stock: number; colorHex: string | null }) => Promise<boolean> }) {
+function AgregarValor({ onAdd }: { onAdd: (d: { value: string; priceModifier: number; stock: number; colorHex: string | null; description: string | null }) => Promise<boolean> }) {
   const [open, setOpen] = useState(false);
   const [val, setVal] = useState('');
   const [price, setPrice] = useState('0');
   const [stock, setStock] = useState('100');
   const [color, setColor] = useState<string | null>(null);
+  const [desc, setDesc] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -516,9 +525,9 @@ function AgregarValor({ onAdd }: { onAdd: (d: { value: string; priceModifier: nu
     setError(err);
     if (err) return;
     setEnviando(true);
-    const ok = await onAdd({ value: val.trim(), priceModifier: parseFloat(price) || 0, stock: parseInt(stock) || 0, colorHex: color });
+    const ok = await onAdd({ value: val.trim(), priceModifier: parseFloat(price) || 0, stock: parseInt(stock) || 0, colorHex: color, description: desc.trim() || null });
     setEnviando(false);
-    if (ok) { setVal(''); setPrice('0'); setStock('100'); setColor(null); setOpen(false); }
+    if (ok) { setVal(''); setPrice('0'); setStock('100'); setColor(null); setDesc(''); setOpen(false); }
   };
   return (
     <div className="mt-2 p-2.5 bg-blue-50 rounded-xl flex flex-wrap gap-2 items-end">
@@ -541,6 +550,11 @@ function AgregarValor({ onAdd }: { onAdd: (d: { value: string; priceModifier: nu
         <span className="text-[10px] text-slate-500">Color</span>
         {color && <input type="color" value={color} onChange={e => setColor(e.target.value)} aria-label="Color de la nueva opción" className="w-7 h-6 rounded border-0 cursor-pointer" />}
       </div>
+      <label className="basis-full">
+        <span className="block text-[10px] text-slate-500 mb-0.5">Descripción (opcional)</span>
+        <textarea value={desc} onChange={e => setDesc(e.target.value)} maxLength={MAX_DESC_OPCION} rows={2} placeholder="Qué tiene de especial esta opción"
+          className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white resize-y" />
+      </label>
       <button type="button" onClick={agregar} disabled={enviando} className="min-h-10 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40">Agregar</button>
       <button type="button" onClick={() => setOpen(false)} className="min-h-10 text-tenue text-xs px-2 py-1.5">Cancelar</button>
       {error && <div className="w-full"><ErrorCampo id="nueva-opcion" error={error} /></div>}

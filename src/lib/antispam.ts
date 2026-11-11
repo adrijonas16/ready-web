@@ -17,6 +17,7 @@ const LIMITES: Record<string, { maximo: number; ventanaMs: number }> = {
   'subir-lista': { maximo: 5, ventanaMs: 10 * 60_000 },
   observacion: { maximo: 8, ventanaMs: 10 * 60_000 },
   'agregar-util': { maximo: 20, ventanaMs: 10 * 60_000 },
+  consulta: { maximo: 5, ventanaMs: 60 * 60_000 },
 };
 
 const clave = (accion: string) => `ready-envios-${accion}`;

@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import type { ApiResponse, User, School, Grade, Section, SupplyList, SupplyItem, ListDetail, Product, ProductDetail, Order, Settings, Entrega, Comprobante, VariantType, VariantValue } from '@/lib/types';
+import type { ApiResponse, User, School, Grade, Section, SupplyList, SupplyItem, ListDetail, Product, ProductDetail, Order, Settings, Entrega, Comprobante, VariantType, VariantValue, Consulta, EstadoConsulta } from '@/lib/types';
 import { API, MODO_DEMO, llamarDemo } from '@/lib/api-base';
 import { evento, medirCompra } from '@/lib/analytics';
 import type { DatosAntiSpam } from '@/lib/antispam';
@@ -193,6 +193,8 @@ export const listsApi = {
   /** Copia personal de una lista (la del colegio) para ajustarla sin cambiar la de los demás */
   copiar: (listId: string, data: { userId?: string; plan?: string; nueva?: boolean }) =>
     api.post<{ id: string; existente: boolean }>(`/lists/${listId}/copia`, data),
+  /** Borra una copia propia (la lista del colegio no se toca) */
+  borrarCopia: (listId: string) => api.delete<boolean>(`/lists/${listId}/copia`),
   deleteItem: (listId: string, itemId: string) =>
     api.delete<boolean>(`/lists/${listId}/items/${itemId}`),
   createFromText: (data: {
@@ -267,9 +269,9 @@ export const variantsApi = {
   createType: (productId: string, name: string, displayOrder = 0) =>
     api.post<VariantType>(`/products/${productId}/variants/types`, { name, displayOrder }),
   deleteType: (productId: string, typeId: string) => api.delete<boolean>(`/products/${productId}/variants/types/${typeId}`),
-  createValue: (productId: string, typeId: string, data: { value: string; priceModifier: number; stock: number; colorHex?: string | null; displayOrder?: number }) =>
+  createValue: (productId: string, typeId: string, data: { value: string; priceModifier: number; stock: number; colorHex?: string | null; description?: string | null; displayOrder?: number }) =>
     api.post<VariantValue>(`/products/${productId}/variants/types/${typeId}/values`, data),
-  updateValue: (productId: string, valueId: string, data: { value: string; colorHex: string | null; priceModifier: number; stock: number; isActive: boolean }) =>
+  updateValue: (productId: string, valueId: string, data: { value: string; colorHex: string | null; priceModifier: number; stock: number; isActive: boolean; description: string }) =>
     api.put<boolean>(`/products/${productId}/variants/values/${valueId}`, data),
   deleteValue: (productId: string, valueId: string) => api.delete<boolean>(`/products/${productId}/variants/values/${valueId}`),
   uploadValueImage: (productId: string, valueId: string, file: File) => {
@@ -323,4 +325,17 @@ export interface ConfiguracionTienda {
 export const configuracionApi = {
   get: () => api.get<ConfiguracionTienda>('/settings'),
   save: (data: ConfiguracionTienda) => api.put<ConfiguracionTienda>('/settings', data),
+};
+
+// Consultas de producto ("¿lo pueden conseguir?"): respuesta en 24 horas
+export const consultasApi = {
+  crear: (data: { producto: string; detalle?: string; nombre?: string; contacto?: string; supplyListId?: string }, anti?: DatosAntiSpam) =>
+    api.post<Consulta>('/consultas', { ...data, ...anti }),
+  mias: () => api.get<Consulta[]>('/consultas/mias'),
+  getById: (id: string) => api.get<Consulta>(`/consultas/${id}`),
+  /** (panel) Todas, o solo las de un estado */
+  getAll: (estado?: EstadoConsulta) => api.get<Consulta[]>('/consultas', estado ? { estado } : undefined),
+  /** (panel) Sí o no, con un mensaje opcional para el cliente */
+  responder: (id: string, data: { disponible: boolean; respuesta?: string }) =>
+    api.put<Consulta>(`/consultas/${id}/respuesta`, data),
 };

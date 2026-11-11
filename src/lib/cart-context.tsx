@@ -28,6 +28,10 @@ interface CartContextType {
   replaceList: (listaId: string, para: string, lineas: LineaNueva[], notas: string[]) => string;
   /** Líneas de una lista que ya están en el carrito */
   lineasDeLista: (listaId: string) => CartItem[];
+  /** Quita del carrito todo lo que vino de una lista (p. ej. al borrar la copia de un hijo) */
+  removeList: (listaId: string) => void;
+  /** Cambia el "para quién" de lo que vino de una lista (al renombrar la copia) */
+  renameList: (listaId: string, para: string) => void;
   clearCart: () => void;
   /** Pendientes del pedido sin precio (libros por cotizar, útiles por conseguir) */
   notasPedido: NotaPedido[];
@@ -152,6 +156,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const lineasDeLista = useCallback((listaId: string) => items.filter(i => i.listaId === listaId), [items]);
 
+  const removeList = useCallback((listaId: string) => {
+    setItems(prev => prev.filter(i => i.listaId !== listaId));
+    setNotasPedido(prev => prev.filter(n => n.listaId !== listaId));
+  }, []);
+
+  const renameList = useCallback((listaId: string, para: string) => {
+    const nombre = para.trim();
+    if (!nombre) return;
+    setItems(prev => prev.map(i => (i.listaId === listaId ? { ...i, para: nombre } : i)));
+    setNotasPedido(prev => prev.map(n => (n.listaId === listaId ? { ...n, para: nombre } : n)));
+  }, []);
+
   const clearCart = useCallback(() => { setItems([]); setNotasPedido([]); }, []);
 
   const total = redondear(items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
@@ -161,7 +177,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   return (
     <CartContext.Provider
       value={{
-        items, addItem, removeItem, updateQuantity, removeGroup, replaceList, lineasDeLista, clearCart,
+        items, addItem, removeItem, updateQuantity, removeGroup, replaceList, lineasDeLista, removeList, renameList, clearCart,
         notasPedido, listaIds, total, ahorro, itemCount,
       }}
     >

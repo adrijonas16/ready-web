@@ -12,9 +12,10 @@ import { tierLabel, Tier } from '@/lib/lista';
 import { descuentoPct, enOferta, precioVenta, redondear } from '@/lib/precio';
 import { fechaLarga, fechasEntrega, textoEnvio, useAjustes } from '@/lib/ajustes';
 import { datosItems, evento, itemGA } from '@/lib/analytics';
+import Recomendados from '@/components/Recomendados';
 
 
-interface VariantValue { id: string; value: string; image_url?: string; price_modifier: number; stock: number; is_active: boolean; color_hex?: string }
+interface VariantValue { id: string; value: string; image_url?: string; price_modifier: number; stock: number; is_active: boolean; color_hex?: string; description?: string | null }
 interface VariantType { id: string; name: string; values: VariantValue[] }
 interface ProductImage { id: string; image_url: string; alt_text?: string; is_primary: boolean }
 interface ProductDetail {
@@ -160,7 +161,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
 
-              {product.description && <p className="text-sm text-neutral-400 mb-4">{product.description}</p>}
 
               {/* Price */}
               <div className="mb-5 pb-5 border-b border-slate-100">
@@ -220,6 +220,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       ))}
                     </div>
                   )}
+                  {selectedVariants[vt.id]?.description && (
+                    <p className="mt-2 text-sm text-tenue whitespace-pre-line" aria-live="polite">{selectedVariants[vt.id].description}</p>
+                  )}
                 </div>
               ))}
 
@@ -267,7 +270,47 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
         </div>
+
+        <DetalleProducto product={product} elegidas={selectedVariants} />
+
+        <Recomendados producto={product} />
       </div>
     </div>
+  );
+}
+
+/** Descripción del producto y, si la tiene, la de cada opción elegida; luego los datos básicos. */
+function DetalleProducto({ product, elegidas }: { product: ProductDetail; elegidas: Record<string, VariantValue> }) {
+  const deOpciones = Object.entries(elegidas)
+    .filter(([, v]) => v.description?.trim())
+    .map(([tipo, v]) => ({ id: v.id, titulo: `${product.variants?.find(x => x.id === tipo)?.name ?? 'Opción'}: ${v.value}`, texto: v.description!.trim() }));
+  const datos: [string, string | undefined][] = [
+    ['Marca', product.brand],
+    ['Categoría', product.category],
+    ['Nivel', tierLabel((['economico', 'medio', 'premium'].includes(product.tier) ? product.tier : 'medio') as Tier)],
+    ['Código', product.sku],
+  ];
+
+  return (
+    <section aria-labelledby="titulo-descripcion" className="mt-6 bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] p-6">
+      <h2 id="titulo-descripcion" className="text-lg font-bold text-slate-900 mb-3">Descripción</h2>
+      {product.description?.trim()
+        ? <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">{product.description.trim()}</p>
+        : <p className="text-sm text-tenue">{product.name}{product.brand ? `, marca ${product.brand}` : ''}.</p>}
+      {deOpciones.map(o => (
+        <div key={o.id} className="mt-4">
+          <h3 className="text-sm font-bold text-slate-900">{o.titulo}</h3>
+          <p className="mt-1 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{o.texto}</p>
+        </div>
+      ))}
+      <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-2 border-t border-slate-100 pt-4 text-sm sm:grid-cols-2">
+        {datos.filter(([, v]) => v).map(([k, v]) => (
+          <div key={k} className="flex gap-2">
+            <dt className="text-tenue">{k}:</dt>
+            <dd className="font-medium text-slate-900">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }

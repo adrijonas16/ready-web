@@ -53,6 +53,12 @@ interface Ajustes { costoEnvio: number; envioGratisDesde: number | null; whatsap
 const AJUSTES_DEMO: Ajustes = { costoEnvio: 8, envioGratisDesde: 150, whatsapp: '51959000111', telefono: '959 000 111', horarioEntrega: 'Lunes a sábado, 9:00 a 18:00', diasEntrega: 2 };
 interface Campana { id: string; name: string; slug: string; description?: string; discount_percent: number; discount_fixed: number; start_date?: string | null; end_date?: string | null; is_active: boolean; image_url?: string | null; productIds: string[] }
 interface Noticia { id: string; title: string; content?: string; image_url?: string | null; link_url?: string | null; campaign_id?: string | null; campaign_slug?: string | null; display_order?: number; is_active: boolean; created_at: string }
+/** Igual que product_inquiries de la API: estado PENDIENTE, DISPONIBLE o NO_DISPONIBLE */
+interface ConsultaDemo {
+  id: string; userId?: string; supplyListId?: string; producto: string; detalle?: string; nombre?: string; contacto?: string;
+  estado: 'PENDIENTE' | 'DISPONIBLE' | 'NO_DISPONIBLE'; respuesta?: string; createdAt: string; respondidaAt?: string;
+}
+const PLAZO_CONSULTA_MS = 24 * 3_600_000;
 interface Imagen { id: string; imageUrl: string; altText?: string | null; isPrimary: boolean; displayOrder: number }
 
 interface Estado {
@@ -71,6 +77,8 @@ interface Estado {
   campanas: Campana[];
   noticias: Noticia[];
   avisos: { tipo: string; mensaje: string; userId?: string; admin?: boolean }[];
+  /** Consultas de productos (opcional: las demos guardadas antes no lo tienen) */
+  consultas?: ConsultaDemo[];
   /** Fotos de cada producto (si falta, se arma con imageUrl) */
   imagenes?: Record<string, Imagen[]>;
   ajustes: Ajustes;
@@ -604,7 +612,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       const tipos = (e.variantes[r1] ??= []);
       if (!r3 && M === 'GET') return tipos;
       if (r3 === 'types' && !r4 && M === 'POST') { const t = { id: nuevoId('vt'), name: String(bj.name), values: [] }; tipos.push(t); return cambia(t); }
-      if (r3 === 'types' && r4 && M === 'POST') { const t = tipos.find(x => x.id === r4); const v = { id: nuevoId('vv'), value: String(bj.value), color_hex: texto(bj.colorHex) ?? null, image_url: null, price_modifier: Number(bj.priceModifier) || 0, stock: Number(bj.stock) || 0, is_active: true }; t?.values.push(v); return cambia(v); }
+      if (r3 === 'types' && r4 && M === 'POST') { const t = tipos.find(x => x.id === r4); const v = { id: nuevoId('vv'), value: String(bj.value), color_hex: texto(bj.colorHex) ?? null, image_url: null, price_modifier: Number(bj.priceModifier) || 0, stock: Number(bj.stock) || 0, is_active: true, description: texto(bj.description)?.trim() || null }; t?.values.push(v); return cambia(v); }
       if (r3 === 'types' && r4 && M === 'DELETE') { e.variantes[r1] = tipos.filter(x => x.id !== r4); return cambia(true); }
       if (r3 === 'values' && M === 'DELETE') { tipos.forEach(t => { t.values = t.values.filter(v => v.id !== r4); }); return cambia(true); }
       if (r3 === 'values' && M === 'PUT') {
@@ -616,6 +624,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
           value: valor, stock: Math.max(0, Number(cambiaSi(bj.stock, v.stock)) || 0), price_modifier: Number(cambiaSi(bj.priceModifier, v.price_modifier)) || 0,
           color_hex: bj.colorHex === undefined ? v.color_hex : (texto(bj.colorHex) || null),
           is_active: bj.isActive === undefined || bj.isActive === null ? v.is_active : !!bj.isActive,
+          description: bj.description === undefined || bj.description === null ? v.description : (texto(bj.description)?.trim() || null),
         });
         return cambia(true);
       }
@@ -701,6 +710,13 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       avisar('NewMessage', 'Un cliente dejó una observación en su lista', { admin: true }); return cambia(true); }
     if (r2 === 'reprocess') { l.iaEstado = 'PROCESANDO'; l.creada = Date.now(); l.items = []; return cambia(true); }
     if (r2 === 'auto-match') { l.items.forEach(it => { delete it.elegido; }); return cambia(true); }
+    if (r2 === 'copia' && M === 'DELETE') {
+      // Igual que la API: solo copias, y si es de una cuenta, solo su dueño (o el equipo)
+      if (!l.copiaDe) throw new ErrorDemo('Solo se pueden borrar las copias propias', 400, 'NOT_A_COPY');
+      if (l.userId && l.userId !== yo?.id && !esEquipo(yo)) throw new ErrorDemo(yo ? 'Esta lista no es tuya' : 'Inicia sesión para cambiar esta lista', yo ? 403 : 401);
+      e.listas = e.listas.filter(x => x.id !== l.id);
+      return cambia(true);
+    }
     if (r2 === 'copia' && M === 'POST') {
       const uid = texto(bj.userId) ?? yo?.id;
       // nueva=true: otra copia aunque ya exista una (mellizos, hermanos del mismo grado)
@@ -743,6 +759,76 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       if (bj.cantidad !== undefined) it.cantidad = Number(bj.cantidad) || it.cantidad;
       if (bj.notas !== undefined) it.notas = texto(bj.notas);
       return cambia(true);
+    }
+  }
+
+  // Consultas de productos (mismas reglas que ConsultasController)
+  if (r0 === 'consultas') {
+    const consultas = (e.consultas ??= []);
+    const resp = (c: ConsultaDemo, panel: boolean) => {
+      const u = c.userId ? e.usuarios.find(x => x.id === c.userId) : undefined;
+      return {
+        id: c.id, producto: c.producto, detalle: c.detalle ?? null, estado: c.estado, respuesta: c.respuesta ?? null,
+        createdAt: c.createdAt, venceAt: new Date(new Date(c.createdAt).getTime() + PLAZO_CONSULTA_MS).toISOString(),
+        respondidaAt: c.respondidaAt ?? null, supplyListId: c.supplyListId ?? null,
+        nombre: panel ? c.nombre ?? u?.name ?? null : null, contacto: panel ? c.contacto ?? null : null,
+        userEmail: panel ? u?.email ?? null : null, userPhone: panel ? u?.phone ?? null : null,
+      };
+    };
+    const contactoValido = (v?: string) => {
+      const t = v?.trim();
+      if (!t) return undefined;
+      if (t.includes('@')) return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t) ? t.toLowerCase() : undefined;
+      let d = t.replace(/[\s\-().]/g, ''); if (d.startsWith('+')) d = d.slice(1); if (d.length === 11 && d.startsWith('51')) d = d.slice(2);
+      return /^9\d{8}$/.test(d) ? d : undefined;
+    };
+    if (!r1 && M === 'POST') {
+      revisarAntiSpam(b);
+      const producto = texto(bj.producto)?.trim();
+      if (!producto) throw new ErrorDemo('Escribe qué producto buscas');
+      if (producto.length > 200) throw new ErrorDemo('El producto puede tener hasta 200 caracteres');
+      const detalle = texto(bj.detalle)?.trim() || undefined;
+      if (detalle && detalle.length > 1000) throw new ErrorDemo('El detalle puede tener hasta 1000 caracteres');
+      let nombre: string | undefined, contacto: string | undefined;
+      if (!yo) {
+        nombre = texto(bj.nombre)?.trim();
+        if (!nombre) throw new ErrorDemo('Escribe tu nombre');
+        contacto = contactoValido(texto(bj.contacto));
+        if (!contacto) throw new ErrorDemo('Escribe un correo o un celular (9 dígitos) para avisarte');
+      }
+      const abiertas = consultas.filter(c => c.estado === 'PENDIENTE' && (yo ? c.userId === yo.id : c.contacto === contacto)).length;
+      if (abiertas >= 10) throw new ErrorDemo('Ya tienes varias consultas sin responder. Espera nuestra respuesta.');
+      const c: ConsultaDemo = {
+        id: nuevoId('consulta'), userId: yo?.id, supplyListId: texto(bj.supplyListId) && e.listas.some(x => x.id === bj.supplyListId) ? String(bj.supplyListId) : undefined,
+        producto, detalle, nombre, contacto, estado: 'PENDIENTE', createdAt: ahora(),
+      };
+      consultas.unshift(c);
+      avisar('NewInquiry', `${nombre ?? yo?.name ?? 'Un cliente'} pregunta si podemos conseguir: ${producto}`, { admin: true });
+      return cambia(resp(c, false));
+    }
+    if (r1 === 'mias' && M === 'GET') {
+      if (!yo) throw new ErrorDemo('Inicia sesión', 401);
+      return consultas.filter(c => c.userId === yo.id).map(c => resp(c, false));
+    }
+    if (!r1 && M === 'GET') {
+      exigirEquipo(yo);
+      const filtro = query.get('estado');
+      const pend = (c: ConsultaDemo) => c.estado === 'PENDIENTE';
+      return consultas.filter(c => !filtro || c.estado === filtro)
+        .sort((a, x) => Number(pend(x)) - Number(pend(a)) || (pend(a) ? a.createdAt.localeCompare(x.createdAt) : (x.respondidaAt ?? '').localeCompare(a.respondidaAt ?? '')))
+        .map(c => resp(c, true));
+    }
+    const c = consultas.find(x => x.id === r1);
+    if (!c || (c.userId && c.userId !== yo?.id && !esEquipo(yo))) throw new ErrorDemo('Consulta no encontrada', 404);
+    if (!r2 && M === 'GET') return resp(c, esEquipo(yo));
+    if (r2 === 'respuesta' && M === 'PUT') {
+      exigirEquipo(yo);
+      if (bj.disponible === undefined || bj.disponible === null) throw new ErrorDemo('Indica si lo conseguimos o no');
+      const respuesta = texto(bj.respuesta)?.trim() || undefined;
+      if (respuesta && respuesta.length > 1000) throw new ErrorDemo('La respuesta puede tener hasta 1000 caracteres');
+      Object.assign(c, { estado: bj.disponible ? 'DISPONIBLE' : 'NO_DISPONIBLE', respuesta, respondidaAt: ahora() });
+      if (c.userId) avisar('InquiryAnswered', bj.disponible ? `¡Sí conseguimos ${c.producto}! Mira la respuesta en Mis consultas.` : `No pudimos conseguir ${c.producto}. Mira la respuesta en Mis consultas.`, { userId: c.userId });
+      return cambia(resp(c, true));
     }
   }
 

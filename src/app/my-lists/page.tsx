@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, ClipboardList, Package, ShoppingBag, Upload } from 'lucide-react';
+import { ChevronRight, ClipboardList, MessageCircleQuestionMark, Package, ShoppingBag, Upload } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useCart } from '@/lib/cart-context';
 import { listsApi, ordersApi } from '@/services/api';
@@ -63,9 +63,14 @@ export default function MyListsPage() {
     <div className="mx-auto max-w-5xl px-4 py-8 md:py-12">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-3xl font-extrabold tracking-tight">Mis listas y pedidos</h1>
-        <Link href="/upload" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-acento px-4 py-2.5 text-sm font-bold text-grafito hover:brightness-95">
-          <Upload className="h-4 w-4" aria-hidden="true" /> Subir otra lista
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/consultas" className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-grafito px-4 py-2 text-sm font-bold hover:bg-fondo">
+            <MessageCircleQuestionMark className="h-4 w-4" aria-hidden="true" /> Mis consultas
+          </Link>
+          <Link href="/upload" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-acento px-4 py-2.5 text-sm font-bold text-grafito hover:brightness-95">
+            <Upload className="h-4 w-4" aria-hidden="true" /> Subir otra lista
+          </Link>
+        </div>
       </div>
 
       {cargando ? (

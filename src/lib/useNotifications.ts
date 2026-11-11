@@ -21,7 +21,7 @@ export function useRealtimeNotifications(role?: string, userId?: string) {
   // Modo demo: los avisos llegan como eventos del navegador
   useEffect(() => {
     if (!userId || !MODO_DEMO) return;
-    const nombres: Record<string, string> = { NewOrder: 'new_order', NewList: 'new_list', NewMessage: 'new_message', OrderUpdate: 'order_update', ListReady: 'list_ready' };
+    const nombres: Record<string, string> = { NewOrder: 'new_order', NewList: 'new_list', NewMessage: 'new_message', OrderUpdate: 'order_update', ListReady: 'list_ready', NewInquiry: 'new_inquiry', InquiryAnswered: 'inquiry_answered' };
     const alAvisar = (ev: Event) => {
       const d = (ev as CustomEvent<{ tipo: string; mensaje: string; userId?: string; admin?: boolean; timestamp: string }>).detail;
       if (d.admin ? role !== 'ADMIN' && role !== 'OPERATOR' : d.userId !== userId) return;
@@ -60,7 +60,7 @@ export function useRealtimeNotifications(role?: string, userId?: string) {
         .build();
       conexion = c;
       connectionRef.current = c;
-      const eventos: [string, string][] = [['NewOrder', 'new_order'], ['LowStock', 'low_stock'], ['OutOfStock', 'out_of_stock'], ['NewList', 'new_list'], ['NewMessage', 'new_message'], ['OrderUpdate', 'order_update'], ['ListReady', 'list_ready']];
+      const eventos: [string, string][] = [['NewOrder', 'new_order'], ['LowStock', 'low_stock'], ['OutOfStock', 'out_of_stock'], ['NewList', 'new_list'], ['NewMessage', 'new_message'], ['OrderUpdate', 'order_update'], ['ListReady', 'list_ready'], ['NewInquiry', 'new_inquiry'], ['InquiryAnswered', 'inquiry_answered']];
       for (const [evento, tipo] of eventos) c.on(evento, (data) => addNotification(tipo, data));
       c.start().then(() => {
         setConnected(true);

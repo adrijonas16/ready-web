@@ -25,7 +25,7 @@ import Extras from '@/components/lista/Extras';
 import SelectorProducto from '@/components/lista/SelectorProducto';
 import PrecioAnimado from '@/components/PrecioAnimado';
 import { lanzarConfeti, volarAlCarrito } from '@/lib/efectos';
-import { esMiCopia, guardarCopia } from '@/lib/copias';
+import { esMiCopia, guardarCopia, quitarCopia } from '@/lib/copias';
 import CopiasAlumno from '@/components/lista/CopiasAlumno';
 
 // ── Observaciones del cliente sobre su lista ──
@@ -266,7 +266,7 @@ function useImprimiendo() {
 export default function ListDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { replaceList, lineasDeLista } = useCart();
+  const { replaceList, lineasDeLista, removeList, renameList } = useCart();
   const { user } = useAuth();
   const [data, setData] = useState<ListDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -390,6 +390,28 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     extrasTimer.current = setTimeout(() => {
       listsApi.updateExtras(id, e).catch(() => showToast('No se pudieron guardar los extras', 'error'));
     }, 800);
+  };
+
+  // Nombre del alumno de esta copia: se guarda en las etiquetas y se actualiza lo que ya está en el carrito
+  const renombrarAlumno = (nombre: string) => {
+    cambiarExtras({ ...extras, etiquetas: { ...extras.etiquetas, nombre } });
+    renameList(id, nombre);
+    showToast(`Listo, ahora es la lista de ${nombre}.`);
+  };
+
+  const borrarCopia = async (destino: string) => {
+    if (copiando) return;
+    setCopiando(true);
+    try {
+      clearTimeout(extrasTimer.current);
+      await listsApi.borrarCopia(id);
+      quitarCopia(id);
+      removeList(id);
+      router.replace(`/lists/${destino}`);
+    } catch {
+      showToast('No pudimos borrar la lista. Intenta de nuevo.', 'error');
+      setCopiando(false);
+    }
   };
 
   const elegirProducto = async (item: SupplyItem, p: Product, valores: ItemVariante[]) => {
@@ -659,7 +681,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             actualId={compartida ? undefined : id}
             userId={user?.id}
             alumnoActual={compartida ? undefined : extras.etiquetas.nombre}
-            creando={copiando}
+            ocupado={copiando}
+            onRenombrar={renombrarAlumno}
+            onBorrar={borrarCopia}
             onNueva={alumno => copiarYAbrir(undefined, true, data.list.copiaDe ?? id, alumno)} />
         )}
 
@@ -768,7 +792,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           onElegir={(p, valores) => elegirProducto(abierto, p, valores)} onClose={cerrarSelector} />
       )}
       {panelAgregar && (
-        <SelectorProducto onElegir={agregarUtil} onPedirTexto={pedirUtil} onClose={() => setPanelAgregar(false)} />
+        <SelectorProducto onElegir={agregarUtil} onPedirTexto={pedirUtil} onClose={() => setPanelAgregar(false)} listaId={id} />
       )}
     </div>
   );

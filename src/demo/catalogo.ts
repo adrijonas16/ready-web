@@ -26,6 +26,7 @@ export interface ValorVariante {
   price_modifier: number;
   stock: number;
   is_active: boolean;
+  description?: string | null;
 }
 export interface TipoVariante { id: string; name: string; values: ValorVariante[] }
 

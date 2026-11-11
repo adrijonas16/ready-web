@@ -13,14 +13,14 @@ import Logo from './Logo';
 
 export default function Header() {
   const { user, isAdmin, logout, addNotification } = useAuth();
-  // Avisos en vivo para el cliente (lista aprobada, estado del pedido) en la campanita
+  // Avisos en vivo para el cliente (lista aprobada, estado del pedido, respuesta a una consulta) en la campanita
   const { notifications: enVivo } = useRealtimeNotifications(isAdmin ? undefined : user?.role, isAdmin ? undefined : user?.id);
   const vistos = useRef(new Set<string>());
   useEffect(() => {
     enVivo.forEach(n => {
       if (vistos.current.has(n.id)) return;
       vistos.current.add(n.id);
-      if (n.type === 'list_ready' || n.type === 'order_update') addNotification(n.message, 'success');
+      if (n.type === 'list_ready' || n.type === 'order_update' || n.type === 'inquiry_answered') addNotification(n.message, 'success');
     });
   }, [enVivo, addNotification]);
   const { itemCount } = useCart();

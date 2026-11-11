@@ -19,6 +19,13 @@ export const copiasDe = (listaId: string): string[] => leer()[listaId] ?? [];
 /** true si la lista es una copia hecha en este navegador. */
 export const esMiCopia = (listaId: string) => Object.values(leer()).some(v => v.includes(listaId));
 
+/** Olvida una copia borrada */
+export function quitarCopia(copia: string) {
+  const todas = leer();
+  const resto = Object.fromEntries(Object.entries(todas).map(([k, v]) => [k, v.filter(x => x !== copia)]).filter(([, v]) => v.length > 0));
+  try { localStorage.setItem(CLAVE, JSON.stringify(resto)); } catch { /* sin almacenamiento */ }
+}
+
 export function guardarCopia(original: string, copia: string) {
   const todas = leer();
   const lista = (todas[original] ?? []).filter(x => x !== copia);

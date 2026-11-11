@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { LayoutDashboard, List, Package, Settings, ShoppingCart, Users, GraduationCap, Tag, Percent, Folders, Layers, Menu, X, ClipboardCheck, Store } from 'lucide-react';
+import { LayoutDashboard, List, Package, Settings, ShoppingCart, Users, GraduationCap, Tag, Percent, Folders, Layers, Menu, X, ClipboardCheck, Store, MessageCircleQuestionMark } from 'lucide-react';
 import { AvisosProvider, puedeVer } from './_ui';
 
 const adminNavItems = [
@@ -12,6 +12,7 @@ const adminNavItems = [
   { href: '/admin/orders', label: 'Pedidos', icon: ShoppingCart },
   { href: '/admin/lists', label: 'Listas', icon: List },
   { href: '/admin/lists/review', label: 'Revisión de listas', icon: ClipboardCheck },
+  { href: '/admin/consultas', label: 'Consultas', icon: MessageCircleQuestionMark },
   { href: '/admin/products', label: 'Productos', icon: Package },
   { href: '/admin/categories', label: 'Categorías', icon: Folders },
   { href: '/admin/campaigns', label: 'Campañas', icon: Percent },
