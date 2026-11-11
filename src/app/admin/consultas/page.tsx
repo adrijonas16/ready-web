@@ -8,6 +8,7 @@ import { ESTADO_CONSULTA, tiempoRestante } from '@/lib/consultas';
 import { formatDate } from '@/lib/utils';
 import type { Consulta } from '@/lib/types';
 import { Cargando, tarjeta, useAvisos } from '../_ui';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 type Filtro = 'PENDIENTE' | 'RESPONDIDAS' | 'TODAS';
 const FILTROS: { id: Filtro; label: string }[] = [
@@ -38,6 +39,7 @@ export default function AdminConsultasPage() {
   const vencidas = consultas?.filter(c => c.estado === 'PENDIENTE' && tiempoRestante(c, ahora).vencida).length ?? 0;
   const visibles = useMemo(() => (consultas ?? []).filter(c =>
     filtro === 'TODAS' ? true : filtro === 'PENDIENTE' ? c.estado === 'PENDIENTE' : c.estado !== 'PENDIENTE'), [consultas, filtro]);
+  const pag = usePaginacion(visibles, 20, filtro);
 
   const actualizar = (c: Consulta) => setConsultas(prev => prev?.map(x => (x.id === c.id ? c : x)) ?? prev);
 
@@ -70,9 +72,10 @@ export default function AdminConsultasPage() {
         </p>
       ) : (
         <ul className="space-y-2">
-          {visibles.map(c => <FilaConsulta key={c.id} c={c} ahora={ahora} onRespondida={actualizar} />)}
+          {pag.visibles.map(c => <FilaConsulta key={c.id} c={c} ahora={ahora} onRespondida={actualizar} />)}
         </ul>
       )}
+      <Paginador {...pag} onCambiar={pag.setPagina} nombre="consultas" />
     </div>
   );
 }

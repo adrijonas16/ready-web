@@ -11,6 +11,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { formatDate, formatPrice } from '@/lib/utils';
 import { Tier, parseExtras, resumirLista, tierLabel } from '@/lib/lista';
 import { useServicios } from '@/lib/servicios';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 interface PedidoResumen { id: string; total: number; status: string; createdAt: string; items: unknown[] }
 
@@ -28,6 +29,8 @@ export default function MyListsPage() {
   const [detalles, setDetalles] = useState<Record<string, ListDetail>>({});
   const { servicios, opciones } = useServicios();
   const { lineasDeLista } = useCart();
+  const pagPedidos = usePaginacion(pedidos, 10);
+  const pagListas = usePaginacion(lists, 10);
 
   useEffect(() => {
     if (!user) return;
@@ -84,8 +87,8 @@ export default function MyListsPage() {
                 Aún no tienes pedidos. Elige una lista o arma tu pedido en el <Link href="/catalog" className="font-semibold text-primario underline underline-offset-2">catálogo</Link>.
               </p>
             ) : (
-              <ul className="mt-3 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-papel">
-                {pedidos.map(p => (
+              <ul id="lista-mis-pedidos" className="mt-3 scroll-mt-24 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-papel">
+                {pagPedidos.visibles.map(p => (
                   <li key={p.id}>
                     <Link href={`/orders/${p.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-fondo">
                       <Package className="h-5 w-5 shrink-0 text-primario" aria-hidden="true" />
@@ -101,6 +104,7 @@ export default function MyListsPage() {
                 ))}
               </ul>
             )}
+            <Paginador {...pagPedidos} onCambiar={pagPedidos.setPagina} nombre="pedidos" anclaId="lista-mis-pedidos" variante="tienda" />
           </section>
 
           <section className="mt-10" aria-labelledby="titulo-listas">
@@ -111,8 +115,8 @@ export default function MyListsPage() {
                 <p className="mt-3 text-tenue">Sube la foto de la lista del colegio y te la armamos completa.</p>
               </div>
             ) : (
-              <ul className="mt-3 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-papel">
-                {lists.map(l => {
+              <ul id="lista-mis-listas" className="mt-3 scroll-mt-24 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-papel">
+                {pagListas.visibles.map(l => {
                   const d = detalles[l.id];
                   const extras = parseExtras(d?.list.extras ?? l.extras);
                   const alumno = extras.etiquetas.nombre.trim() || l.estudianteNombre?.trim();
@@ -150,6 +154,7 @@ export default function MyListsPage() {
                 })}
               </ul>
             )}
+            <Paginador {...pagListas} onCambiar={pagListas.setPagina} nombre="listas" anclaId="lista-mis-listas" variante="tienda" />
           </section>
         </>
       )}

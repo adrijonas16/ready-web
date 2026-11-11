@@ -6,6 +6,7 @@ import { usersApi } from '@/services/api';
 import { useAuth } from '@/lib/auth-context';
 import type { User } from '@/lib/types';
 import { Cargando, ROLES, fechaCorta, nombreRol, tarjeta, th, useAvisos } from '../_ui';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 const COLOR_ROL: Record<string, string> = { ADMIN: 'bg-red-100 text-red-700', OPERATOR: 'bg-purple-100 text-purple-700', USER: 'bg-slate-100 text-slate-600' };
 
@@ -35,6 +36,7 @@ export default function AdminUsersPage() {
     if (filterRole && u.role !== filterRole) return false;
     return true;
   });
+  const pag = usePaginacion(filtered, 20, `${search}|${filterRole}`);
 
   return (
     <div>
@@ -65,7 +67,7 @@ export default function AdminUsersPage() {
                 <th className={`${th} text-center w-36`}>Cambiar rol</th>
               </tr></thead>
               <tbody>
-                {filtered.map((u, i) => {
+                {pag.visibles.map((u, i) => {
                   const soyYo = u.id === yo?.id;
                   return (
                     <tr key={u.id} data-usuario={u.email} className={`border-b border-slate-100 hover:bg-blue-50/30 ${i % 2 ? 'bg-slate-50/30' : ''}`}>
@@ -95,6 +97,7 @@ export default function AdminUsersPage() {
             </table>
           </div>
         )}
+        <div className="px-4 pb-3"><Paginador {...pag} onCambiar={pag.setPagina} nombre="usuarios" /></div>
         {filtered.length === 0 && !loading && <p className="p-8 text-center text-neutral-400 text-sm">No hay usuarios</p>}
       </div>
       <p className="text-[11px] text-neutral-400 mt-3">El operador puede atender pedidos y revisar listas; el administrador además maneja el catálogo, los usuarios y la configuración.</p>

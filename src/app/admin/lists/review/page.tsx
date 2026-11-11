@@ -8,6 +8,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { formatDate } from '@/lib/utils';
 import { Clock, AlertTriangle, Eye, Ban } from 'lucide-react';
 import { Cargando, useAvisos } from '../../_ui';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 const PESTAÑAS = [
   { id: 'PENDIENTE_REVISION', label: 'Pendientes', icon: Clock, activo: 'border-yellow-500 text-yellow-700', chip: 'bg-yellow-100 text-yellow-800' },
@@ -30,6 +31,7 @@ export default function ReviewQueuePage() {
   }, [avisos]);
 
   const filteredLists = lists.filter(l => l.estado === activeTab);
+  const pag = usePaginacion(filteredLists, 20, activeTab);
   const cuenta = (estado: string) => lists.filter(l => l.estado === estado).length;
 
   return (
@@ -58,7 +60,7 @@ export default function ReviewQueuePage() {
             <p className="text-center text-gray-500 py-12">No hay listas en esta bandeja</p>
           ) : (
             <ul className="space-y-3">
-              {filteredLists.map(list => (
+              {pag.visibles.map(list => (
                 <li key={list.id} className="border border-gray-200 rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -81,6 +83,7 @@ export default function ReviewQueuePage() {
               ))}
             </ul>
           )}
+          <Paginador {...pag} onCambiar={pag.setPagina} nombre="listas" />
         </div>
       </div>
     </div>

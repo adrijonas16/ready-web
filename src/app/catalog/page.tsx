@@ -13,6 +13,7 @@ import { TIERS } from '@/lib/lista';
 import { coincide as coincideBusqueda } from '@/lib/buscar';
 import { precioVenta } from '@/lib/precio';
 import { evento } from '@/lib/analytics';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 /** Categorías internas que no se venden sueltas en la tienda */
 const OCULTAS = new Set(['Servicios']);
@@ -105,6 +106,7 @@ function Catalogo() {
     return lista;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todos, busqueda, categoria, marca, nivel, idsCampana, tope, orden]);
+  const pag = usePaginacion(visibles, 24, [busqueda, categoria, marca, nivel, tope, orden, idsCampana?.size ?? 0].join('|'));
 
   const contar = (ignorar: 'categoria' | 'marca' | 'nivel', clave: (p: Product) => string | undefined) =>
     todos.filter(p => coincide(p, ignorar)).reduce((acc, p) => {
@@ -257,9 +259,10 @@ function Catalogo() {
           ) : (
             <>
               <h2 className="sr-only">Productos</h2>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-                {visibles.map((p, i) => <ProductCard key={p.id} product={p} prioridad={i < 4} />)}
+              <div id="grilla-productos" className="grid scroll-mt-24 grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                {pag.visibles.map((p, i) => <ProductCard key={p.id} product={p} prioridad={pag.pagina === 1 && i < 4} />)}
               </div>
+              <Paginador {...pag} onCambiar={pag.setPagina} nombre="productos" anclaId="grilla-productos" variante="tienda" />
               <div className="mt-10 rounded-2xl border border-dashed border-linea-fuerte bg-papel px-5 py-5">
                 <ConsultarProducto />
               </div>

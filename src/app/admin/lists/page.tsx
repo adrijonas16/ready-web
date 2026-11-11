@@ -8,6 +8,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { formatDate } from '@/lib/utils';
 import { Eye, Search, Image as ImageIcon, MessageSquare, Trash2, ClipboardCheck } from 'lucide-react';
 import { useAvisos } from '../_ui';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 export default function AdminListsPage() {
   const [lists, setLists] = useState<SupplyList[]>([]);
@@ -41,6 +42,7 @@ export default function AdminListsPage() {
     if (q && ![l.schoolName, l.gradeName, l.estudianteNombre, l.submittedBy].some(t => t?.toLowerCase().includes(q))) return false;
     return true;
   });
+  const pag = usePaginacion(filtered, 20, `${search}|${filterType}`);
 
   return (
     <div>
@@ -94,7 +96,7 @@ export default function AdminListsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((list, i) => (
+              {pag.visibles.map((list, i) => (
                 <tr key={list.id} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-50/30'}`}>
                   <td className="px-4 py-2 text-xs font-medium text-slate-900">{list.schoolName}</td>
                   <td className="px-4 py-2 text-xs text-slate-600">{list.gradeName}</td>
@@ -131,6 +133,7 @@ export default function AdminListsPage() {
           </table>
           </div>
         )}
+        <div className="px-4 pb-3"><Paginador {...pag} onCambiar={pag.setPagina} nombre="listas" /></div>
         {filtered.length === 0 && !loading && (
           <p className="p-8 text-center text-neutral-400 text-sm">No hay listas</p>
         )}

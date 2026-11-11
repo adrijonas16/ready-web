@@ -9,6 +9,7 @@ import { consultasGuardadas, ESTADO_CONSULTA, olvidarConsulta, tiempoRestante } 
 import { formatDate } from '@/lib/utils';
 import ConsultarProducto from '@/components/ConsultarProducto';
 import type { Consulta } from '@/lib/types';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 /** Las de la cuenta (con sesión) y las hechas en este navegador sin sesión. */
 async function cargarConsultas(conSesion: boolean): Promise<Consulta[]> {
@@ -28,6 +29,7 @@ async function cargarConsultas(conSesion: boolean): Promise<Consulta[]> {
 export default function ConsultasPage() {
   const { user, isLoading } = useAuth();
   const [consultas, setConsultas] = useState<Consulta[] | null>(null);
+  const pag = usePaginacion(consultas ?? [], 10);
 
   const cargar = useCallback(() => cargarConsultas(!!user).then(setConsultas), [user]);
   useEffect(() => { if (!isLoading) cargar(); }, [isLoading, cargar]);
@@ -52,8 +54,9 @@ export default function ConsultasPage() {
           Aún no tienes consultas{!user && ' en este navegador'}. Si no encuentras un útil en el <Link href="/catalog" className="font-semibold text-primario underline underline-offset-2">catálogo</Link>, pregúntanos aquí abajo.
         </p>
       ) : (
-        <ul className="mt-6 space-y-3">
-          {consultas.map(c => {
+        <>
+        <ul id="lista-consultas" className="mt-6 scroll-mt-24 space-y-3">
+          {pag.visibles.map(c => {
             const estado = ESTADO_CONSULTA[c.estado];
             const plazo = tiempoRestante(c);
             return (
@@ -84,6 +87,8 @@ export default function ConsultasPage() {
             );
           })}
         </ul>
+        <Paginador {...pag} onCambiar={pag.setPagina} nombre="consultas" anclaId="lista-consultas" variante="tienda" />
+        </>
       )}
 
       <section aria-labelledby="titulo-nueva" className="mt-10 rounded-2xl border border-linea bg-papel px-5 py-5">

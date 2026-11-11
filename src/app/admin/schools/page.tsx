@@ -8,6 +8,8 @@ import { groupSections } from '@/lib/constants';
 import { Cargando, añoEscolar, añosElegibles, botonPrimario, campo, tarjeta, useAvisos } from '../_ui';
 import { ErrorCampo } from '@/components/form/Campo';
 import { LARGO, limpiarTexto } from '@/lib/validar';
+import Paginador, { usePaginacion } from '@/components/Paginador';
+import { buscarOpciones } from '@/lib/buscar';
 
 export default function AdminSchoolsPage() {
   const avisos = useAvisos();
@@ -108,7 +110,9 @@ export default function AdminSchoolsPage() {
     catch (e) { avisos.error(e, 'No pudimos eliminar el grado'); }
   };
 
-  const filtered = schools.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+  // Misma búsqueda amigable que en la tienda (cualquier palabra, sin tildes, con errores de tipeo)
+  const filtered = search.trim() ? buscarOpciones(schools.map(s => ({ ...s, label: s.name })), search) : schools;
+  const pag = usePaginacion(filtered, 20, search);
   const ordenGrado = (g: Grade) => allSections.find(s => s.name === g.name)?.sortOrder ?? 999;
 
   return (
@@ -149,8 +153,8 @@ export default function AdminSchoolsPage() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        {loading ? <Cargando /> : filtered.map(s => (
+      <div id="lista-colegios" className="space-y-2 scroll-mt-20">
+        {loading ? <Cargando /> : pag.visibles.map(s => (
           <div key={s.id} data-colegio={s.name} className={`${tarjeta} overflow-hidden`}>
             <div className="px-4 py-3 flex items-center gap-3">
               <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -223,6 +227,7 @@ export default function AdminSchoolsPage() {
         ))}
         {!loading && filtered.length === 0 && <p className="text-center py-8 text-neutral-400 text-sm">No hay colegios</p>}
       </div>
+      <Paginador {...pag} onCambiar={pag.setPagina} nombre="colegios" anclaId="lista-colegios" />
     </div>
   );
 }

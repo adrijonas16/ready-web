@@ -6,6 +6,7 @@ import { contactoColegiosApi } from '@/services/api';
 import { buscarOpciones } from '@/lib/buscar';
 import type { ColegioContacto, ConfigContactoColegios, EstadoContactoColegio, RegistroContacto } from '@/lib/types';
 import { Cargando, Interruptor, Modal, botonPrimario, campo, fechaCorta, tarjeta, useAvisos } from '../_ui';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 // ── Estados y textos ──
 const ESTADOS: { id: EstadoContactoColegio; label: string; clase: string }[] = [
@@ -21,7 +22,7 @@ const RESULTADO: Record<string, string> = {
   ENVIADO: 'Mensaje enviado', RECORDATORIO: 'Recordatorio', LISTA_SUBIDA: 'Subió una lista', ERROR_CORREO: 'Error al enviar el correo',
   CONTESTARON: 'Contestaron', NO_CONTESTAN: 'No contestan', PIDIERON_CORREO: 'Pidieron correo', NO_INTERESADO: 'No le interesa',
 };
-const POR_PAGINA = 40;
+const POR_PAGINA = 25;
 const vencido = (c: ColegioContacto, ahora: number) =>
   !!c.proximoContactoAt && new Date(c.proximoContactoAt).getTime() <= ahora && (c.estado === 'CONTACTADO' || c.estado === 'RESPONDIO');
 
@@ -35,7 +36,6 @@ export default function PedirListasPage() {
   const [busqueda, setBusqueda] = useState('');
   const [soloSinLista, setSoloSinLista] = useState(true);
   const [elegidos, setElegidos] = useState<Set<string>>(new Set());
-  const [mostrar, setMostrar] = useState(POR_PAGINA);
   const [editando, setEditando] = useState<ColegioContacto | null>(null);
   const [llamando, setLlamando] = useState<ColegioContacto | null>(null);
   const [historial, setHistorial] = useState<ColegioContacto | null>(null);
@@ -75,6 +75,8 @@ export default function PedirListasPage() {
     // Sin búsqueda: primero a quienes toca recordar; con búsqueda se respeta el orden por parecido
     return q ? filtrados : filtrados.sort((a, b) => Number(vencido(b, ahora)) - Number(vencido(a, ahora)) || a.nombre.localeCompare(b.nombre, 'es'));
   }, [colegios, filtro, busqueda, soloSinLista, ahora]);
+
+  const pag = usePaginacion(visibles, POR_PAGINA, `${filtro}|${busqueda}|${soloSinLista}`);
 
   const alternar = (id: string) => setElegidos(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const conCorreoElegidos = (colegios ?? []).filter(c => elegidos.has(c.id) && c.correo).length;
@@ -164,7 +166,7 @@ export default function PedirListasPage() {
 
       <div role="tablist" aria-label="Filtrar colegios" className="mb-3 flex flex-wrap gap-1.5">
         {FILTROS.map(f => (
-          <button key={f.id} role="tab" aria-selected={filtro === f.id} onClick={() => { setFiltro(f.id); setMostrar(POR_PAGINA); }}
+          <button key={f.id} role="tab" aria-selected={filtro === f.id} onClick={() => setFiltro(f.id)}
             className={`rounded-xl px-3 py-1.5 text-xs font-bold ${filtro === f.id ? 'bg-blue-500 text-white' : f.id === 'HOY' && (f.n ?? 0) > 0 ? 'bg-amber-100 text-amber-900' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>
             {f.label}{f.n !== undefined ? ` (${f.n})` : ''}
           </button>
@@ -174,7 +176,7 @@ export default function PedirListasPage() {
       <div className={`${tarjeta} mb-3 flex flex-wrap items-center gap-3 p-3`}>
         <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" aria-hidden="true" />
-          <input type="search" value={busqueda} onChange={e => { setBusqueda(e.target.value); setMostrar(POR_PAGINA); }} placeholder="Buscar colegio, contacto, correo…"
+          <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar colegio, contacto, correo…"
             aria-label="Buscar colegio" className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs" />
         </div>
         <Interruptor activo={soloSinLista} onChange={setSoloSinLista} etiqueta="Ocultar los que ya tienen lista" />
@@ -189,8 +191,8 @@ export default function PedirListasPage() {
         <p className="py-10 text-center text-sm text-neutral-400">No hay colegios con este filtro.</p>
       ) : (
         <>
-          <ul className="space-y-2">
-            {visibles.slice(0, mostrar).map(c => (
+          <ul id="lista-colegios" className="space-y-2 scroll-mt-20">
+            {pag.visibles.map(c => (
               <FilaColegio key={c.id} c={c} ahora={ahora} elegido={elegidos.has(c.id)} onElegir={() => alternar(c.id)}
                 correoActivo={correo.configurado}
                 onWhatsapp={() => whatsapp(c)} onCorreo={() => correoUno(c)} onLlamar={() => setLlamando(c)}
@@ -198,11 +200,7 @@ export default function PedirListasPage() {
                 onEstado={e => cambiarEstado(c, e)} />
             ))}
           </ul>
-          {visibles.length > mostrar && (
-            <button onClick={() => setMostrar(m => m + POR_PAGINA)} className="mx-auto mt-3 block rounded-xl bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
-              Ver más ({visibles.length - mostrar} restantes)
-            </button>
-          )}
+          <Paginador {...pag} onCambiar={pag.setPagina} nombre="colegios" anclaId="lista-colegios" />
         </>
       )}
 

@@ -7,6 +7,7 @@ import { Search, ChevronDown, Printer, Download, MapPin, Mail, BookOpen, AlertTr
 import type { Order, OrderItem } from '@/lib/types';
 import StatusBadge from '@/components/StatusBadge';
 import { Cargando, fechaCorta, hoyISO, tarjeta, useAvisos } from '../_ui';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 const STATUSES = ['RECIBIDO', 'EN_PREPARACION', 'ARMADO', 'EN_CAMINO', 'ENTREGADO', 'CANCELADO'] as const;
 
@@ -121,6 +122,7 @@ export default function AdminOrdersPage() {
       return true;
     });
   }, [orders, filterStatus, search, desde, hasta]);
+  const pag = usePaginacion(filtered, 20, [filterStatus, search, desde, hasta].join('|'));
 
   const exportar = () => {
     if (!filtered.length) { avisos.error(null, 'No hay pedidos para exportar'); return; }
@@ -173,10 +175,10 @@ export default function AdminOrdersPage() {
         <span className="text-[10px] text-neutral-400 py-2" data-resumen-pedidos>{filtered.length} pedidos · {formatPrice(totalFiltrado)}</span>
       </div>
 
-      <div className="space-y-2">
+      <div id="lista-pedidos" className="space-y-2 scroll-mt-20">
         {loading ? <Cargando /> :
           filtered.length === 0 ? <p className="text-center py-10 text-neutral-400 text-sm">No hay pedidos</p> :
-          filtered.map(order => {
+          pag.visibles.map(order => {
             const abierto = expanded === order.id || imprimiendo === order.id;
             const n = leerNotas(order.contactNotes);
             const email = order.userEmail || n.email;
@@ -301,6 +303,7 @@ export default function AdminOrdersPage() {
             );
           })}
       </div>
+      <div className="no-imprimir"><Paginador {...pag} onCambiar={pag.setPagina} nombre="pedidos" anclaId="lista-pedidos" /></div>
     </div>
   );
 }

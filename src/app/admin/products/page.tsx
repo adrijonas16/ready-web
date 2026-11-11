@@ -7,6 +7,7 @@ import { formatPrice } from '@/lib/utils';
 import { Plus, Edit2, Search, Package, EyeOff, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { Cargando, NIVELES, NivelBadge, botonPrimario, tarjeta, th, useAvisos } from '../_ui';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 const filtro = 'px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-700 min-w-[110px]';
 
@@ -52,6 +53,7 @@ export default function AdminProductsPage() {
     if (filterStock === 'ok') f = f.filter(p => p.stock > 10);
     return f;
   }, [search, filterCat, filterBrand, filterTier, filterStock, filterEstado, allProducts]);
+  const pag = usePaginacion(products, 20, [search, filterCat, filterBrand, filterTier, filterStock, filterEstado].join('|'));
 
   const activos = allProducts.filter(p => p.isActive !== false).length;
 
@@ -128,7 +130,7 @@ export default function AdminProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {products.map((p, i) => (
+                {pag.visibles.map((p, i) => (
                   <tr key={p.id} data-producto={p.id} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-50/30'} ${p.isActive === false ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-2">
                       <div className="w-9 h-9 bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center">
@@ -168,6 +170,7 @@ export default function AdminProductsPage() {
               </tbody>
             </table>
           </div>
+          <div className="px-4 pb-3"><Paginador {...pag} onCambiar={pag.setPagina} nombre="productos" /></div>
           {products.length === 0 && (
             <div className="text-center py-10 text-neutral-400">
               <Package className="h-8 w-8 mx-auto mb-2 text-neutral-300" aria-hidden="true" />

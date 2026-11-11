@@ -7,6 +7,7 @@ import { Cargando, botonPrimario, tarjeta, th, useAvisos } from '../_ui';
 import { ErrorCampo } from '@/components/form/Campo';
 import { LARGO, limpiarTexto } from '@/lib/validar';
 import { validarArchivoImagen } from '@/lib/utils';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 export default function AdminBrandsPage() {
   const avisos = useAvisos();
@@ -64,6 +65,7 @@ export default function AdminBrandsPage() {
   };
 
   const filtered = brands.filter(b => b.name.toLowerCase().includes(search.toLowerCase()));
+  const pag = usePaginacion(filtered, 20, search);
 
   return (
     <div>
@@ -106,7 +108,7 @@ export default function AdminBrandsPage() {
                 <th className={`${th} text-center w-28`}>Acciones</th>
               </tr></thead>
               <tbody>
-                {filtered.map((b, i) => (
+                {pag.visibles.map((b, i) => (
                   <tr key={b.id} data-marca={b.name} className={`border-b border-slate-100 hover:bg-blue-50/30 ${i % 2 ? 'bg-slate-50/30' : ''}`}>
                     <td className="px-4 py-2">
                       <label className="relative w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center cursor-pointer hover:bg-blue-50 overflow-hidden group" title={b.logoUrl ? 'Cambiar logo' : 'Subir logo'}>
@@ -132,6 +134,7 @@ export default function AdminBrandsPage() {
             </table>
           </div>
         )}
+        <div className="px-4 pb-3"><Paginador {...pag} onCambiar={pag.setPagina} nombre="marcas" /></div>
         {filtered.length === 0 && !loading && <p className="p-8 text-center text-neutral-400 text-sm">No hay marcas</p>}
       </div>
       <p className="text-[11px] text-neutral-400 mt-3">Al renombrar una marca, sus productos pasan al nuevo nombre.</p>

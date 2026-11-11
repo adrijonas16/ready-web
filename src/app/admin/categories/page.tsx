@@ -6,6 +6,7 @@ import { Plus, Trash2, Search, X, Edit2, Check } from 'lucide-react';
 import { Cargando, botonPrimario, tarjeta, th, useAvisos } from '../_ui';
 import { ErrorCampo } from '@/components/form/Campo';
 import { LARGO, limpiarTexto } from '@/lib/validar';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 export default function AdminCategoriesPage() {
   const avisos = useAvisos();
@@ -74,6 +75,7 @@ export default function AdminCategoriesPage() {
   };
 
   const filtered = categories.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  const pag = usePaginacion(filtered, 20, search);
 
   return (
     <div>
@@ -115,7 +117,7 @@ export default function AdminCategoriesPage() {
                 <th className={`${th} text-center w-24`}>Acciones</th>
               </tr></thead>
               <tbody>
-                {filtered.map((c, i) => (
+                {pag.visibles.map((c, i) => (
                   <tr key={c.id} data-categoria={c.name} className={`border-b border-slate-100 hover:bg-blue-50/30 ${i % 2 ? 'bg-slate-50/30' : ''}`}>
                     <td className="px-4 py-2.5 text-sm font-medium text-slate-900">
                       {editId === c.id ? (
@@ -145,6 +147,7 @@ export default function AdminCategoriesPage() {
             </table>
           </div>
         )}
+        <div className="px-4 pb-3"><Paginador {...pag} onCambiar={pag.setPagina} nombre="categorías" /></div>
         {filtered.length === 0 && !loading && <p className="p-8 text-center text-neutral-400 text-sm">No hay categorías</p>}
       </div>
       <p className="text-[11px] text-neutral-400 mt-3">Al renombrar una categoría, sus productos se mueven al nuevo nombre. Solo se puede eliminar una categoría sin productos.</p>

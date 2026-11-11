@@ -8,6 +8,7 @@ import { SupplyList, School, Section } from '@/lib/types';
 import SearchSelect from '@/components/SearchSelect';
 import Escudo from '@/components/Escudo';
 import type { FotosNivel } from './utiles-nivel';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 /** Listas aprobadas por colegio: el cliente elige la suya y compra. */
 export default function ListasColegios({ fotos }: { fotos: FotosNivel }) {
@@ -47,6 +48,7 @@ export default function ListasColegios({ fotos }: { fotos: FotosNivel }) {
     .filter(l => (!colegio || l.schoolId === colegio) && (!grado || l.gradeName === grado))
     .sort((a, b) => b.year - a.year || a.gradeName.localeCompare(b.gradeName, 'es', { numeric: true }));
   const nombreColegio = colegios.find(c => c.id === colegio)?.name;
+  const pag = usePaginacion(visibles, 12, `${colegio}|${grado}`);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -92,8 +94,8 @@ export default function ListasColegios({ fotos }: { fotos: FotosNivel }) {
                 ? `${visibles.length} ${visibles.length === 1 ? 'lista' : 'listas'} de ${nombreColegio}`
                 : `${aprobadas.length} listas de ${conLista.size} colegios`}
             </h2>
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {visibles.map((l, i) => (
+            <ul id="listas-colegio" className="grid scroll-mt-24 grid-cols-1 gap-3 sm:grid-cols-2">
+              {pag.visibles.map((l, i) => (
                 <li key={l.id} className="min-w-0 animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
                   <Link href={`/lists/${l.id}`}
                     className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-linea bg-papel p-4 transition-[border-color,box-shadow,translate] duration-300 hover:-translate-y-0.5 hover:border-primario/50 hover:shadow-[0_14px_30px_-18px_rgba(15,23,42,0.5)]">
@@ -116,6 +118,7 @@ export default function ListasColegios({ fotos }: { fotos: FotosNivel }) {
                 </li>
               ))}
             </ul>
+            <Paginador {...pag} onCambiar={pag.setPagina} nombre="listas" anclaId="listas-colegio" variante="tienda" />
           </>
         )}
       </section>

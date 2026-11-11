@@ -9,6 +9,7 @@ import { Cargando, Interruptor, Modal, aSlug, botonPrimario, campo, fechaCorta, 
 import { LARGO, enfocar, primerError, validarEnlace, validarEntero, validarPorcentaje, validarTexto } from '@/lib/validar';
 import { validarArchivoImagen } from '@/lib/utils';
 import { AlertCircle } from 'lucide-react';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 
 interface FormCampana { name: string; slug: string; slugManual: boolean; description: string; discountPercent: string; startDate: string; endDate: string; isActive: boolean; imageUrl: string }
 const campanaVacia: FormCampana = { name: '', slug: '', slugManual: false, description: '', discountPercent: '10', startDate: '', endDate: '', isActive: true, imageUrl: '' };
@@ -128,6 +129,8 @@ export default function AdminCampaignsPage() {
   };
 
   const campaignProductIds = new Set(campaignProducts.map(p => p.id));
+  const pagCampanas = usePaginacion(campaigns, 20);
+  const pagNoticias = usePaginacion(news, 20);
   const sinTilde = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const filteredAllProducts = allProducts.filter(p => p.isActive !== false && (!productSearch || sinTilde(`${p.name} ${p.brand ?? ''}`).includes(sinTilde(productSearch))));
 
@@ -216,7 +219,7 @@ export default function AdminCampaignsPage() {
                   <th className={`${th} text-center`}>Acciones</th>
                 </tr></thead>
                 <tbody>
-                  {campaigns.map((c, i) => {
+                  {pagCampanas.visibles.map((c, i) => {
                     const v = vigencia(c);
                     return (
                       <tr key={c.id} data-campana={c.slug} className={`border-b border-slate-100 hover:bg-blue-50/30 ${i % 2 ? 'bg-slate-50/30' : ''}`}>
@@ -247,6 +250,7 @@ export default function AdminCampaignsPage() {
                 </tbody>
               </table>
             </div>
+            <div className="px-4 pb-3"><Paginador {...pagCampanas} onCambiar={pagCampanas.setPagina} nombre="campañas" /></div>
             {campaigns.length === 0 && <p className="p-8 text-center text-neutral-400 text-sm">No hay campañas</p>}
           </div>
 
@@ -307,7 +311,7 @@ export default function AdminCampaignsPage() {
         </>
       ) : (
         <div className="space-y-2">
-          {news.map(n => (
+          {pagNoticias.visibles.map(n => (
             <div key={n.id} data-noticia={n.title} className={`${tarjeta} p-3 sm:p-4 flex items-center gap-3 sm:gap-4`}>
               <label className="relative w-20 h-14 rounded-xl bg-slate-100 flex items-center justify-center cursor-pointer hover:bg-blue-50 flex-shrink-0 overflow-hidden" title="Subir imagen">
                 {n.imageUrl ? <img width={64} height={64} decoding="async" src={n.imageUrl} alt="" aria-hidden="true" className="w-full h-full object-cover" /> : <Upload className="h-4 w-4 text-slate-400" aria-hidden="true" />}
@@ -325,6 +329,7 @@ export default function AdminCampaignsPage() {
               <button onClick={() => deleteNews(n)} aria-label={`Eliminar ${n.title}`} className="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-100"><Trash2 className="h-3.5 w-3.5" /></button>
             </div>
           ))}
+          <Paginador {...pagNoticias} onCambiar={pagNoticias.setPagina} nombre="noticias" />
           {news.length === 0 && <p className="text-center py-8 text-neutral-400 text-sm">No hay noticias</p>}
         </div>
       )}
