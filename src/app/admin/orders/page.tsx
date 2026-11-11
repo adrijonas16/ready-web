@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ordersApi } from '@/services/api';
 import { formatPrice, formatDate, getStatusLabel } from '@/lib/utils';
-import { Search, ChevronDown, Printer, Download, MapPin, Mail, BookOpen, AlertTriangle, CreditCard, Truck, FileText, User as UserIcon } from 'lucide-react';
+import { Search, ChevronDown, Printer, Download, MapPin, Mail, BookOpen, AlertTriangle, CreditCard, Truck, FileText, Package, User as UserIcon } from 'lucide-react';
 import type { Order, OrderItem } from '@/lib/types';
 import StatusBadge from '@/components/StatusBadge';
 import { Cargando, fechaCorta, hoyISO, tarjeta, useAvisos } from '../_ui';
@@ -45,11 +45,14 @@ function leerNotas(texto?: string | null): NotasPedido {
 }
 
 const fechaLocal = (iso: string) => hoyISO(new Date(iso));
+// Una caja por alumno: los productos sin "para" (comprados sueltos) van en su propia caja
 const agrupar = (items: OrderItem[]) => {
   const g = new Map<string, OrderItem[]>();
   items.forEach(it => { const k = it.para?.trim() || ''; g.set(k, [...(g.get(k) ?? []), it]); });
   return [...g.entries()];
 };
+const nombreCaja = (para: string) => para || 'Otros productos';
+const utiles = (items: OrderItem[]) => { const n = items.reduce((s, i) => s + i.quantity, 0); return `${n} ${n === 1 ? 'útil' : 'útiles'}`; };
 
 function csv(orders: Order[]) {
   const esc = (v: unknown) => { const t = String(v ?? ''); return /[",;\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
@@ -77,7 +80,9 @@ export default function AdminOrdersPage() {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [imprimiendo, setImprimiendo] = useState<string | null>(null);
+  // Qué se imprime: el pedido completo o una hoja por caja (alumno) para armar y rotular
+  const [impresion, setImpresion] = useState<{ id: string; modo: 'pedido' | 'cajas' } | null>(null);
+  const imprimiendo = impresion?.id ?? null;
 
   const load = useCallback(() => ordersApi.getAll().then(o => setOrders(o || []))
     .catch(e => avisos.error(e, 'No pudimos cargar los pedidos'))
@@ -85,12 +90,12 @@ export default function AdminOrdersPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (!imprimiendo) return;
-    const fin = () => setImprimiendo(null);
+    if (!impresion) return;
+    const fin = () => setImpresion(null);
     window.addEventListener('afterprint', fin);
     const t = setTimeout(() => window.print(), 50);
     return () => { clearTimeout(t); window.removeEventListener('afterprint', fin); };
-  }, [imprimiendo]);
+  }, [impresion]);
 
   const changeStatus = async (o: Order, status: string) => {
     if (status === o.status || cambiando) return;
@@ -136,7 +141,10 @@ export default function AdminOrdersPage() {
         .zona-impresion, .zona-impresion * { visibility: visible !important; }
         .zona-impresion { position: absolute; inset: 0 auto auto 0; width: 100%; box-shadow: none !important; }
         .no-imprimir { display: none !important; }
-      }`}</style>
+        .hoja-caja { break-after: page; }
+        .hoja-caja:last-child { break-after: auto; }
+      }
+      @media screen { .solo-imprimir { display: none !important; } }`}</style>
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 className="text-xl font-bold text-slate-900">Pedidos ({orders.length})</h1>
@@ -173,17 +181,21 @@ export default function AdminOrdersPage() {
             const n = leerNotas(order.contactNotes);
             const email = order.userEmail || n.email;
             const unidades = order.items?.reduce((s, i) => s + i.quantity, 0) ?? 0;
+            const cajas = agrupar(order.items ?? []);
+            const porCajas = impresion?.id === order.id && impresion.modo === 'cajas';
             return (
               <article key={order.id} data-pedido={order.id} aria-label={`Pedido ${order.id}`}
                 className={`${tarjeta} overflow-hidden ${imprimiendo === order.id ? 'zona-impresion' : ''}`}>
-                <div className="px-4 py-3 grid grid-cols-[1fr_auto] sm:flex sm:flex-wrap sm:items-center gap-x-3 gap-y-2">
+                <div className={`px-4 py-3 grid grid-cols-[1fr_auto] sm:flex sm:flex-wrap sm:items-center gap-x-3 gap-y-2 ${porCajas ? 'no-imprimir' : ''}`}>
                   <div className="min-w-0 sm:flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-bold text-slate-900">#{order.id}</span>
                       <StatusBadge status={order.status} size="sm" />
                     </div>
                     <p className="text-xs text-slate-700 mt-0.5 truncate">{order.userName || 'Cliente'}{email ? <span className="text-neutral-400"> · {email}</span> : null}</p>
-                    <p className="text-[11px] text-neutral-400 mt-0.5">{formatDate(order.createdAt)} · {unidades} útiles · {order.shippingPhone}</p>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">
+                      {formatDate(order.createdAt)} · {unidades} útiles{cajas.length > 1 ? <> · <strong className="text-slate-700">{cajas.length} cajas</strong></> : null} · {order.shippingPhone}
+                    </p>
                   </div>
                   <span className="text-sm font-bold text-slate-900 text-right self-start sm:self-center">{formatPrice(order.total)}</span>
                   <div className="col-span-2 flex items-center gap-2 no-imprimir">
@@ -191,14 +203,22 @@ export default function AdminOrdersPage() {
                       className="flex-1 sm:flex-none px-2 py-1.5 border border-slate-200 rounded-lg text-xs">
                       {STATUSES.map(s => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
                     </select>
-                    <button onClick={() => setImprimiendo(order.id)} aria-label={`Imprimir pedido ${order.id}`} title="Imprimir"
-                      className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200"><Printer className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => setImpresion({ id: order.id, modo: 'pedido' })} aria-label={`Imprimir pedido ${order.id}`} title="Imprimir pedido"
+                      className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200"><Printer className="h-3.5 w-3.5" aria-hidden="true" /></button>
+                    {cajas.length > 1 && (
+                      <button onClick={() => setImpresion({ id: order.id, modo: 'cajas' })} aria-label={`Imprimir una hoja por caja del pedido ${order.id}`} title="Imprimir por caja"
+                        className="px-2 py-1.5 bg-slate-100 rounded-lg hover:bg-slate-200 text-xs font-bold text-slate-700 inline-flex items-center gap-1">
+                        <Package className="h-3.5 w-3.5" aria-hidden="true" /> Por caja
+                      </button>
+                    )}
                     <button onClick={() => setExpanded(expanded === order.id ? null : order.id)} aria-expanded={abierto} aria-label={`Ver detalle del pedido ${order.id}`}
                       className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200"><ChevronDown className={`h-3.5 w-3.5 transition-transform ${abierto ? 'rotate-180' : ''}`} /></button>
                   </div>
                 </div>
 
-                {abierto && (
+                {porCajas && <HojasPorCaja order={order} cajas={cajas} direccion={order.shippingAddress} />}
+
+                {abierto && !porCajas && (
                   <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50 space-y-3 text-xs" data-detalle>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Bloque icono={UserIcon} titulo="Cliente">
@@ -237,9 +257,15 @@ export default function AdminOrdersPage() {
 
                     <div>
                       <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Útiles ({unidades})</p>
-                      {agrupar(order.items ?? []).map(([para, items]) => (
+                      {cajas.map(([para, items], c) => (
                         <div key={para || '-'} className="mb-2">
-                          {para && <p className="text-[11px] font-bold text-slate-700 mb-1">Para {para}</p>}
+                          {cajas.length > 1 && (
+                            <p className="text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                              <Package className="h-3 w-3" aria-hidden="true" /> Caja {c + 1} de {cajas.length}: {para ? `para ${para}` : nombreCaja(para)}
+                              <span className="font-normal text-neutral-400">· {utiles(items)}</span>
+                            </p>
+                          )}
+                          {cajas.length === 1 && para && <p className="text-[11px] font-bold text-slate-700 mb-1">Para {para}</p>}
                           {items.map((item, i) => (
                             <div key={item.id ?? i} className="flex items-center justify-between gap-2 px-3 py-1.5 bg-white rounded-lg mb-1">
                               <div className="min-w-0">
@@ -275,6 +301,43 @@ export default function AdminOrdersPage() {
             );
           })}
       </div>
+    </div>
+  );
+}
+
+/** Una hoja por caja: se imprime, se arma la caja marcando cada producto y se pega la hoja como rótulo */
+function HojasPorCaja({ order, cajas, direccion }: { order: Order; cajas: [string, OrderItem[]][]; direccion?: string }) {
+  return (
+    <div className="solo-imprimir text-slate-900">
+      {cajas.map(([para, items], c) => (
+        <section key={para || '-'} className="hoja-caja p-6" aria-label={`Caja ${c + 1}`}>
+          <header className="border-b-2 border-slate-900 pb-3 mb-4">
+            <p className="text-sm">Pedido #{order.id} · Caja {c + 1} de {cajas.length}</p>
+            <h2 className="text-3xl font-bold mt-1">{para ? `Para ${para}` : nombreCaja(para)}</h2>
+            <p className="text-sm mt-1">{order.userName || 'Cliente'} · {order.shippingPhone}</p>
+            {direccion && <p className="text-sm">{direccion}</p>}
+          </header>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-left border-b border-slate-400">
+                <th scope="col" className="w-8 py-1.5"><span className="sr-only">Listo</span></th>
+                <th scope="col" className="w-14 py-1.5">Cant.</th>
+                <th scope="col" className="py-1.5">Producto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, i) => (
+                <tr key={item.id ?? i} className="border-b border-slate-200 align-top">
+                  <td className="py-1.5"><span className="inline-block h-4 w-4 border-2 border-slate-900 rounded-sm" aria-hidden="true" /></td>
+                  <td className="py-1.5 font-bold tabular-nums">{item.quantity}</td>
+                  <td className="py-1.5">{item.productName}{item.notes && <span className="block text-xs text-slate-600">{item.notes}</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-3 text-sm font-bold">{utiles(items)} en esta caja</p>
+        </section>
+      ))}
     </div>
   );
 }

@@ -13,7 +13,7 @@ import { listsApi, productsApi } from '@/services/api';
 import { ItemVariante, ListDetail, ListExtras, Product, SupplyItem } from '@/lib/types';
 import { LineaNueva, useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, MessageSquare, Check, X, Loader2, ShoppingBag, RotateCcw, Info, Image as ImageIcon, Plus, Copy, Share2, Printer, Users, Link2, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Check, X, Loader2, ShoppingBag, RotateCcw, Info, Image as ImageIcon, Plus, Share2, Printer, Link2, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import Toast from '@/components/Toast';
 import { Tier, TIERS, buscarOpcion, parseExtras, paraQuien, precioServicio, precioSinOferta, precioUnitario, recargoDe, resumirLista, tierLabel, tierProduct, variantesDe } from '@/lib/lista';
@@ -25,7 +25,8 @@ import Extras from '@/components/lista/Extras';
 import SelectorProducto from '@/components/lista/SelectorProducto';
 import PrecioAnimado from '@/components/PrecioAnimado';
 import { lanzarConfeti, volarAlCarrito } from '@/lib/efectos';
-import { copiaDe, esMiCopia, guardarCopia } from '@/lib/copias';
+import { esMiCopia, guardarCopia } from '@/lib/copias';
+import CopiasAlumno from '@/components/lista/CopiasAlumno';
 
 // ── Observaciones del cliente sobre su lista ──
 function ObservationBox({ listId, existing, onSaved }: { listId: string; existing?: string; onSaved: () => void }) {
@@ -341,20 +342,25 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Lista del colegio (o de otra familia): se ve, pero al ajustarla se trabaja sobre una copia propia,
   // así lo que cambia una familia no le cambia la lista a las demás.
   const compartida = !!data && user?.role !== 'ADMIN' && !(user && data.list.userId === user.id) && !esMiCopia(id);
-  const copiaPrevia = compartida ? copiaDe(id) : undefined;
 
-  const copiarYAbrir = async (plan?: Tier, nueva = false, original = id) => {
+  const copiarYAbrir = async (plan?: Tier, nueva = false, original = id, alumno?: string) => {
     if (copiando) return;
     setCopiando(true);
     try {
       const r = await listsApi.copiar(original, { userId: user?.id, plan, nueva });
-      guardarCopia(original, r.id);
+      guardarCopia(data?.list.copiaDe ?? original, r.id);
+      if (alumno) {
+        // El nombre separa la lista en el carrito y en el pedido (una caja por alumno)
+        const copia = await listsApi.getById(r.id);
+        const e = parseExtras(copia.list.extras);
+        await listsApi.updateExtras(r.id, { ...e, etiquetas: { ...e.etiquetas, nombre: alumno } });
+      }
       if (r.existente && plan) {
         // Ya tenía su versión: se le aplica la opción que acaba de elegir (no se abre la vieja con otro plan)
         await listsApi.updatePlan(r.id, { plan, aplicarATodos: true });
         showToast(`Abrimos tu versión de esta lista con la opción ${tierLabel(plan)}.`);
       } else if (r.existente) showToast('Ya tenías tu versión de esta lista. La abrimos.');
-      else if (nueva) showToast('Armamos otra copia de la lista. Ponle el nombre del alumno en las etiquetas.');
+      else if (nueva) showToast(alumno ? `Armamos la lista de ${alumno}.` : 'Armamos otra copia de la lista.');
       router.replace(`/lists/${r.id}`);
     } catch {
       showToast('No pudimos preparar tu lista. Intenta de nuevo.', 'error');
@@ -647,26 +653,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           <p className={`mb-5 rounded-xl px-4 py-3 text-sm ${data.list.iaEstado === 'DEMO' ? 'bg-eco-claro' : 'bg-primario-claro text-primario-oscuro'}`}>{data.list.iaMensaje}</p>
         )}
 
-        {copiaPrevia && (
-          <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-acento bg-acento-claro px-4 py-3">
-            <Copy className="h-5 w-5 shrink-0 text-slate-900" aria-hidden="true" />
-            <p className="min-w-0 flex-1 text-sm text-slate-900">Ya armaste esta lista antes, con tus cambios. Si eliges una opción, se la aplicamos a tu versión.</p>
-            <Link href={`/lists/${copiaPrevia}`} className="rounded-xl bg-grafito px-4 py-2 text-sm font-bold text-papel hover:opacity-90">Abrir la mía</Link>
-            <button onClick={() => copiarYAbrir(undefined, true)} disabled={copiando}
-              className="inline-flex items-center gap-1.5 rounded-xl border-2 border-grafito px-4 py-1.5 text-sm font-bold text-slate-900 hover:bg-papel disabled:opacity-50">
-              <Users className="h-4 w-4" aria-hidden="true" /> Armar otra copia (para otro hijo)
-            </button>
-          </div>
-        )}
-
-        {!compartida && data.list.copiaDe && (
-          <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-            <p className="text-tenue">Esta es tu versión de la lista{para && extras.etiquetas.nombre ? <>, para <b className="text-grafito">{para}</b></> : ''}. ¿Otro hijo en el mismo grado?</p>
-            <button onClick={() => copiarYAbrir(undefined, true, data.list.copiaDe!)} disabled={copiando}
-              className="inline-flex items-center gap-1.5 font-semibold text-primario hover:underline disabled:opacity-50">
-              <Users className="h-4 w-4" aria-hidden="true" /> Armar otra copia (para otro hijo)
-            </button>
-          </div>
+        {(compartida || data.list.copiaDe) && (
+          <CopiasAlumno
+            originalId={data.list.copiaDe ?? id}
+            actualId={compartida ? undefined : id}
+            userId={user?.id}
+            alumnoActual={compartida ? undefined : extras.etiquetas.nombre}
+            creando={copiando}
+            onNueva={alumno => copiarYAbrir(undefined, true, data.list.copiaDe ?? id, alumno)} />
         )}
 
         {!plan && hayNiveles ? (
