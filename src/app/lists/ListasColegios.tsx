@@ -59,7 +59,7 @@ export default function ListasColegios({ fotos }: { fotos: FotosNivel }) {
         <div>
           <label className="mb-1 block text-sm font-semibold">Colegio</label>
           <SearchSelect value={colegio} onChange={elegirColegio} placeholder="Escribe el nombre de tu colegio…"
-            options={colegios.map(c => ({ value: c.id, label: conLista.has(c.id) ? c.name : `${c.name} (sin lista aún)` }))} />
+            options={colegios.map(c => ({ value: c.id, label: c.name }))} />
         </div>
         <div>
           <label className="mb-1 block text-sm font-semibold">Grado</label>

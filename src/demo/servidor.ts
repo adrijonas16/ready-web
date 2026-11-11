@@ -50,7 +50,7 @@ interface Pedido {
   statusHistory: { status: string; notes?: string; createdAt: string }[];
 }
 interface Ajustes { costoEnvio: number; envioGratisDesde: number | null; whatsapp: string; telefono: string; horarioEntrega: string; diasEntrega: number; zonas?: string }
-const AJUSTES_DEMO: Ajustes = { costoEnvio: 8, envioGratisDesde: 150, whatsapp: '51959000111', telefono: '959 000 111', horarioEntrega: 'Lunes a sábado, 9:00 a 18:00', diasEntrega: 2 };
+const AJUSTES_DEMO: Ajustes = { costoEnvio: 8, envioGratisDesde: 150, whatsapp: '51951237582', telefono: '951 237 582', horarioEntrega: 'Lunes a sábado, 9:00 a 18:00', diasEntrega: 2 };
 interface Campana { id: string; name: string; slug: string; description?: string; discount_percent: number; discount_fixed: number; start_date?: string | null; end_date?: string | null; is_active: boolean; image_url?: string | null; productIds: string[] }
 interface Noticia { id: string; title: string; content?: string; image_url?: string | null; link_url?: string | null; campaign_id?: string | null; campaign_slug?: string | null; display_order?: number; is_active: boolean; created_at: string }
 /** Igual que product_inquiries de la API: estado PENDIENTE, DISPONIBLE o NO_DISPONIBLE */

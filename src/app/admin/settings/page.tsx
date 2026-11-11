@@ -85,7 +85,7 @@ export default function AdminSettingsPage() {
         <section aria-labelledby="t-contacto" className={`${tarjeta} p-4 sm:p-5`}>
           <h2 id="t-contacto" className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2"><Phone className="h-4 w-4 text-blue-500" aria-hidden="true" /> Contacto</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Campo id="whatsapp" label="WhatsApp" ayuda="Con código de país, solo números: 51959000111" error={errores.whatsapp}><input id="whatsapp" {...ariaCampo('whatsapp', errores.whatsapp, true)} type="tel" inputMode="numeric" autoComplete="off" required maxLength={LARGO.celular} value={form.whatsapp} onChange={e => set('whatsapp', e.target.value)} className={campo} /></Campo>
+            <Campo id="whatsapp" label="WhatsApp" ayuda="Con código de país, solo números: 51951237582" error={errores.whatsapp}><input id="whatsapp" {...ariaCampo('whatsapp', errores.whatsapp, true)} type="tel" inputMode="numeric" autoComplete="off" required maxLength={LARGO.celular} value={form.whatsapp} onChange={e => set('whatsapp', e.target.value)} className={campo} /></Campo>
             <Campo id="telefono" label="Teléfono (como se muestra)" error={errores.telefono}><input id="telefono" {...ariaCampo('telefono', errores.telefono)} type="tel" inputMode="tel" autoComplete="off" required maxLength={20} value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="959 000 111" className={campo} /></Campo>
           </div>
         </section>

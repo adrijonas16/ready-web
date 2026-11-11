@@ -8,8 +8,8 @@ import { apiJson } from '@/lib/api-base';
 export const AJUSTES_POR_DEFECTO: Settings = {
   costoEnvio: 8,
   envioGratisDesde: 150,
-  whatsapp: '51959000111',
-  telefono: '959 000 111',
+  whatsapp: '51951237582',
+  telefono: '951 237 582',
   horarioEntrega: 'Lunes a sábado, 9:00 a 18:00',
   diasEntrega: 2,
 };
