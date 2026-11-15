@@ -18,8 +18,9 @@ import { LARGO, validarTexto } from '@/lib/validar';
 const esNivel = (t?: string): t is Tier => t === 'economico' || t === 'medio' || t === 'premium';
 
 function Foto({ src, alt, className }: { src?: string | null; alt: string; className: string }) {
-  return src
-    ? <img src={src} alt={alt} width={240} height={240} loading="lazy" className={`${className} object-contain`} />
+  const [rota, setRota] = useState(false);
+  return src && !rota
+    ? <img src={src} alt={alt} width={240} height={240} loading="lazy" onError={() => setRota(true)} className={`${className} object-contain`} />
     : <div className={`${className} flex items-center justify-center`}><Package className="h-8 w-8 text-tenue/40" aria-hidden="true" /></div>;
 }
 

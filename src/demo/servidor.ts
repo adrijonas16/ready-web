@@ -467,6 +467,19 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
     if (M === 'DELETE') { e.secciones = e.secciones.filter(s => s.id !== r1); return cambia(true); }
   }
   if (r0 === 'categories') {
+    // Igual que la API: categorías activas con sus subcategorías y cuántos productos tiene cada una
+    if (r1 === 'arbol' && M === 'GET') {
+      const arbol = new Map<string, { nombre: string; total: number; subs: Map<string, number> }>();
+      e.productos.filter(p => p.isActive !== false && p.category !== 'Servicios').forEach(p => {
+        const c = arbol.get(p.category) ?? { nombre: p.category, total: 0, subs: new Map<string, number>() };
+        c.total++;
+        const s = p.subcategory?.trim();
+        if (s) c.subs.set(s, (c.subs.get(s) ?? 0) + 1);
+        arbol.set(p.category, c);
+      });
+      return [...arbol.values()].map(c => ({ nombre: c.nombre, total: c.total,
+        subcategorias: [...c.subs].map(([nombre, total]) => ({ nombre, total })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) }));
+    }
     if (M === 'GET') return e.categorias;
     exigirEquipo(yo);
     const nombre = String(bj.name ?? '').trim();
@@ -610,7 +623,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
       if (!name) throw new ErrorDemo('Escribe el nombre del producto');
       const sku = String(bj.sku || nuevoId('RD').toUpperCase());
       if (e.productos.some(x => x.sku === sku)) throw new ErrorDemo('Ya hay un producto con ese código', 409);
-      const x: ProductoDemo = { id: nuevoId('p'), name, description: texto(bj.description), category: String(bj.category || 'Útiles'), brand: texto(bj.brand), sku, basePrice: Number(bj.basePrice) || 0, imageUrl: texto(bj.imageUrl), stock: Number(bj.stock) || 0, rating: 4.5, tier: nivel(bj.tier) ?? 'medio', isActive: bj.isActive === undefined ? true : !!bj.isActive };
+      const x: ProductoDemo = { id: nuevoId('p'), name, description: texto(bj.description), category: String(bj.category || 'Útiles'), subcategory: texto(bj.subcategory) || null, brand: texto(bj.brand), sku, basePrice: Number(bj.basePrice) || 0, imageUrl: texto(bj.imageUrl), stock: Number(bj.stock) || 0, rating: 4.5, tier: nivel(bj.tier) ?? 'medio', isActive: bj.isActive === undefined ? true : !!bj.isActive };
       e.productos.push(x); return cambia(x);
     }
     const prod = e.productos.find(x => x.id === r1);
@@ -618,7 +631,7 @@ export async function responder(metodo: string, ruta: string, query: URLSearchPa
     if (r1 && M !== 'GET') { exigirEquipo(yo); if (!prod) throw new ErrorDemo('Producto no encontrado', 404); }
     if (r1 && !r2 && M === 'PUT' && prod) {
       // Solo los campos del contrato; null o ausente = no cambiar
-      const campos = ['name', 'description', 'category', 'brand', 'sku', 'imageUrl', 'attributes'] as const;
+      const campos = ['name', 'description', 'category', 'subcategory', 'brand', 'sku', 'imageUrl', 'attributes'] as const;
       const x = prod as ProductoDemo & { attributes?: string };
       for (const k of campos) if (bj[k] !== undefined && bj[k] !== null) (x as unknown as Json)[k] = String(bj[k]);
       if (bj.basePrice !== undefined && bj.basePrice !== null) x.basePrice = Number(bj.basePrice) || 0;

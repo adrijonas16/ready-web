@@ -99,6 +99,13 @@ export interface Category {
   name: string;
 }
 
+/** Categoría con sus subcategorías y cuántos productos activos tiene cada una (menú "Categorías"). */
+export interface CategoriaArbol {
+  nombre: string;
+  total: number;
+  subcategorias: { nombre: string; total: number }[];
+}
+
 export interface CreateOrderInput {
   userId?: string;
   /** Compatibilidad: la primera de supplyListIds */
@@ -240,6 +247,7 @@ export const brandsApi = {
 // Categories API
 export const categoriesApi = {
   getAll: () => api.get<Category[]>('/categories'),
+  arbol: () => api.get<CategoriaArbol[]>('/categories/arbol'),
   create: (name: string) => api.post<Category>('/categories', { name }),
   update: (id: string, name: string) => api.put<Category>(`/categories/${id}`, { name }),
   delete: (id: string) => api.delete<boolean>(`/categories/${id}`),

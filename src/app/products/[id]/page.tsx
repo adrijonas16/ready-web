@@ -5,7 +5,7 @@ import { API, apiFetch } from '@/lib/api-base';
 import { useState, useEffect, use } from 'react';
 import { useCart } from '@/lib/cart-context';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, ShoppingCart, Star, Check, Package, Minus, Plus, Truck } from 'lucide-react';
+import { ChevronRight, ShoppingCart, Star, Check, Package, Minus, Plus, Truck } from 'lucide-react';
 import Link from 'next/link';
 import NoEncontrado from '@/components/NoEncontrado';
 import { tierLabel, Tier } from '@/lib/lista';
@@ -13,6 +13,7 @@ import { descuentoPct, enOferta, precioVenta, redondear } from '@/lib/precio';
 import { fechaLarga, fechasEntrega, textoEnvio, useAjustes } from '@/lib/ajustes';
 import { datosItems, evento, itemGA } from '@/lib/analytics';
 import Recomendados from '@/components/Recomendados';
+import { etiquetaCategoria, urlCatalogo } from '@/lib/categorias';
 
 
 interface VariantValue { id: string; value: string; image_url?: string; price_modifier: number; stock: number; is_active: boolean; color_hex?: string; description?: string | null }
@@ -20,7 +21,7 @@ interface VariantType { id: string; name: string; values: VariantValue[] }
 interface ProductImage { id: string; image_url: string; alt_text?: string; is_primary: boolean }
 interface ProductDetail {
   id: string; name: string; description?: string; category: string; brand?: string;
-  sku: string; basePrice: number; imageUrl?: string; stock: number; rating: number;
+  subcategory?: string | null; sku: string; basePrice: number; imageUrl?: string; stock: number; rating: number;
   tier: string; variants: VariantType[]; images: ProductImage[];
   salePrice?: number | null; campaignSlug?: string | null;
 }
@@ -101,9 +102,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   return (
     <div className="min-h-screen">
       <div className="max-w-5xl mx-auto py-6 px-4">
-        <Link href="/catalog" className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm text-tenue hover:text-grafito">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al catálogo
-        </Link>
+        {/* Ruta: Productos › Categoría › Subcategoría, cada una lleva al catálogo con ese filtro */}
+        <nav aria-label="Ruta" className="mb-4 text-sm text-tenue">
+          <ol className="flex min-h-11 flex-wrap items-center gap-1">
+            <li><Link href="/catalog" className="hover:text-primario hover:underline">Productos</Link></li>
+            {product.category && <>
+              <li aria-hidden="true"><ChevronRight className="h-3.5 w-3.5" /></li>
+              <li><Link href={urlCatalogo(product.category)} className="hover:text-primario hover:underline">{etiquetaCategoria(product.category)}</Link></li>
+            </>}
+            {product.subcategory && <>
+              <li aria-hidden="true"><ChevronRight className="h-3.5 w-3.5" /></li>
+              <li><Link href={urlCatalogo(product.category, product.subcategory)} className="hover:text-primario hover:underline">{product.subcategory}</Link></li>
+            </>}
+          </ol>
+        </nav>
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Left: Gallery with vertical thumbnails */}
@@ -128,7 +140,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="bg-white rounded-[20px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] overflow-hidden">
                 <div className="aspect-square bg-slate-50 flex items-center justify-center p-6">
                   {activeImage ? (
-                    <img key={activeImage} id="foto-producto" src={activeImage} alt={product.name} width={480} height={480} fetchPriority="high" decoding="async" className="h-full w-full max-w-full max-h-full object-contain rounded-lg animate-scale-in" />
+                    <img key={activeImage} id="foto-producto" src={activeImage} alt={product.name} width={480} height={480} fetchPriority="high" decoding="async" onError={() => setActiveImage('')} className="h-full w-full max-w-full max-h-full object-contain rounded-lg animate-scale-in" />
                   ) : (
                     <Package className="h-24 w-24 text-neutral-200" aria-hidden="true" />
                   )}

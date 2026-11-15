@@ -15,6 +15,7 @@ import { Interruptor, NIVELES, NivelBadge, campo, tarjeta, useAvisos } from '../
 import { ErrorCampo } from '@/components/form/Campo';
 import { LARGO, enfocar, primerError, validarEntero, validarPrecio, validarTexto } from '@/lib/validar';
 import { validarArchivoImagen } from '@/lib/utils';
+import { useArbolCategorias } from '@/lib/categorias';
 
 const STEPS = [
   { num: 1, label: 'Información' },
@@ -25,11 +26,12 @@ const STEPS = [
 
 const PRESETS = ['Color', 'Tamaño', 'Cantidad', 'Material', 'Personaje', 'Presentación', 'Diseño', 'Curso'];
 
-interface Formulario { name: string; description: string; category: string; brand: string; sku: string; basePrice: string; stock: string; tier: string; isActive: boolean }
-const vacio: Formulario = { name: '', description: '', category: '', brand: '', sku: '', basePrice: '0', stock: '100', tier: 'medio', isActive: true };
+interface Formulario { name: string; description: string; category: string; subcategory: string; brand: string; sku: string; basePrice: string; stock: string; tier: string; isActive: boolean }
+const vacio: Formulario = { name: '', description: '', category: '', subcategory: '', brand: '', sku: '', basePrice: '0', stock: '100', tier: 'medio', isActive: true };
 
 export default function ProductWizard({ productId }: { productId?: string }) {
   const router = useRouter();
+  const arbol = useArbolCategorias();
   const avisos = useAvisos();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -61,7 +63,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
     if (!productId) return;
     productsApi.getById(productId).then(p => {
       const f: Formulario = {
-        name: p.name || '', description: p.description || '', category: p.category || '', brand: p.brand || '', sku: p.sku || '',
+        name: p.name || '', description: p.description || '', category: p.category || '', subcategory: p.subcategory || '', brand: p.brand || '', sku: p.sku || '',
         basePrice: String(p.basePrice ?? 0), stock: String(p.stock ?? 0), tier: p.tier || 'medio', isActive: p.isActive !== false,
       };
       setForm(f); setGuardado(f);
@@ -77,7 +79,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
   const esServicio = form.category === 'Servicios' || /^SRV-/.test(guardado.sku);
 
   const datos = (): Partial<Product> => ({
-    name: form.name.trim(), description: form.description.trim(), category: form.category, brand: form.brand || undefined,
+    name: form.name.trim(), description: form.description.trim(), category: form.category, subcategory: form.subcategory.trim(), brand: form.brand || undefined,
     sku: form.sku.trim() || undefined, basePrice: parseFloat(form.basePrice) || 0, stock: Math.max(0, parseInt(form.stock) || 0),
     tier: form.tier, isActive: form.isActive,
   });
@@ -92,6 +94,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
       basePrice: validarPrecio(form.basePrice, { permitirCero: esServicio }),
       stock: validarEntero(form.stock, { campo: 'el stock', min: 0, max: 99999 }),
       description: validarTexto(form.description, { obligatorio: false, max: 1000 }),
+      subcategory: validarTexto(form.subcategory, { obligatorio: false, max: 100 }),
     };
     setErrores(errs);
     const primero = primerError(errs);
@@ -230,8 +233,17 @@ export default function ProductWizard({ productId }: { productId?: string }) {
                 </Campo>
                 <Campo label="Categoría *" grupo error={errores.category} id="p-category">
                   <SearchSelect id="p-category" invalido={!!errores.category} describedBy={errores.category ? 'p-category-error' : undefined}
-                    value={form.category} onChange={v => updateForm('category', v)} placeholder="Elegir categoría"
+                    value={form.category} onChange={v => { if (v !== form.category) updateForm('subcategory', ''); updateForm('category', v); }} placeholder="Elegir categoría"
                     options={categories.map(c => ({ value: c.name, label: c.name }))} />
+                </Campo>
+                <Campo label="Subcategoría" error={errores.subcategory} id="p-subcategory">
+                  <input {...ac('subcategory')} list="p-subcategorias" maxLength={100} autoComplete="off" value={form.subcategory}
+                    onChange={e => updateForm('subcategory', e.target.value)} placeholder={form.category ? 'Ej.: Témperas, Plumones…' : 'Primero la categoría'}
+                    disabled={!form.category} className={`${campo} disabled:bg-slate-50`} />
+                  <datalist id="p-subcategorias">
+                    {(arbol?.find(c => c.nombre === form.category)?.subcategorias ?? []).map(s => <option key={s.nombre} value={s.nombre} />)}
+                  </datalist>
+                  <p className="text-[10px] text-neutral-400 mt-1">Elige una de la lista o escribe una nueva. Así aparece en el menú Categorías.</p>
                 </Campo>
                 <Campo label="Marca" grupo>
                   <SearchSelect value={form.brand} onChange={v => updateForm('brand', v)} placeholder="Elegir marca"
@@ -355,7 +367,7 @@ export default function ProductWizard({ productId }: { productId?: string }) {
               <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <Dato label="Nombre" valor={form.name} />
                 <Dato label="Código" valor={form.sku || '—'} />
-                <Dato label="Categoría" valor={form.category} />
+                <Dato label="Categoría" valor={form.subcategory.trim() ? `${form.category} › ${form.subcategory.trim()}` : form.category} />
                 <Dato label="Marca" valor={form.brand || '—'} />
                 <Dato label="Nivel" valor={NIVELES.find(n => n.id === form.tier)?.label ?? ''} />
                 <Dato label="Precio" valor={minPrice !== maxPrice ? `${formatPrice(minPrice)} – ${formatPrice(maxPrice)}` : formatPrice(base)} />

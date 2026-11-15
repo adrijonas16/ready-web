@@ -32,6 +32,8 @@ export default function ProductCard({ product, showAddToCart = true, onClick, pr
   const href = `/products/${product.id}`;
 
   const foto = useRef<HTMLDivElement>(null);
+  // Si la foto no carga (enlace roto o la web que la aloja no responde), se muestra el ícono y no el texto alternativo
+  const [fotoRota, setFotoRota] = useState(false);
   const tarjeta = useRef<HTMLElement>(null);
 
   // Inclinación suave siguiendo el puntero (solo con mouse)
@@ -53,8 +55,9 @@ export default function ProductCard({ product, showAddToCart = true, onClick, pr
   const Contenido = (
     <>
       <div ref={foto} className="relative aspect-square overflow-hidden rounded-xl bg-fondo">
-        {product.imageUrl
+        {product.imageUrl && !fotoRota
           ? <img src={product.imageUrl} alt={product.name} width={300} height={300} loading={prioridad ? 'eager' : 'lazy'} decoding="async" fetchPriority={prioridad ? 'high' : 'auto'}
+              onError={() => setFotoRota(true)}
               className="h-full w-full object-contain p-2 transition-transform duration-500 ease-out group-hover:-translate-y-1 group-hover:scale-[1.07] group-hover:-rotate-2" />
           : <div className="flex h-full items-center justify-center"><Package className="h-10 w-10 text-tenue/40" aria-hidden="true" /></div>}
         {agotado && <span className="absolute left-2 top-2 rounded-full bg-grafito px-2 py-0.5 text-xs font-semibold text-white">Agotado</span>}

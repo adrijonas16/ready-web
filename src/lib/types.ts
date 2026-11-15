@@ -177,6 +177,8 @@ export interface Product {
   name: string;
   description?: string;
   category: string;
+  /** Subcategoría dentro de la categoría (Arte › Témperas) */
+  subcategory?: string | null;
   brand?: string;
   sku: string;
   basePrice: number;

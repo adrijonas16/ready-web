@@ -7,6 +7,7 @@ export interface ProductoDemo {
   id: string;
   name: string;
   description?: string;
+  subcategory?: string | null;
   category: string;
   brand?: string;
   sku: string;

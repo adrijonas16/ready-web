@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRealtimeNotifications } from '@/lib/useNotifications';
 import { ShoppingBag, LogOut, Menu, X, Camera, Moon, Sun } from 'lucide-react';
 import { useTema } from '@/lib/tema';
@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useCart } from '@/lib/cart-context';
 import NotificationBell from './NotificationBell';
 import Logo from './Logo';
+import { MenuCategorias, MenuCategoriasMovil } from './MenuCategorias';
 
 export default function Header() {
   const { user, isAdmin, logout, addNotification } = useAuth();
@@ -43,6 +44,7 @@ export default function Header() {
         <Logo />
 
         <div className="hidden lg:flex items-center gap-1">
+          <Suspense><MenuCategorias /></Suspense>
           {nav.map(item => (
             <Link
               key={item.href}
@@ -107,11 +109,12 @@ export default function Header() {
       </nav>
 
       {/* Cerrado: "invisible" además de max-h-0, para que los enlaces ocultos no reciban el foco del teclado */}
-      <div id="menu-movil" className={`lg:hidden overflow-hidden border-t border-linea transition-[max-height,visibility] duration-200 ${open ? 'visible max-h-96' : 'invisible max-h-0 border-t-0'}`}>
+      <div id="menu-movil" className={`lg:hidden overflow-hidden bg-papel border-t border-linea transition-[max-height,visibility] duration-200 ${open ? 'visible max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain' : 'invisible max-h-0 border-t-0'}`}>
         <div className="flex flex-col gap-1 px-4 py-3">
           <Link href="/upload" onClick={() => setOpen(false)} className="mb-2 inline-flex items-center justify-center gap-2 rounded-xl bg-acento px-4 py-3 font-bold text-grafito">
             <Camera className="h-4 w-4" aria-hidden="true" /> Subir mi lista
           </Link>
+          <MenuCategoriasMovil alElegir={() => setOpen(false)} />
           {nav.map(item => (
             <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
               className={`rounded-lg px-3 py-2.5 font-medium ${isActive(item.href) ? 'bg-primario-claro text-primario' : 'text-grafito'}`}>
