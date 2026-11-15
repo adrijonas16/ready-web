@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Search, SlidersHorizontal, X, Camera, Percent } from 'lucide-react';
-import { productsApi } from '@/services/api';
+import { productsApi, TODOS_LOS_PRODUCTOS } from '@/services/api';
 import { Product } from '@/lib/types';
 import ProductCard from '@/components/ProductCard';
 import ConsultarProducto from '@/components/ConsultarProducto';
@@ -51,7 +51,7 @@ function Catalogo() {
 
   useEffect(() => {
     Promise.all([
-      productsApi.getAll({ limit: 1000 }),
+      productsApi.getAll({ limit: TODOS_LOS_PRODUCTOS }),
       apiFetch(`${API}/campaigns?activeOnly=true`).then(r => r.json()).then(d => d.data || []).catch(() => []),
     ]).then(([ps, cs]) => {
       setTodos((ps as Product[]).filter(p => !OCULTAS.has(p.category)));

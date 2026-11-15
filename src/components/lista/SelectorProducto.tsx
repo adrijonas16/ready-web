@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Fuse from 'fuse.js';
 import { Check, MessageCircleQuestionMark, Minus, Package, Plus, Search, Send, X } from 'lucide-react';
 import ConsultarProducto from '@/components/ConsultarProducto';
-import { productsApi } from '@/services/api';
+import { productsApi, TODOS_LOS_PRODUCTOS } from '@/services/api';
+import Paginador, { usePaginacion } from '@/components/Paginador';
 import { formatPrice } from '@/lib/utils';
 import { ItemVariante, Product, ProductDetail, SupplyItem, VariantValue } from '@/lib/types';
 import { Tier, TIERS, tierLabel, tierProduct } from '@/lib/lista';
@@ -74,14 +75,15 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
     const niveles = item ? TIERS.map(t => tierProduct(item, t.id, true)).filter(Boolean) as Product[] : [];
     const cat = actual?.category ?? niveles[0]?.category;
     const pedir = !item
-      ? productsApi.getAll({ limit: 300 }).then((l: Product[]) => l.filter(p => p.category !== 'Servicios'))
+      ? productsApi.getAll({ limit: TODOS_LOS_PRODUCTOS }).then((l: Product[]) => l.filter(p => p.category !== 'Servicios'))
       : cat
-        ? productsApi.getAll({ category: cat, limit: 300 })
+        ? productsApi.getAll({ category: cat, limit: TODOS_LOS_PRODUCTOS })
         : productsApi.search(item.nombreOriginal).catch(() => [] as Product[]);
     pedir
       .then((lista: Product[]) => {
         const todos = [...(actual ? [actual] : []), ...niveles, ...lista];
-        setCandidatos(todos.filter((p, i) => todos.findIndex(x => x.id === p.id) === i));
+        const vistos = new Set<string>();
+        setCandidatos(todos.filter(p => !vistos.has(p.id) && !!vistos.add(p.id)));
       })
       .catch(() => setCandidatos([...(actual ? [actual] : []), ...niveles]))
       .finally(() => setCargando(false));
@@ -133,7 +135,8 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
     let lista = ordenados;
     const q = busqueda.trim();
     if (q.length >= 2) {
-      const fuse = new Fuse([...ordenados, ...extraBusqueda.filter(p => !ordenados.some(o => o.id === p.id))],
+      const ids = new Set(ordenados.map(o => o.id));
+      const fuse = new Fuse([...ordenados, ...extraBusqueda.filter(p => !ids.has(p.id))],
         { keys: ['name', 'brand', 'description'], threshold: 0.4, ignoreLocation: true });
       lista = fuse.search(q).map(r => r.item);
     }
@@ -142,6 +145,8 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
     if (marca) lista = lista.filter(p => p.brand === marca);
     return lista;
   }, [ordenados, busqueda, extraBusqueda, nivel, marca, categoria]);
+  // Con miles de productos en una categoría, de 24 en 24
+  const pag = usePaginacion(visibles, 24, [busqueda.trim(), nivel, marca, categoria].join('|'));
 
   const marcas = useMemo(() => [...new Set(candidatos.filter(p => !categoria || p.category === categoria).map(p => p.brand).filter(Boolean) as string[])].sort(), [candidatos, categoria]);
   const categorias = useMemo(() => [...new Set(candidatos.map(p => p.category))], [candidatos]);
@@ -317,8 +322,9 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
                   : 'No hay productos con ese filtro. Prueba con otra marca o búsqueda.'}
               </p>
             ) : (
-              <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {visibles.map(p => {
+              <>
+              <ul id="opciones-producto" className="mt-4 grid scroll-mt-4 grid-cols-2 gap-3 sm:grid-cols-3">
+                {pag.visibles.map(p => {
                   const sel = elegido?.id === p.id;
                   const esActual = actual?.id === p.id;
                   return (
@@ -341,6 +347,8 @@ export default function SelectorProducto({ item, variantesActuales = [], onElegi
                   );
                 })}
               </ul>
+              <Paginador {...pag} onCambiar={pag.setPagina} nombre="productos" anclaId="opciones-producto" variante="tienda" />
+              </>
             )}
             {agregar && onPedirTexto && (
               <div className="relative mt-6 rounded-2xl border border-dashed border-linea-fuerte p-4">

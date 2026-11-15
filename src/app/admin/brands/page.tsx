@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { brandsApi, productsApi, type Brand } from '@/services/api';
+import { brandsApi, productsApi, TODOS_LOS_PRODUCTOS, type Brand } from '@/services/api';
 import { Plus, Edit2, Search, X, Upload, Trash2 } from 'lucide-react';
 import { Cargando, botonPrimario, tarjeta, th, useAvisos } from '../_ui';
 import { ErrorCampo } from '@/components/form/Campo';
@@ -21,7 +21,7 @@ export default function AdminBrandsPage() {
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  const load = useCallback(() => Promise.all([brandsApi.getAll(), productsApi.getAll({ includeInactive: true })])
+  const load = useCallback(() => Promise.all([brandsApi.getAll(), productsApi.getAll({ includeInactive: true, limit: TODOS_LOS_PRODUCTOS })])
     .then(([bs, prods]) => {
       setBrands([...bs].sort((a, b) => a.name.localeCompare(b.name, 'es')));
       const n: Record<string, number> = {};

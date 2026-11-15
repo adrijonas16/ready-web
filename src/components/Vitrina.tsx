@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { productsApi } from '@/services/api';
+import { productsApi, TODOS_LOS_PRODUCTOS } from '@/services/api';
 import { Product } from '@/lib/types';
 import ProductCard from '@/components/ProductCard';
 
@@ -13,7 +13,7 @@ export default function Vitrina() {
   const [cargado, setCargado] = useState(false);
 
   useEffect(() => {
-    productsApi.getAll({ limit: 1000 })
+    productsApi.getAll({ limit: TODOS_LOS_PRODUCTOS })
       .then((ps: Product[]) => setProductos(ps.filter(p => p.category !== 'Servicios')))
       .catch(() => setProductos([]))
       .finally(() => setCargado(true));

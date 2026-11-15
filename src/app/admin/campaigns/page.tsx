@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Percent, Newspaper, Upload, X, Search, Package, Check, Image as ImageIcon } from 'lucide-react';
-import { productsApi, campaignsApi, newsApi, type Campaign, type NewsItem, type NewsInput } from '@/services/api';
+import { productsApi, TODOS_LOS_PRODUCTOS, campaignsApi, newsApi, type Campaign, type NewsItem, type NewsInput } from '@/services/api';
 import { Product } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
 import { Cargando, Interruptor, Modal, aSlug, botonPrimario, campo, fechaCorta, hoyISO, tarjeta, th, useAvisos } from '../_ui';
@@ -108,7 +108,7 @@ export default function AdminCampaignsPage() {
 
   const cargarProductos = useCallback(async (c: Campaign) => {
     try {
-      const [cp, ap] = await Promise.all([campaignsApi.getBySlug(c.id), allProducts.length ? Promise.resolve(allProducts) : productsApi.getAll({ includeInactive: true })]);
+      const [cp, ap] = await Promise.all([campaignsApi.getBySlug(c.id), allProducts.length ? Promise.resolve(allProducts) : productsApi.getAll({ includeInactive: true, limit: TODOS_LOS_PRODUCTOS })]);
       setCampaignProducts(cp?.products || []);
       setAllProducts(ap);
     } catch (e) { avisos.error(e, 'No pudimos cargar los productos de la campaña'); }

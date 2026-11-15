@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { categoriesApi, productsApi, type Category } from '@/services/api';
+import { categoriesApi, productsApi, TODOS_LOS_PRODUCTOS, type Category } from '@/services/api';
 import { Plus, Trash2, Search, X, Edit2, Check } from 'lucide-react';
 import { Cargando, botonPrimario, tarjeta, th, useAvisos } from '../_ui';
 import { ErrorCampo } from '@/components/form/Campo';
@@ -22,7 +22,7 @@ export default function AdminCategoriesPage() {
   const [errorEdit, setErrorEdit] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  const load = useCallback(() => Promise.all([categoriesApi.getAll(), productsApi.getAll({ includeInactive: true })])
+  const load = useCallback(() => Promise.all([categoriesApi.getAll(), productsApi.getAll({ includeInactive: true, limit: TODOS_LOS_PRODUCTOS })])
     .then(([cats, prods]) => {
       setCategories(cats);
       const n: Record<string, number> = {};

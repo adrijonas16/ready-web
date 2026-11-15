@@ -212,6 +212,9 @@ export const listsApi = {
 };
 
 // Products API
+/** Para pedir el catálogo entero (la API acepta hasta 10 000; la tienda tiene unos 2 300). */
+export const TODOS_LOS_PRODUCTOS = 10000;
+
 export const productsApi = {
   getAll: (params?: { category?: string; brand?: string; limit?: number; includeInactive?: boolean }) =>
     api.get<Product[]>('/products', params),

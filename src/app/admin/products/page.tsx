@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { productsApi, brandsApi, categoriesApi } from '@/services/api';
+import { productsApi, TODOS_LOS_PRODUCTOS, brandsApi, categoriesApi } from '@/services/api';
 import { Product } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
 import { Plus, Edit2, Search, Package, EyeOff, Eye } from 'lucide-react';
@@ -27,7 +27,7 @@ export default function AdminProductsPage() {
 
   const loadData = useCallback(() =>
     Promise.all([
-      productsApi.getAll({ includeInactive: true }),
+      productsApi.getAll({ includeInactive: true, limit: TODOS_LOS_PRODUCTOS }),
       categoriesApi.getAll(),
       brandsApi.getAll(),
     ]).then(([prods, cats, brands]) => {
