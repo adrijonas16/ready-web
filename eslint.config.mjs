@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Web agéntica: copias sin cambios de la skill oficial (ver docs/web-agentica.md)
+    ".claude/skills/**",
+    "public/runtime/**",
+    "public/bridge/**",
   ]),
 ]);
 

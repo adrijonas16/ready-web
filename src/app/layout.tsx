@@ -10,6 +10,8 @@ import Logo from "@/components/Logo";
 import { scriptTema } from "@/lib/tema-script";
 import PieCuenta from "@/components/PieCuenta";
 import WhatsappFlotante from "@/components/WhatsappFlotante";
+import AsistenteReady from "@/components/AsistenteReady";
+import "@/agentic/asistente.css";
 import PieLegal from "@/components/PieLegal";
 import ConsentimientoCookies from "@/components/ConsentimientoCookies";
 import Analitica from "@/components/Analitica";
@@ -67,6 +69,7 @@ export default function RootLayout({
             {/* min-h: el pie empieza fuera de la pantalla y no "salta" cuando la página termina de cargar */}
             <main className="flex-1 min-h-[100svh]">{children}</main>
             <WhatsappFlotante />
+            <AsistenteReady />
             <ConsentimientoCookies />
             <Analitica />
             <footer className="border-t border-linea bg-papel print:hidden">

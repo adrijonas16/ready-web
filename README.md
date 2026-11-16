@@ -1,3 +1,13 @@
+# Ready · útiles escolares en Arequipa
+
+Tienda de útiles escolares (Next.js 16). Funciona en **modo demo** sin backend.
+
+- **Asistente "Pregúntale a Ready" (web agéntica abierta):** ver [docs/web-agentica.md](docs/web-agentica.md).
+- **Reglas para colaboradores y agentes de código (Claude Code, Codex…):** [AGENTS.md](AGENTS.md).
+- **Skills** en `.claude/skills/`: `agentify-website` (oficial del reto), `agregar-accion-asistente`, `probar-asistente`.
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
