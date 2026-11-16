@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Pruebas del asistente (skill probar-asistente)
+prueba-asistente/
+__pycache__/

@@ -1,0 +1,74 @@
+{
+  "brand": "Ready · útiles escolares",
+  "networks": [
+    {
+      "name": "ready_utiles",
+      "front_man": "ready_desk",
+      "hocon": "./ready_utiles.network.json",
+      "description": "Pregunta a Ready por las listas escolares oficiales de colegios de Arequipa, cotízalas en tres paquetes, busca útiles y arma tu carrito.",
+      "tags": ["agentified-website", "tienda", "utiles-escolares", "arequipa"],
+      "sample_queries": [
+        "Busco la lista de 2do de primaria del Colegio Los Álamos. ¿Cuánto cuesta?",
+        "Agrega esa lista en el paquete económico a mi carrito.",
+        "¿Tienen témperas y cuánto cuesta el envío?",
+        "Confirma mi pedido y págalo con mi tarjeta."
+      ]
+    }
+  ],
+  "llm_router": {
+    "base_url": "https://api.otari.ai/api/v1",
+    "mock": false,
+    "byok_router": "https://api.otari.ai/api/v1"
+  },
+  "allowed_peers": [],
+  "peer_policy": {
+    "mode": "closed",
+    "deny_origins": [],
+    "note": "Solo agentes locales y acciones de esta página."
+  },
+  "agent_mcp": {
+    "protocol": "nsdeploy-agent-mcp/v1",
+    "network": "ready_utiles",
+    "front_man": "ready_desk",
+    "available": false,
+    "reason": "This is a static bundle; a public MCP facade requires an application host."
+  },
+  "theme": {
+    "primary": "#1d4ed8"
+  },
+  "linking": {
+    "protocol": "nsdeploy-link/v1",
+    "exports": [
+      {
+        "network": "ready_utiles",
+        "front_man": "ready_desk",
+        "aliases": ["ready_utiles", "ready_desk"],
+        "url": "ready_utiles"
+      }
+    ],
+    "imports": [],
+    "link_updates": { "mode": "browser-local" }
+  },
+  "deployment": {
+    "mode": "static",
+    "self_contained_runtime": true,
+    "browser_mock": false,
+    "direct_byok": true,
+    "direct_mcp_requires_cors": true,
+    "public_mcp_facade": false
+  },
+  "actions": {
+    "version": 1,
+    "module": "./site-actions.js",
+    "bridge": "./bridge/action-bridge.html",
+    "agentTools": [
+      "find_school_lists",
+      "quote_list",
+      "search_products",
+      "get_store_info",
+      "get_cart",
+      "add_product_to_cart",
+      "add_list_to_cart"
+    ]
+  }
+}

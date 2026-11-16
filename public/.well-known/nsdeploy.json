@@ -1,0 +1,18 @@
+{
+  "protocol": "nsdeploy-link/v1",
+  "exports": [
+    {
+      "network": "ready_utiles",
+      "front_man": "ready_desk",
+      "aliases": [
+        "ready_utiles",
+        "ready_desk"
+      ],
+      "url": "ready_utiles"
+    }
+  ],
+  "imports": [],
+  "link_updates": {
+    "mode": "browser-local"
+  }
+}

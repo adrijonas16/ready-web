@@ -1,0 +1,10 @@
+{
+  "networks": [
+    {
+      "name": "ready_utiles"
+    }
+  ],
+  "actions": {
+    "version": 1
+  }
+}

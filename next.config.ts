@@ -13,6 +13,28 @@ const apiWs = api ? api.replace(/^http/, "ws") : null;
 const GOOGLE = ["https://www.googletagmanager.com", "https://*.google-analytics.com", "https://*.analytics.google.com"];
 
 /**
+ * Proveedores de IA del asistente (web agéntica, ver docs/web-agentica.md). El visitante usa
+ * su propia clave y el navegador llama directo al proveedor: son los que el runtime ofrece en
+ * "AI model settings" (public/runtime/ui.js). Un proveedor propio necesita agregarse aquí.
+ */
+const PROVEEDORES_IA = [
+  "https://api.otari.ai",
+  "https://generativelanguage.googleapis.com",
+  "https://api.groq.com",
+  "https://api.openai.com",
+  "https://api.anthropic.com",
+];
+
+/** Archivos públicos de la web agéntica que otros sitios y herramientas leen (necesitan CORS). */
+const PUBLICOS_AGENTICOS = [
+  "/agent-manifest.json",
+  "/ready_utiles.network.json",
+  "/links.json",
+  "/agent-mcp.json",
+  "/.well-known/:archivo*",
+];
+
+/**
  * Content-Security-Policy.
  * - script-src usa 'unsafe-inline' porque Next inserta scripts en línea (datos de React Server Components y el
  *   script del tema) y las páginas son estáticas: un nonce obligaría a renderizar todo en cada petición
@@ -27,7 +49,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://unpkg.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  ["connect-src 'self'", ...GOOGLE, "https://unpkg.com", api, apiWs, esDesarrollo ? "ws: wss:" : null].filter(Boolean).join(" "),
+  ["connect-src 'self'", ...GOOGLE, ...PROVEEDORES_IA, "https://unpkg.com", api, apiWs, esDesarrollo ? "ws: wss:" : null].filter(Boolean).join(" "),
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "media-src 'self' blob: data:",
@@ -58,7 +80,20 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
     return [
-      { source: "/:path*", headers: seguridad },
+      // Todo menos bridge/, que otros sitios cargan en un iframe oculto (sin X-Frame-Options).
+      { source: "/((?!bridge/).*)", headers: seguridad },
+      {
+        source: "/bridge/:path*",
+        headers: seguridad
+          .filter(h => h.key !== "X-Frame-Options")
+          .map(h => (h.key === "Content-Security-Policy" ? { ...h, value: h.value.replace("; frame-ancestors 'none'", "") } : h)),
+      },
+      ...PUBLICOS_AGENTICOS.map(source => ({ source, headers: [{ key: "Access-Control-Allow-Origin", value: "*" }] })),
+      {
+        // El worker que aísla código del runtime: sin red ni otros workers (bundle_and_hosting.md)
+        source: "/runtime/sandbox-worker.js",
+        headers: [{ key: "Content-Security-Policy", value: "default-src 'none'; script-src blob:; connect-src 'none'; worker-src 'none'" }],
+      },
       ...RUTAS_NOINDEX.flatMap(r => [r, `${r}/:path*`]).map(source => ({
         source, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
       })),

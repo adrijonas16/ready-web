@@ -1,0 +1,31 @@
+name: Asistente (web agéntica)
+
+# Revisa que el asistente "Pregúntale a Ready" siga funcionando: la red compila con el script
+# oficial, los archivos publicados están al día y las acciones pasan sus pruebas.
+# Ver docs/web-agentica.md.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  asistente:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: La red compila y public/ está al día (script oficial build_network.mjs)
+        run: npm run agente:check
+      - name: Pruebas de las acciones (modo demo, runtime oficial)
+        run: npm test
+      - name: Tipos
+        run: npx tsc --noEmit
